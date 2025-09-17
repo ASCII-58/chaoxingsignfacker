@@ -1,0 +1,4 @@
+@Builder
+export function initClassInfo() {
+
+}

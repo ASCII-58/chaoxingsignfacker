@@ -1,0 +1,14 @@
+{
+  "routerMap" : [
+    {
+      "name" : "ActivityList",
+      "pageSourceFile" : "src/main/ets/pages/ActivityListPage.ets",
+      "buildFunction": "initClassInfo"
+    },
+    {
+      "name" : "SignerPage",
+      "pageSourceFile": "src/main/ets/pages/SignerPage.ets",
+      "buildFunction": "initSignInfo"
+    }
+  ]
+}

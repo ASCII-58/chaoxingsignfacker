@@ -1,0 +1,31 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "input_padding",
+      "value": "#333333"
+    },
+    {
+      "name": "header_background",
+      "value": "#9588ff"
+    },
+    {
+      "name": "class_button",
+      "value": "#5577ee"
+    },{
+      "name": "class_button_disabled",
+      "value": "#6677aa"
+    },
+    {
+      "name": "class_icon_border",
+      "value": "#88aaff"
+    },
+    {
+      "name": "tittle_text",
+      "value": "#000000"
+    }
+  ]
+}

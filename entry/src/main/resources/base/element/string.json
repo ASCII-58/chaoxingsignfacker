@@ -1,0 +1,40 @@
+{
+  "string": [
+    {
+      "name": "EntryAbility_label",
+      "value": "随地大小签"
+    },
+    {
+      "name": "app_name",
+      "value": "随地大小签"
+    },
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "login",
+      "value": "登录"
+    },
+    {
+      "name": "user",
+      "value": "用户中心"
+    },
+    {
+      "name": "class_list",
+      "value": "课程列表"
+    },
+    {
+      "name": "defaultUname",
+      "value": "请登录"
+    },
+    {
+      "name": "defaultPhone",
+      "value": "请登录"
+    }
+  ]
+}
