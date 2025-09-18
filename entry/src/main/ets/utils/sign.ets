@@ -1,6 +1,7 @@
 // export interface
 import { ChaoxingUtils } from './utils';
 import http from '@ohos.net.http';
+import { ChaoXingApi } from './ChaoxingAPI';
 import { request } from '@kit.BasicServicesKit';
 
 const buildURL = ChaoxingUtils.buildUrl;
@@ -14,14 +15,23 @@ export class Sign {
     'https://mobilelearn.chaoxing.com/newsign/preSign?&general=1&sys=1&ls=1&appType=15&isTeacherViewOpen=0'
   static readonly URL_BASIC_SIGN =
     'https://mobilelearn.chaoxing.com/pptSign/stuSignajax?&clientip=&appType=15&ifTiJiao=1&vpProbability=-1&='
-  static readonly URL_UPLOAD_PHOTO = 'https://pan-yz.chaoxing.com/upload?_from=mobilelearn'
-  static readonly URL_GET_TOKEN = 'https://pan-yz.chaoxing.com/api/token/uservalid'
 
-  public async UploadPhoto(context: Context, param: UploadPhotoParam, cookies: string, files: Array<request.File>,
+  static async DoPreSignIn(activePrimaryId: number, classId: number, courseId: number) {
+    const httpRequest = http.createHttp()
+    const URL = ChaoXingApi.URL_PRE_SIGN
+      .buildUrl({
+        'activePrimaryId': activePrimaryId,
+        'classId': classId,
+        'courseId': courseId
+      })
+  }
+
+  static async UploadPhoto(context: Context, param: UploadPhotoParam, cookies: string, files: Array<request.File>,
     uid: number): Promise<string> {
-    buildURL(Sign.URL_UPLOAD_PHOTO, param)
+    const token = Sign.GetToken(cookies)
     return await request.uploadFile(context, {
-      url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${this.GetToken(cookies)}`,
+      url: ChaoXingApi.URL_UPLOAD_PHOTO
+        .buildUrl({ '_token': token }),
       method: http.RequestMethod.POST,
       header: {
         // 和接口文档的要求的格式对象
@@ -38,14 +48,14 @@ export class Sign {
       })) as string
   }
 
-  private async GetToken(cookies: string): Promise<string> {
+  static async GetToken(cookies: string): Promise<string> {
     const httpRequest = http.createHttp()
     try {
-      const result = await httpRequest.request(Sign.URL_GET_TOKEN, {
+      const result = await httpRequest.request(ChaoXingApi.URL_GET_TOKEN, {
         method: http.RequestMethod.GET,
         header: {
           "Cookie": cookies,
-          "User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0'
+          "User-Agent": ChaoXingApi.UA
         }
       })
       const token: string = (result.result as object)?.['_token']

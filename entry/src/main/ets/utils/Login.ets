@@ -2,7 +2,7 @@ import { image } from '@kit.ImageKit';
 import http from '@ohos.net.http';
 import { ChaoxingUtils } from './utils';
 import { JSON } from '@kit.ArkTS';
-
+import { ChaoXingApi } from './ChaoxingAPI'
 export interface UserInfo {
   msg: string,
   uname: string,
@@ -20,7 +20,7 @@ export class loginFunction {
   static async LoginChaoXing(LoginString: string): Promise<string> {
     console.log('fuck' + LoginString)
     const httpRequest = http.createHttp();
-    const url = "https://passport2.chaoxing.com/fanyalogin";
+    const url = ChaoXingApi.URL_LOGIN;
     const PostBody = LoginString;
     try {
       const result = await httpRequest.request(url, {
@@ -66,7 +66,7 @@ export class loginFunction {
    */
   static async getUserInfo(cookies: string): Promise<UserInfo> {
     const httpRequest = http.createHttp();
-    const url = "https://sso.chaoxing.com/apis/login/userLogin4Uname.do"
+    const url = ChaoXingApi.URL_GET_USER_INFO
     try {
       const result = await httpRequest.request(url, {
         method: http.RequestMethod.GET,
@@ -123,7 +123,7 @@ export class loginFunction {
       const result = await httpRequest.request(url, {
         method: http.RequestMethod.GET,
         header: {
-          "User-Agent": "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"
+          "User-Agent": ChaoXingApi.UA
         },
         readTimeout: 60000, // 读取超时时间（毫秒）
         connectTimeout: 60000 // 连接超时时间（毫秒）

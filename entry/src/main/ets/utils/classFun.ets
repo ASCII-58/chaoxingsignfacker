@@ -1,4 +1,5 @@
 import { http } from '@kit.NetworkKit';
+import { ChaoXingApi} from './ChaoxingAPI'
 import { DatabaseManager } from './DataBase';
 import { ChaoxingUtils } from './utils';
 export interface ActivityInfo {
@@ -8,12 +9,6 @@ export interface ActivityInfo {
   signType: string
 }
 export class CourseAndActivity {
-  static readonly URL_GET_COURSE_LIST = 'https://mooc1-api.chaoxing.com/mycourse/backclazzdata?view=json&rss=1'
-  static readonly URL_GET_ACTIVITY_LIST =
-    'https://mobilelearn.chaoxing.com/v2/apis/active/student/activelist?fid=0&showNotStartedActive=0'
-  static readonly UA =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0'
-
   /**
    * 获取课程列表，需要cookies
    * @param cookies
@@ -22,11 +17,11 @@ export class CourseAndActivity {
   static async getClassList(cookies: string): Promise<returnJson> {
     const httpRequest = http.createHttp();
     try {
-      const result = await httpRequest.request(CourseAndActivity.URL_GET_COURSE_LIST, {
+      const result = await httpRequest.request(ChaoXingApi.URL_GET_COURSE_LIST, {
         method: http.RequestMethod.GET,
         header: {
           "Cookie": cookies,
-          "User-Agent": CourseAndActivity.UA
+          "User-Agent": ChaoXingApi.UA
         }
       })
       const CourseListResponse = JSON.parse(result.result.toString()) as CourseListResponse
@@ -72,7 +67,7 @@ export class CourseAndActivity {
 
   static async getActivityList(cookies: string, classId: number, courseId: number): Promise<ActivityItem[]|null> {
     const httpRequest = http.createHttp();
-    const url=ChaoxingUtils.buildUrl(CourseAndActivity.URL_GET_ACTIVITY_LIST,
+    const url=ChaoxingUtils.buildUrl(ChaoXingApi.URL_GET_ACTIVITY_LIST,
       {
         'classId': classId,
         'courseId': courseId
@@ -84,7 +79,7 @@ export class CourseAndActivity {
           method: http.RequestMethod.GET,
           header: {
             "Cookie": cookies,
-            "User-Agent": CourseAndActivity.UA
+            "User-Agent": ChaoXingApi.UA
           }
         })
       const ActivityMessage = JSON.parse(result.result.toString()) as object
