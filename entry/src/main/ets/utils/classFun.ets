@@ -1,35 +1,43 @@
 import { http } from '@kit.NetworkKit';
-
+import { DatabaseManager } from './DataBase';
+import { ChaoxingUtils } from './utils';
+export interface ActivityInfo {
+  ActivityId: number;
+  CourseId: number;
+  ClassId: number;
+  signType: string
+}
 export class CourseAndActivity {
-  static readonly URL_GET_COURSE_LIST = 'mooc1-api.chaoxing.com/mycourse/backclazzdata?view=json&rss=1'
+  static readonly URL_GET_COURSE_LIST = 'https://mooc1-api.chaoxing.com/mycourse/backclazzdata?view=json&rss=1'
   static readonly URL_GET_ACTIVITY_LIST =
     'https://mobilelearn.chaoxing.com/v2/apis/active/student/activelist?fid=0&showNotStartedActive=0'
+  static readonly UA =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0'
 
   /**
    * 获取课程列表，需要cookies
    * @param cookies
    * @returns
    */
-  static async getClassList(cookies: string): Promise<classInfoType[]> {
-    const BASIC_URL: string = 'mooc1-api.chaoxing.com/mycourse/backclazzdata?view=json&rss=1'
+  static async getClassList(cookies: string): Promise<returnJson> {
     const httpRequest = http.createHttp();
     try {
-      const result = await httpRequest.request(BASIC_URL, {
+      const result = await httpRequest.request(CourseAndActivity.URL_GET_COURSE_LIST, {
         method: http.RequestMethod.GET,
         header: {
           "Cookie": cookies,
-          "User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0'
+          "User-Agent": CourseAndActivity.UA
         }
       })
-      const CourseListResponse = JSON.parse(result.result.toString()) as object
-      if (CourseListResponse?.['msg'] === "获取成功") {
-        const courseList = CourseListResponse?.['channelList'] as CourseChannel[]
+      const CourseListResponse = JSON.parse(result.result.toString()) as CourseListResponse
+      if (CourseListResponse.msg === "获取成功") {
+        const courseList = CourseListResponse.channelList
         const result: classInfoType[] = [];
 
         courseList.forEach(item => {
           // 检查 content 和 course.data 是否存在
-          if (item.content && item.content.course && item.content.course) {
-            item.content.course.forEach(course => {
+          if (item.content && item.content.course && item.content.course.data) {
+            item.content.course.data.forEach(course => {
               result.push({
                 imageurl: course.imageurl,
                 id: course.id, // 课程id
@@ -41,24 +49,75 @@ export class CourseAndActivity {
           }
         });
 
-        return result;
+        return { msg: true, classList: result };
       }
     } catch {
     } finally {
       httpRequest.destroy()
     }
-    return [
+    return {
+      msg: false,
+      classList:
+      [
+        {
+          imageurl: '',
+          id: 0,
+          teacherfactor: '',
+          classId: 0,
+          name: ''
+        }
+      ]
+    }
+  }
+
+  static async getActivityList(cookies: string, classId: number, courseId: number): Promise<ActivityItem[]|null> {
+    const httpRequest = http.createHttp();
+    const url=ChaoxingUtils.buildUrl(CourseAndActivity.URL_GET_ACTIVITY_LIST,
       {
-        imageurl: '',
-        id: 0,
-        teacherfactor: '',
-        classId: 0,
-        name: ''
-      }
-    ]
+        'classId': classId,
+        'courseId': courseId
+      })
+    console.error(url)
+    try {
+      const result = await httpRequest.request(url,
+        {
+          method: http.RequestMethod.GET,
+          header: {
+            "Cookie": cookies,
+            "User-Agent": CourseAndActivity.UA
+          }
+        })
+      const ActivityMessage = JSON.parse(result.result.toString()) as object
+      const ActivityList = ActivityMessage?.['data']?.['activeList'] as ActivityItem[]
+      return ActivityList
+    } catch (error) {
+      console.error('fuck+'+error)
+      return null
+    }finally {
+      httpRequest.destroy()
+    }
   }
 }
 
+export interface ActivityItem {
+  /** 签到类型ID，用于识别签到方式 */
+  otherId: number;
+
+  /** 活动类型，用于过滤显示（2=签到, 74=签退） */
+  type: number;
+
+  /** 签到类型名称，如"位置签到"、"二维码签到"等 */
+  nameOne: string;
+
+  /** 活动开始时间戳，用于判断签到是否开始和计算剩余时间 */
+  startTime: number;
+
+  /** 活动ID，用于页面导航参数传递 */
+  id: number;
+
+  /** 活动结束时间戳，用于判断签到是否结束和控制UI状态 */
+  endTime: number;
+}
 export interface classInfoType {
   imageurl: string;
   id: number; // 课程id
@@ -70,23 +129,11 @@ export interface classInfoType {
 
 // 课程频道项目接口
 export interface CourseChannel {
-  /** 课程文件夹ID */
-  cfid: number;
-
-  /** 排序序号 */
-  norder: number;
-
-  /** 分类名称 */
-  cataName: string;
-
   /** 分类ID */
   cataid: string;
 
   /** 项目ID */
   id: number;
-
-  /** 课程提供者ID */
-  cpi: number;
 
   /** 班级唯一标识符 */
   key: number | string;
@@ -100,47 +147,14 @@ export interface CourseChannel {
 
 // 班级/课程内容接口
 export interface CourseContent {
-  /** 学生数量 */
-  studentcount: number;
-
-  /** 聊天群组ID */
-  chatid: string;
-
-  /** 是否归档 */
-  isFiled: number;
-
-  /** 第三方认证状态 */
-  isthirdaq: number;
-
-  /** 是否已开始 */
-  isstart: boolean;
-
-  /** 退课状态：1=已退课, -1=正常, 0=其他 */
-  isretire: number;
-
   /** 班级名称 */
   name: string;
 
   /** 课程数据 */
-  course: CourseInfo[];
-
-  /** 角色类型：1=教师, 3=学生 */
-  roletype: number;
+  course: Data;
 
   /** 班级ID */
   id: number;
-
-  /** 班级状态 */
-  state: number;
-
-  /** 课程提供者ID */
-  cpi: number;
-
-  /** 论坛/讨论区ID */
-  bbsid: string;
-
-  /** 是否为广场课程 */
-  isSquare: number;
 }
 
 // 课程基本信息接口
@@ -160,33 +174,36 @@ export interface CourseInfo {
   /** 课程图片URL */
   imageurl: string;
 
-  /** 所属学校ID */
-  belongSchoolId: string;
-
   /** 课程状态 */
   coursestate: number;
+}
 
-  /** 是否为课程广场 */
-  isCourseSquare: number;
+// 课程列表响应接口
+export interface CourseListResponse {
+  /** 响应结果：1=成功 */
+  result: number;
 
-  /** 课程广场URL */
-  courseSquareUrl: string;
+  /** 响应消息 */
+  msg: string;
 
-  /** 默认显示目录 */
-  defaultShowCatalog: number;
+  /** 课程频道列表 */
+  channelList: CourseChannel[];
 
-  /** 章节ID */
-  sectionId: number;
+  /** 教师结课状态 */
+  teacherEndCourse: number;
 
-  /** 智能课程状态 */
-  smartCourseState: number;
+  /** 显示结课状态 */
+  showEndCourse: number;
 
-  /** 应用数据 */
-  appData: number;
+  /** 学生结课状态 */
+  stuEndCourse: number;
+}
 
-  /** 应用信息（可选） */
-  appInfo?: string;
+export interface Data {
+  data: CourseInfo[]
+}
 
-  /** 学校名称（可选） */
-  schools?: string;
+export interface returnJson {
+  msg: boolean;
+  classList: classInfoType[];
 }

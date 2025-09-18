@@ -10,6 +10,8 @@ export interface UploadPhotoParam {
 }
 
 export class Sign {
+  static readonly URL_PRE_SIGN =
+    'https://mobilelearn.chaoxing.com/newsign/preSign?&general=1&sys=1&ls=1&appType=15&isTeacherViewOpen=0'
   static readonly URL_BASIC_SIGN =
     'https://mobilelearn.chaoxing.com/pptSign/stuSignajax?&clientip=&appType=15&ifTiJiao=1&vpProbability=-1&='
   static readonly URL_UPLOAD_PHOTO = 'https://pan-yz.chaoxing.com/upload?_from=mobilelearn'
@@ -34,8 +36,6 @@ export class Sign {
           return (JSON.parse(value?.['body'] as string) as object)?.['objectId'] as string
         })
       })) as string
-
-
   }
 
   private async GetToken(cookies: string): Promise<string> {

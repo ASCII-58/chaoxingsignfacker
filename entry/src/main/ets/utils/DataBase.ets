@@ -68,16 +68,12 @@ class DatabaseManager {
    * @param id 用户ID
    * @returns {Promise<UserData>} 包含用户所有信息的对象
    */
-  public async getUserInfoByID(isHost:boolean=true,id: number=1): Promise<UserData> {
+  public async getHostUserInfoByID(id: number=1): Promise<UserData> {
     if (typeof id !== 'number' || id <= 0) {
-      throw new Error(`无效的UID: ${id}. 必须是正整数`);
+      throw new Error(`无效的ID: ${id}. 必须是正整数`);
     }
-    let tableName:string=''
-    if (isHost===true){
-      tableName="HostName"
-    }else {
-      tableName='OtherName'
-    }
+      let tableName=""
+
     // 2. 检查数据库连接
     if (!this.rdbStore) {
       throw new Error('数据库未初始化。请先调用init()方法。');
@@ -87,18 +83,22 @@ class DatabaseManager {
       // 3. 构建SQL查询语句（使用参数化查询防止SQL注入）
       const sql = `
         SELECT phone, pwd, name, pic, cookies, uid, fid
-        FROM ${tableName}
-        WHERE id = ?
+        FROM HostName
+        WHERE id = ${[id]}
       `;
 
       // 4. 执行查询
-      const resultSet = await this.rdbStore.querySql(sql, [id]);
+      const resultSet = await this.rdbStore.querySql(sql);
 
       try {
+        console.error('fuck,'+resultSet.rowCount)
         // 5. 处理查询结果
-        if (resultSet.rowCount > 0) {
-          resultSet.goToFirstRow();
-
+        if (resultSet.rowCount != 0) {
+          try {
+            resultSet.goToFirstRow();
+          } catch (error) {
+            console.error('fuckkkkkkkkkkkkkkkkkkkkkkkk,'+error)
+          }
           // 获取各列索引
           const phoneIndex = resultSet.getColumnIndex('phone');
           const pwdIndex = resultSet.getColumnIndex('pwd');
@@ -121,9 +121,9 @@ class DatabaseManager {
 
           return userData;
         }
-        console.error(`在表${tableName}中未找到UID为${id}的用户`)
+        console.error(`在表${tableName}中未找到ID为${id}的用户`)
         // 6. 未找到记录时抛出错误
-        throw new Error(`在表${tableName}中未找到UID为${id}的用户`);
+        throw new Error(`在表${tableName}中未找到ID为${id}的用户`);
 
       } finally {
         // 7. 确保结果集被关闭
@@ -132,6 +132,54 @@ class DatabaseManager {
     } catch (err) {
       // 8. 规范化错误并重新抛出
       throw this.normalizeError(err, `获取${tableName}表中UID为${id}的用户数据失败`);
+    }
+  }
+
+  /**
+   * 通过手机号或id获取单个用户的单项数据
+   * @param tableName
+   * @param phone
+   * @param search
+   * @returns
+   */
+  public async getUserInfoByPhone(
+    key: 'id' | 'phone',
+    tableName: 'HostUser' | 'OtherUser',
+    phone: number | string,
+    search: "phone" | "pwd" | "name" | "pic" | "cookies" | "uid" | "fid" | 'id'): Promise<string | null | number> {
+    // 1. 参数验证
+    if (tableName !== 'HostUser' && tableName !== 'OtherUser') {
+      throw new Error(`无效的表名: ${tableName}. 允许的表: HostUser, OtherUser`);
+    }
+
+    // 2. 检查数据库连接
+    if (!this.rdbStore) {
+      throw new Error('数据库未初始化。请先调用init()方法。');
+    }
+
+    try {
+      const sql = `SELECT ${search} FROM ${tableName} WHERE ${key} = ?`;
+      const params = [phone];
+
+      // 4. 执行查询
+      const resultSet = await this.rdbStore.querySql(sql, params);
+
+      try {
+        // 5. 处理查询结果
+        if (resultSet.rowCount > 0) {
+          resultSet.goToFirstRow();
+          const Index = resultSet.getColumnIndex(search);
+          const result = resultSet.getString(Index);
+          return result
+        }
+        return null; // 未找到记录
+      } finally {
+        // 6. 确保结果集被关闭
+        resultSet.close();
+      }
+    } catch (err) {
+      // 7. 规范化错误并重新抛出（符合arkts-limited-throw规则）
+      throw this.normalizeError(err, `获取${tableName}表中标识符为${phone}的用户的${search}失败`);
     }
   }
 

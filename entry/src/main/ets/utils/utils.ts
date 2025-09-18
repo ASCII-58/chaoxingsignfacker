@@ -101,4 +101,34 @@ export class ChaoxingUtils {
       .map(cookie => cookie.split(';')[0].trim()) // 提取每个 Set-Cookie 的 name=value
       .join('; ');
   }
+  /**
+   * 获取签到活动剩余时间（毫秒）
+   */
+  static getRemainingTime(endTime: number): number {
+    const currentTime = Date.now();
+    return Math.max(0, endTime - currentTime);
+  }
+  /**
+   * 检查签到活动是否正在进行中
+   */
+  static isSignActivityActive(startTime: number, endTime: number): boolean {
+    const currentTime = Date.now();
+    return currentTime >= startTime && currentTime <= endTime;
+  }
+
+  /**
+   * 检查签到活动是否已开始
+   */
+  static isSignActivityStarted(startTime: number): boolean {
+    const currentTime = Date.now();
+    return currentTime >= startTime;
+  }
+
+  /**
+   * 检查签到活动是否已结束
+   */
+  static isSignActivityEnded(endTime: number): boolean {
+    const currentTime = Date.now();
+    return currentTime > endTime;
+  }
 }

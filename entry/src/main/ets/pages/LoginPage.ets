@@ -2,6 +2,7 @@ import { promptAction, router } from '@kit.ArkUI';
 import { DatabaseManager, UserData } from '../utils/DataBase';
 import { ChaoxingUtils } from '../utils/utils';
 import { loginFunction } from '../utils/Login';
+import { JSON } from '@kit.ArkTS';
 
 @Entry
 @Component
@@ -179,6 +180,7 @@ struct Login {
                 fid: info.fid,
                 uid: info.uid
               };
+              console.log('fuck'+JSON.stringify(userData))
               await dbManager.insertUser(userData)
               this.username = ''
               this.password = ''

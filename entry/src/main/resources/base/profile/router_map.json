@@ -1,7 +1,7 @@
 {
   "routerMap" : [
     {
-      "name" : "ActivityList",
+      "name" : "ActivityListPage",
       "pageSourceFile" : "src/main/ets/pages/ActivityListPage.ets",
       "buildFunction": "initClassInfo"
     },

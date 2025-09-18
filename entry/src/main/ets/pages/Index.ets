@@ -1,7 +1,7 @@
-import { DatabaseManager, UserData } from '../utils/DataBase';
+import { DatabaseManager } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
 import image from '@ohos.multimedia.image';
-import { classInfoType } from '../utils/classFun';
+import { classInfoType, CourseAndActivity } from '../utils/classFun';
 
 @CustomDialog
 struct QRCodeDialog {
@@ -143,7 +143,7 @@ struct UI {
                   .height(70)
                   .borderRadius(20)
                   .onClick(() => {
-                    this.pathInfos.pushPath({ name: 'ActivityList', param: classInfo });
+                    this.pathInfos.pushPath({ name: 'ActivityListPage', param: classInfo });
                   })
                 })
               }.height('100%')
@@ -152,6 +152,17 @@ struct UI {
             .width('100%')
 
           }.tabBar($r('app.string.class_list'))
+          .onAppear(async () => {
+            // 加载课程列表
+            const dbManager = DatabaseManager.getInstance()
+            const cookies = await dbManager.getUserInfoByPhone('id', 'HostUser', 1, 'cookies') as string
+            console.log('fuck' + cookies)
+            this.classList = (await CourseAndActivity.getClassList(cookies)).classList
+            this.classList.forEach(element => {
+              console.log('fuck' + JSON.stringify(element))
+            });
+
+          })
 
           TabContent() {
             Column() {
@@ -188,7 +199,7 @@ struct UI {
                       this.hostName = $r('app.string.defaultUname')
                       this.hostPhone = $r('app.string.defaultPhone')
                       this.HostImageData = $r('app.media.foreground')
-                      this.uiContext.getRouter().replaceUrl({ url: 'pages/Login' });
+                      this.uiContext.getRouter().replaceUrl({ url: 'pages/LoginPage' });
                     })
                     .margin({ right: 15 })
                     .height(40)
@@ -219,16 +230,12 @@ struct UI {
               .onClick(() => {
                 this.QRCodeDialogController.open()
               })
-
-              Button('地图')
-                .onClick(() => {
-                  this.getUIContext().getRouter().pushUrl({ url: 'pages/Page' })
-                })
             }
             .height('100%')
           }.tabBar($r('app.string.user'))
 
         }
+        .height('100%')
         .barWidth('100%')
         .barHeight(35)
         .vertical(false)
@@ -243,23 +250,35 @@ struct UI {
         .onChange((index) => {
           this.titleName = index === 0 ? '首页' : '用户中心'
         })
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
       .mode(NavigationMode.Auto)
       .backgroundColor($r('sys.color.comp_background_secondary'))
-      .title(this.titleName)
-
+      .title(this.titleName, { backgroundBlurStyle: BlurStyle.BACKGROUND_THICK, backgroundColor: Color.Transparent })
+      .titleMode(NavigationTitleMode.Mini)
+      .hideBackButton(true)
     }
     .justifyContent(FlexAlign.Center)
     .backgroundImageSize({ width: '100%', height: '100%' })
     .borderRadius($r('sys.float.corner_radius_level8'))
     .height('100%')
     .width('100%')
-    .onAppear(async ()=>{
-      const dbManager=DatabaseManager.getInstance()
-      const hostInfo:UserData = await dbManager.getUserInfoByID(true,1)
-      this.hostName=hostInfo.name
-      this.hostPhone=hostInfo.phone
-
+    .onAppear(async () => {
+      try {
+        const dbManager = DatabaseManager.getInstance()
+        const url = await dbManager.getUserInfoByPhone('id', 'HostUser', 1, 'pic') as string
+        this.HostImageData = await loginFunction.GetPic(url) as image.PixelMap
+        this.hostName = await dbManager.getUserInfoByPhone('id', 'HostUser', 1, 'name') as string
+        this.hostPhone = await dbManager.getUserInfoByPhone('id', 'HostUser', 1, 'phone') as string
+        this.value =
+          `http://cdn.aquamarine5.fun/?phone=${this.hostPhone}&pwd=${encodeURIComponent(await dbManager.getUserInfoByPhone('id',
+            'HostUser', 1, 'pwd') as string)}&name=${decodeURIComponent(this.hostName)}`
+        if (this.hostName.toString() === $r('app.string.defaultUname').toString()) {
+          this.uiContext.getRouter().pushUrl({ url: 'pages/Login' });
+        }
+      } catch (e) {
+        console.error('fuck' + e)
+      }
     })
   }
 }

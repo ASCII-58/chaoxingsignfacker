@@ -67,7 +67,7 @@
           "abilities": ["EntryAbility"],
           "when": "always"
         }
-      },
+      }
     ]
   }
 }
