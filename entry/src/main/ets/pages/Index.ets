@@ -1,7 +1,7 @@
 import { DatabaseManager } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
 import image from '@ohos.multimedia.image';
-import { classInfoType, CourseAndActivity } from '../utils/classFun';
+import { ClassInfo, CourseAndActivity } from '../utils/classFun';
 
 @CustomDialog
 struct QRCodeDialog {
@@ -67,7 +67,7 @@ struct UI {
   @State hostPhone: Resource | string = $r('app.string.defaultPhone')
   @State value: string = '';
   @State titleName: string = '首页'
-  @State classList: classInfoType[] | null = null
+  @State classList: ClassInfo[] | null = null
   @State QRCode: boolean = false
   @Provide('pathInfos') pathInfos: NavPathStack = new NavPathStack();
   private controller: TabsController = new TabsController();
@@ -128,7 +128,7 @@ struct UI {
           TabContent() {
             Column() {
               List({ space: 12, initialIndex: 0 }) {
-                ForEach(this.classList, (classInfo: classInfoType) => {
+                ForEach(this.classList, (classInfo: ClassInfo) => {
                   ListItem() {
                     Row() {
                       ClassIcon({ imageurl: classInfo.imageurl })
@@ -155,13 +155,12 @@ struct UI {
           .onAppear(async () => {
             // 加载课程列表
             const dbManager = DatabaseManager.getInstance()
-            const cookies = await dbManager.getUserInfoByPhone('id', 'HostUser', 1, 'cookies') as string
+            const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
             console.log('fuck' + cookies)
             this.classList = (await CourseAndActivity.getClassList(cookies)).classList
             this.classList.forEach(element => {
               console.log('fuck' + JSON.stringify(element))
             });
-
           })
 
           TabContent() {
@@ -266,13 +265,12 @@ struct UI {
     .onAppear(async () => {
       try {
         const dbManager = DatabaseManager.getInstance()
-        const url = await dbManager.getUserInfoByPhone('id', 'HostUser', 1, 'pic') as string
+        const url = await dbManager.getUserInfoById(true, 1, 'pic') as string
         this.HostImageData = await loginFunction.GetPic(url) as image.PixelMap
-        this.hostName = await dbManager.getUserInfoByPhone('id', 'HostUser', 1, 'name') as string
-        this.hostPhone = await dbManager.getUserInfoByPhone('id', 'HostUser', 1, 'phone') as string
+        this.hostName = await dbManager.getUserInfoById(true, 1, 'name') as string
+        this.hostPhone = await dbManager.getUserInfoById(true, 1, 'phone') as string
         this.value =
-          `http://cdn.aquamarine5.fun/?phone=${this.hostPhone}&pwd=${encodeURIComponent(await dbManager.getUserInfoByPhone('id',
-            'HostUser', 1, 'pwd') as string)}&name=${decodeURIComponent(this.hostName)}`
+          `http://cdn.aquamarine5.fun/?phone=${this.hostPhone}&pwd=${encodeURIComponent(await dbManager.getUserInfoById(true,1, 'pwd') as string)}&name=${decodeURIComponent(this.hostName)}`
         if (this.hostName.toString() === $r('app.string.defaultUname').toString()) {
           this.uiContext.getRouter().pushUrl({ url: 'pages/Login' });
         }

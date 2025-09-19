@@ -3,9 +3,9 @@ class BuildableUrl {
   constructor(public readonly url: string) {
   }
 
-  buildUrl(params?: Record<string, any>): string {
+  buildUrl(params?: Record<string, any>): BuildableUrl {
     if (!params) {
-      return this.url;
+      return this;
     }
 
     const parts = Object.entries(params)
@@ -16,11 +16,12 @@ class BuildableUrl {
 
     const queryString = parts.join('&');
     if (queryString === '') {
-      return this.url;
+      return this;
     }
 
     const separator = this.url.includes('?') ? '&' : '?';
-    return `${this.url}${separator}${queryString}`;
+    const newUrl = `${this.url}${separator}${queryString}`
+    return new BuildableUrl(newUrl);
   }
 
   toString() {
@@ -49,7 +50,10 @@ export class ChaoXingApi {
    * 正式签到基础URL
    */
   static readonly URL_SIGN =
-    'https://mobilelearn.chaoxing.com/pptSign/stuSignajax?&clientip=&appType=15&ifTiJiao=1&vpProbability=-1&=';
+    'https://mobilelearn.chaoxing.com/pptSign/stuSignajax?&clientip=&appType=15&ifTiJiao=1&vpProbability=-1';
+  /**
+   * 预签到基础URL
+   */
   static readonly URL_PRE_SIGN = new BuildableUrl(
     'https://mobilelearn.chaoxing.com/newsign/preSign?&general=1&sys=1&ls=1&appType=15&isTeacherViewOpen=0'
   );
@@ -71,15 +75,3 @@ export class ChaoXingApi {
     "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"
   static readonly URL_GET_USER_INFO = "https://sso.chaoxing.com/apis/login/userLogin4Uname.do"
 }
-
-// 4. 使用示例
-console.log('--- 使用 buildUrl ---');
-const signedUrl = ChaoXingApi.URL_PRE_SIGN.buildUrl({ activeId: 'abc123', uid: '98765' });
-console.log(signedUrl);
-
-const uploadUrl = ChaoXingApi.URL_UPLOAD_PHOTO.buildUrl({ name: 'test.pdf', size: 2048 });
-console.log(uploadUrl);
-
-console.log('\n--- 当作字符串使用 ---');
-console.log(`Base URL: ${ChaoXingApi.URL_UPLOAD_PHOTO}`);
-console.log(JSON.stringify({ url: ChaoXingApi.URL_GET_TOKEN }));

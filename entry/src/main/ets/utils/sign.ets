@@ -11,12 +11,7 @@ export interface UploadPhotoParam {
 }
 
 export class Sign {
-  static readonly URL_PRE_SIGN =
-    'https://mobilelearn.chaoxing.com/newsign/preSign?&general=1&sys=1&ls=1&appType=15&isTeacherViewOpen=0'
-  static readonly URL_BASIC_SIGN =
-    'https://mobilelearn.chaoxing.com/pptSign/stuSignajax?&clientip=&appType=15&ifTiJiao=1&vpProbability=-1&='
-
-  static async DoPreSignIn(activePrimaryId: number, classId: number, courseId: number) {
+  static async DoPreSignIn(activePrimaryId: number, classId: number, courseId: number, cookies: string) {
     const httpRequest = http.createHttp()
     const URL = ChaoXingApi.URL_PRE_SIGN
       .buildUrl({
@@ -24,14 +19,38 @@ export class Sign {
         'classId': classId,
         'courseId': courseId
       })
+      .toString()
+    const result = await httpRequest.request(URL, {
+      method: http.RequestMethod.GET,
+      header: {
+        "Cookie": cookies,
+        "User-Agent": ChaoXingApi.UA
+      }
+    })
+    const isSign: boolean = (result.result as string).includes('<p class="signtime">')
+    return isSign
   }
 
-  static async UploadPhoto(context: Context, param: UploadPhotoParam, cookies: string, files: Array<request.File>,
+  static async DoSignIn(cookies: string, queryParams: object) {
+    const url = ChaoXingApi.URL_SIGN.buildUrl(queryParams).toString()
+    const httpRequest = http.createHttp()
+    const result = await httpRequest.request(url, {
+      method: http.RequestMethod.GET,
+      header: {
+        "Cookie": cookies,
+        "User-Agent": ChaoXingApi.UA
+      }
+    })
+    return result.result.toString()
+  }
+
+  static async UploadPhoto(context: Context, cookies: string, files: Array<request.File>,
     uid: number): Promise<string> {
     const token = Sign.GetToken(cookies)
     return await request.uploadFile(context, {
       url: ChaoXingApi.URL_UPLOAD_PHOTO
-        .buildUrl({ '_token': token }),
+        .buildUrl({ '_token': token })
+        .toString(),
       method: http.RequestMethod.POST,
       header: {
         // 和接口文档的要求的格式对象

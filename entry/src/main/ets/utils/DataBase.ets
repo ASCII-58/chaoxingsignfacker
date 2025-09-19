@@ -68,11 +68,11 @@ class DatabaseManager {
    * @param id 用户ID
    * @returns {Promise<UserData>} 包含用户所有信息的对象
    */
-  public async getHostUserInfoByID(id: number=1): Promise<UserData> {
+  public async getHostUserInfoByID(id: number = 1): Promise<UserData> {
     if (typeof id !== 'number' || id <= 0) {
       throw new Error(`无效的ID: ${id}. 必须是正整数`);
     }
-      let tableName=""
+    let tableName = ""
 
     // 2. 检查数据库连接
     if (!this.rdbStore) {
@@ -91,13 +91,13 @@ class DatabaseManager {
       const resultSet = await this.rdbStore.querySql(sql);
 
       try {
-        console.error('fuck,'+resultSet.rowCount)
+        console.error('fuck,' + resultSet.rowCount)
         // 5. 处理查询结果
         if (resultSet.rowCount != 0) {
           try {
             resultSet.goToFirstRow();
           } catch (error) {
-            console.error('fuckkkkkkkkkkkkkkkkkkkkkkkk,'+error)
+            console.error('fuckkkkkkkkkkkkkkkkkkkkkkkk,' + error)
           }
           // 获取各列索引
           const phoneIndex = resultSet.getColumnIndex('phone');
@@ -142,24 +142,18 @@ class DatabaseManager {
    * @param search
    * @returns
    */
-  public async getUserInfoByPhone(
-    key: 'id' | 'phone',
-    tableName: 'HostUser' | 'OtherUser',
-    phone: number | string,
+  public async getUserInfoById(
+    isHost: boolean,
+    id: number,
     search: "phone" | "pwd" | "name" | "pic" | "cookies" | "uid" | "fid" | 'id'): Promise<string | null | number> {
-    // 1. 参数验证
-    if (tableName !== 'HostUser' && tableName !== 'OtherUser') {
-      throw new Error(`无效的表名: ${tableName}. 允许的表: HostUser, OtherUser`);
-    }
-
     // 2. 检查数据库连接
     if (!this.rdbStore) {
       throw new Error('数据库未初始化。请先调用init()方法。');
     }
 
     try {
-      const sql = `SELECT ${search} FROM ${tableName} WHERE ${key} = ?`;
-      const params = [phone];
+      const sql = `SELECT ${search} FROM ${isHost ? 'HostUser' : 'OtherUser'} WHERE id = ?`;
+      const params = [id];
 
       // 4. 执行查询
       const resultSet = await this.rdbStore.querySql(sql, params);
@@ -178,8 +172,7 @@ class DatabaseManager {
         resultSet.close();
       }
     } catch (err) {
-      // 7. 规范化错误并重新抛出（符合arkts-limited-throw规则）
-      throw this.normalizeError(err, `获取${tableName}表中标识符为${phone}的用户的${search}失败`);
+      throw new Error(err)
     }
   }
 
@@ -266,7 +259,7 @@ class DatabaseManager {
           this.rdbStore.commit();
           return true;
 
-        }catch {
+        } catch {
           return false
         } finally {
           resultSet.close();

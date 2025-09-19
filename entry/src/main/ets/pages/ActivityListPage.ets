@@ -1,6 +1,6 @@
-import { ActivityItem, classInfoType, CourseAndActivity } from '../utils/classFun';
-import { ChaoxingUtils} from '../utils/utils';
-import { promptAction, Type } from '@kit.ArkUI';
+import { ActivityItem, ClassInfo, CourseAndActivity } from '../utils/classFun';
+import { ChaoxingUtils } from '../utils/utils';
+import { promptAction } from '@kit.ArkUI';
 import { DatabaseManager } from '../utils/DataBase';
 import { JSON } from '@kit.ArkTS';
 
@@ -44,16 +44,18 @@ struct signIcon {
 }
 
 @Builder
-export function initClassInfo(name: string, classInfo: classInfoType) {
-  ActivityListPage({
-    classInfo: classInfo
-  })
+export function initClassInfo(name: string, classInfo: ClassInfo) {
+  if (name) {
+    ActivityListPage({
+      classInfo: classInfo
+    })
+  }
 }
 
 
 @Component
 export struct ActivityListPage {
-  classInfo: classInfoType | null = null;
+  classInfo: ClassInfo | null = null;
   pathInfos: NavPathStack = new NavPathStack();
   @State courseId: number = 0; // 课程id
   @State teacherfactor: string = '';
@@ -90,12 +92,13 @@ export struct ActivityListPage {
               .backgroundColor(typeof Activity.endTime === 'string' ?
                 (ChaoxingUtils.isSignActivityStarted(Activity.startTime) ? $r('app.color.class_button') :
                   $r('app.color.class_button_disabled')) :
-                (ChaoxingUtils.isSignActivityActive(Activity.startTime, Activity.endTime) ? $r('app.color.class_button') :
+                (ChaoxingUtils.isSignActivityActive(Activity.startTime, Activity.endTime) ?
+                  $r('app.color.class_button') :
                   $r('app.color.class_button_disabled')))
               .height(70)
               .borderRadius(20)
               .onClick(() => {
-                if (typeof Activity.endTime==='number'){
+                if (typeof Activity.endTime === 'number') {
                   if (!ChaoxingUtils.isSignActivityActive(Activity.startTime, Activity.endTime)) {
                     promptAction.showToast({ message: '不在可签到时间内, 无法签到' })
                     return
@@ -106,17 +109,18 @@ export struct ActivityListPage {
                     return
                   }
                 }
-                const ActivityInfo: ActivityInfo = {
+                const activityInfo: ActivityInfo = {
                   ActivityId: Activity.id,
                   CourseId: this.courseId,
                   ClassId: this.classId,
                   signType: Activity.otherId.toString()
                 }
-                this.pathInfos.pushPath({ name: 'SignerPage', param: ActivityInfo })
+                this.pathInfos.pushPath({ name: 'SignerPage', param: activityInfo })
               })
             }
           })
-        }
+        }.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+        .height('100%')
       }
     }
     .height('100%')
@@ -131,22 +135,23 @@ export struct ActivityListPage {
         this.courseId = this.classInfo?.id as number; // 课程id
         console.log('fuck', this.courseId)
         this.teacherfactor = this.classInfo?.teacherfactor as string;
-        console.log('fuck',this.teacherfactor)
+        console.log('fuck', this.teacherfactor)
         this.classId = this.classInfo?.classId as number; // 班级id
         this.name = this.classInfo?.name as string
-        console.log('fuck',this.name)
+        console.log('fuck', this.name)
         const dbManager = DatabaseManager.getInstance()
-        const cookies = await dbManager.getUserInfoByPhone('id', 'HostUser', 1, 'cookies') as string
-        console.log('fuck',cookies)
-        console.error('fuck','true','false')
+        const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
+        console.log('fuck', cookies)
+        console.error('fuck', 'true', 'false')
         this.ActivityList = await CourseAndActivity.getActivityList(cookies, this.classId, this.courseId);
-        console.error('fuck'+this.ActivityList?'true':'false')
+        console.error('fuck' + this.ActivityList ? 'true' : 'false')
         this.ActivityList?.forEach(element => {
-          console.log('fuck'+JSON.stringify(element))
+          console.log('fuck' + JSON.stringify(element))
         });
-      }catch (e) {
-        console.error('fuck'+e)
+      } catch (e) {
+        console.error('fuck' + e)
       }
     })
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 }

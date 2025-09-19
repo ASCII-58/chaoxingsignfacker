@@ -27,7 +27,7 @@ export class CourseAndActivity {
       const CourseListResponse = JSON.parse(result.result.toString()) as CourseListResponse
       if (CourseListResponse.msg === "获取成功") {
         const courseList = CourseListResponse.channelList
-        const result: classInfoType[] = [];
+        const result: ClassInfo[] = [];
 
         courseList.forEach(item => {
           // 检查 content 和 course.data 是否存在
@@ -113,7 +113,7 @@ export interface ActivityItem {
   /** 活动结束时间戳，用于判断签到是否结束和控制UI状态 */
   endTime: number;
 }
-export interface classInfoType {
+export interface ClassInfo {
   imageurl: string;
   id: number; // 课程id
   teacherfactor: string;
@@ -200,5 +200,5 @@ export interface Data {
 
 export interface returnJson {
   msg: boolean;
-  classList: classInfoType[];
+  classList: ClassInfo[];
 }
