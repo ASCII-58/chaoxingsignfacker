@@ -181,7 +181,7 @@ struct Login {
                 uid: info.uid
               };
               console.log('fuck'+JSON.stringify(userData))
-              await dbManager.insertUser(userData)
+              await dbManager.insertHostUser(userData)
               this.username = ''
               this.password = ''
               promptAction.showToast({ message: '登录成功', duration: 2000 })

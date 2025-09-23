@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\x\\.ohos\\config\\default_chaoxingsignfacker_4m366ikA1PEP-Jsn1cMcZTfP-8Z_SPkUuOInCz1kfso=.cer",
-          "keyAlias": "debugKey",
-          "keyPassword": "0000001BA41C4791E6074C24B353FFBA9966FDB2C24890D2F4C6F764A8813DC0780264E7D230F342AB8D72",
-          "profile": "C:\\Users\\x\\.ohos\\config\\default_chaoxingsignfacker_4m366ikA1PEP-Jsn1cMcZTfP-8Z_SPkUuOInCz1kfso=.p7b",
+          "storeFile": "D:/SignDir/debug250920mapkit.p12",
+          "storePassword": "00000018F7967B0CAB406683C321BD414B71C21B8BF76BA56554542B02F8C7D09BE60C2F4D3600FA",
+          "keyAlias": "debug250920mapkit",
+          "keyPassword": "00000018837FB97B47006E1DAF657FEEC1FA75FB008A6256357574833F50524F993FA89F54BD86E4",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\x\\.ohos\\config\\default_chaoxingsignfacker_4m366ikA1PEP-Jsn1cMcZTfP-8Z_SPkUuOInCz1kfso=.p12",
-          "storePassword": "0000001B671233006D2E86344984023AA2E5FBA051EDD00A8C78F9A646F14BCD2C80318A269DCA4E3418FB"
+          "profile": "E:/Download/签到助手Debug.p7b",
+          "certpath": "E:/Download/debugmap.cer"
         }
       }
     ],

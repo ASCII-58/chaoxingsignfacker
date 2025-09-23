@@ -49,8 +49,8 @@ export class ChaoXingApi {
   /**
    * 正式签到基础URL
    */
-  static readonly URL_SIGN =
-    'https://mobilelearn.chaoxing.com/pptSign/stuSignajax?&clientip=&appType=15&ifTiJiao=1&vpProbability=-1';
+  static readonly URL_SIGN =new BuildableUrl(
+    'https://mobilelearn.chaoxing.com/pptSign/stuSignajax?&clientip=&appType=15&ifTiJiao=1&vpProbability=-1');
   /**
    * 预签到基础URL
    */

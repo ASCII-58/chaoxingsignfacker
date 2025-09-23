@@ -2,39 +2,16 @@ import { DatabaseManager } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
 import image from '@ohos.multimedia.image';
 import { ClassInfo, CourseAndActivity } from '../utils/classFun';
-
-@CustomDialog
-struct QRCodeDialog {
-  controller: CustomDialogController;
-  @Prop value: string
-
-  build() {
-    Column() {
-      if (this.value) {
-        Column() {
-          Column() {
-            QRCode(this.value).width(240).height(240).margin({ top: 10 })
-          }
-          .margin(10)
-          .width(260)
-          .height(260)
-          .backgroundColor($r('sys.color.white'))
-          .borderRadius(10)
-        }.margin(20).borderRadius(20).borderColor('#3388ff').borderWidth(3)
-      } else {
-        Column() {
-          Text('未读取到用户信息')
-        }
-      }
-      Button('关闭')
-        .onClick(() => {
-          this.controller.close() // 调用controller的close方法关闭弹窗
-        }).margin({ bottom: 30 })
-    }.backgroundColor($r('sys.color.ohos_id_color_background')).borderRadius(20)
-  }
-}
-
-
+import fs from '@ohos.file.fs';
+import { generateBarcode, scanBarcode, scanCore } from '@kit.ScanKit';
+import { UIContext } from '@kit.ArkUI';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { BusinessError } from '@kit.BasicServicesKit';
+import { url } from '@kit.ArkTS';
+import { ChaoxingUtils } from '../utils/utils'
+import promptAction from '@ohos.promptAction';
+import ImageScenario from '../Component/photoshear'
+import { componentSnapshot } from '@kit.ArkUI';
 @Reusable
 @Component
 struct ClassIcon {
@@ -57,30 +34,95 @@ struct ClassIcon {
   }
 }
 
+@Reusable
+@Component
+struct OtherUserLogin {
+  @Link scaleValue: number
+
+  build() {
+    Row() {
+      Button() {
+        Image($r('app.media.qrcode'))
+          .height(40)
+          .width(40)
+          .fillColor($r('app.color.icon'))
+          .margin(15)
+      }.borderRadius(999)
+      .scale({ x: this.scaleValue, y: this.scaleValue })
+      .onClick(() => {
+        let options: scanBarcode.ScanOptions = {
+          scanTypes: [scanCore.ScanType.ALL],
+          enableMultiMode: true,
+          enableAlbum: true
+        };
+        try {
+          // 可调用getHostContext接口获取当前页面关联的Context
+          scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
+            .then(async (result: scanBarcode.ScanResult) => {
+              try {
+                let urlObject = url.URL.parseURL(result.originalValue);
+                let urlParse: url.URLParams = urlObject.params
+                let phone = urlParse.getAll('phone')[0]
+                let pwd = urlParse.getAll('pwd')[0]
+                let AESPhone = ChaoxingUtils.encryptByAES(phone)
+                let body = ChaoxingUtils.getLoginBody(AESPhone, pwd);
+                let cookie = await loginFunction.LoginChaoXing(body)
+                let userInfo = await loginFunction.getUserInfo(cookie)
+                const dbManager = DatabaseManager.getInstance()
+                if (await dbManager.insertOtherUser({
+                  phone: phone,
+                  pwd: pwd,
+                  pic: userInfo.pic,
+                  uid: userInfo.uid,
+                  name: userInfo.uname,
+                  cookies: cookie,
+                  fid: userInfo.fid
+                }) === 1) {
+                  promptAction.showToast({ message: '添加成功' })
+                } else {
+                  console.error('fuck,密码错误或已经登录')
+                  promptAction.showToast({ message: '二维码的手机号或密码有误或已经登录' })
+                }
+              } catch {
+                console.error('请扫描正确的二维码')
+                promptAction.showToast({ message: '请扫描正确的二维码' })
+              }
+              // loginFunction.LoginChaoXing()
+              // 解析码值结果跳转应用服务页
+              hilog.info(0x0001, '[Scan CPSample]',
+                `Succeeded in getting ScanResult by promise with options, result is ${JSON.stringify(result)}`);
+            })
+            .catch((error: BusinessError) => {
+              hilog.error(0x0001, '[Scan CPSample]',
+                `Failed to get ScanResult by promise with options. Code:${error.code}, message: ${error.message}`);
+            });
+        } catch (error) {
+          hilog.error(0x0001, '[Scan CPSample]',
+            `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
+        }
+      })
+    }.margin({ top: 50 })
+  }
+}
 
 @Entry
 @Component
 struct UI {
+  @State outId: number | undefined = undefined;
   @State currentIndex: number = 0;
   @State HostImageData: image.PixelMap | Resource = $r('app.media.foreground'); // 用于存储下载的图片二进制数据
   @State hostName: Resource | string = $r('app.string.defaultUname')
   @State hostPhone: Resource | string = $r('app.string.defaultPhone')
-  @State value: string = '';
+  @State QRvalue: string = '';
+  @State QRCode: image.PixelMap | null = null
   @State titleName: string = '首页'
   @State classList: ClassInfo[] | null = null
-  @State QRCode: boolean = false
+  @State QRCodeIsShow: boolean = false
+  @State OtherUserLoginWayIsShow: boolean = false
+  @State scaleValue: number = 0.01
   @Provide('pathInfos') pathInfos: NavPathStack = new NavPathStack();
   private controller: TabsController = new TabsController();
   private uiContext: UIContext = this.getUIContext();
-  private QRCodeDialogController: CustomDialogController = new CustomDialogController({
-    builder: QRCodeDialog({ value: this.value }),
-    alignment: DialogAlignment.Center,
-    customStyle: true,
-    cornerRadius: 10,
-    width: 300,
-    height: 300,
-    backgroundColor: Color.White,
-  })
 
   @Builder
   tabBuilder(title: string, targetIndex: number) {
@@ -120,11 +162,77 @@ struct UI {
     .justifyContent(FlexAlign.Center)
   }
 
+  @Builder
+  shareTitle() {
+    Text('分享')
+      .fontSize(40)
+      .textAlign(TextAlign.Center)
+  }
+
+  @Builder
+  QRCodeDialog() {
+    Column() {
+      if (this.QRvalue) {
+        Column() {
+          Column() {
+            Column() {
+              QRCode(this.QRvalue).width(240).height(240).margin({ top: 10 })
+            }
+            .margin(10)
+            .width(260)
+            .height(260)
+            .backgroundColor($r('sys.color.white'))
+            .borderRadius(10)
+          }
+          .margin(20)
+          .borderRadius(20)
+          .borderColor('#3388ff')
+          .borderWidth(3)
+          .backgroundColor('#dddddd')
+
+          Text('用户:' + this.hostName)
+            .fontSize(20)
+        }.id('shareImage')
+        .onAppear(async () => {
+          try {
+            const pixelMap: image.PixelMap = await componentSnapshot.get('shareImage')
+            let buffer = new ArrayBuffer(pixelMap.getPixelBytesNumber()); // 计算所需缓冲区大小
+            pixelMap.readPixelsToBuffer(buffer);
+            const context = this.getUIContext().getHostContext() as Context
+            const sandboxPath: string = context.filesDir + '/images/';
+            const filePathName:string = sandboxPath + 'share'+encodeURIComponent(this.hostName.toString())
+            const file = fs.openSync(filePathName, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE);
+            await fs.write(file.fd, buffer);
+            fs.closeSync(file);
+          } catch (error) {
+            console.error('fuck,图片获取失败')
+          }
+        })
+        Button()
+
+        ImageScenario({fileName:'share'+encodeURIComponent(this.hostName.toString()),context:this.getUIContext().getHostContext() as Context})
+      } else {
+        Column() {
+          Text('未读取到用户信息')
+            .fontSize(30)
+            .margin(10)
+            .width(260)
+            .height(260)
+            .borderRadius(10)
+        }
+      }
+    }.margin({ top: 30 })
+  }
+
+  @Builder
+  OtherUserLoginWayDialog() {
+    OtherUserLogin({ scaleValue: this.scaleValue })
+  }
+
   build() {
     Column() {
       Navigation(this.pathInfos) {
         Tabs({ controller: this.controller }) {
-          //首页
           TabContent() {
             Column() {
               List({ space: 12, initialIndex: 0 }) {
@@ -221,14 +329,51 @@ struct UI {
               Row() {
                 Button() {
                   Column() {
-                    Image($r('sys.media.ohos_ic_public_share'))
-                      .height(40).width(40)
-                  }.height(70).width(70).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
-                }
+                    Image($r('app.media.plus')).height(30).width(30)
+                  }.height(60).width(60).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
+                }.borderRadius(30)
+                .onClick(() => {
+                  this.OtherUserLoginWayIsShow = false
+                  this.OtherUserLoginWayIsShow = true
+                  this.outId = setTimeout(() => {
+                    animateTo({
+                      duration: 200,
+                      curve: 'normal'
+                    }, () => {
+                      this.scaleValue = 1
+                    })
+                  }, 150)
+                })
+                .bindSheet(this.OtherUserLoginWayIsShow, this.OtherUserLoginWayDialog,
+                  {
+                    height: '30%',
+                    backgroundColor: $r('app.color.dialog'),
+                    onWillDismiss: (dismissSheetAction: DismissSheetAction) => {
+                      clearTimeout(this.outId)
+                      animateTo({
+                        duration: 200,
+                        curve: 'normal'
+                      }, () => {
+                        this.scaleValue = 0.01
+                      })
+                      dismissSheetAction.dismiss()
+                    }
+                  })
+
+                Button() {
+                  Column() {
+                    Image($r('app.media.share'))
+                      .height(30).width(30)
+                  }.height(60).width(60).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
+                }.onClick(() => {
+                  this.QRCodeIsShow = false
+                  this.QRCodeIsShow = true
+                })
+                .borderRadius(30)
+                .bindSheet(this.QRCodeIsShow, this.QRCodeDialog,
+                  { height: '100%', backgroundColor: $r('app.color.dialog'), title: this.shareTitle })
               }
-              .onClick(() => {
-                this.QRCodeDialogController.open()
-              })
+
             }
             .height('100%')
           }.tabBar($r('app.string.user'))
@@ -236,7 +381,7 @@ struct UI {
         }
         .height('100%')
         .barWidth('100%')
-        .barHeight(35)
+        .barHeight(50)
         .vertical(false)
         .barPosition(BarPosition.End)
         .backgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THIN)
@@ -269,8 +414,9 @@ struct UI {
         this.HostImageData = await loginFunction.GetPic(url) as image.PixelMap
         this.hostName = await dbManager.getUserInfoById(true, 1, 'name') as string
         this.hostPhone = await dbManager.getUserInfoById(true, 1, 'phone') as string
-        this.value =
-          `http://cdn.aquamarine5.fun/?phone=${this.hostPhone}&pwd=${encodeURIComponent(await dbManager.getUserInfoById(true,1, 'pwd') as string)}&name=${decodeURIComponent(this.hostName)}`
+        this.QRvalue =
+          `http://cdn.aquamarine5.fun/?phone=${this.hostPhone}&pwd=${encodeURIComponent(await dbManager.getUserInfoById(true,
+            1, 'pwd') as string)}&name=${decodeURIComponent(this.hostName)}`
         if (this.hostName.toString() === $r('app.string.defaultUname').toString()) {
           this.uiContext.getRouter().pushUrl({ url: 'pages/Login' });
         }

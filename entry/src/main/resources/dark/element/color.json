@@ -26,6 +26,14 @@
     },{
       "name": "tittle_text",
       "value": "#ffffff"
+    },
+    {
+      "name": "dialog",
+      "value": "#222222"
+    },
+    {
+      "name": "icon",
+      "value": "#bbbbbb"
     }
   ]
 }

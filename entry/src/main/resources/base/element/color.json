@@ -26,6 +26,14 @@
     {
       "name": "tittle_text",
       "value": "#000000"
+    },
+    {
+      "name": "dialog",
+      "value": "#ffffff"
+    },
+    {
+      "name": "icon",
+      "value": "#333333"
     }
   ]
 }

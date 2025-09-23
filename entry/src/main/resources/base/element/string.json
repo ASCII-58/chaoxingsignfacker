@@ -35,6 +35,14 @@
     {
       "name": "defaultPhone",
       "value": "请登录"
+    },
+    {
+      "name": "image_type",
+      "value": "jpeg"
+    },
+    {
+      "name": "share_btn",
+      "value": "分享"
     }
   ]
 }

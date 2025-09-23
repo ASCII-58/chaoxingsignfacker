@@ -86,4 +86,36 @@ export class Sign {
       httpRequest.destroy()
     }
   }
+/**
+ *
+ * @param activePrimaryId
+ * @param classId
+ * @param courseId
+ * @param uid
+ * @param cookies
+ * @returns -1 = 无权限 | 0 = 已签到 | 1 = 可签到
+ */
+  static async PreSignIn(activePrimaryId: number, classId: number, courseId: number, uid: number,
+    cookies: string): Promise<number> {
+    const httpRequest = http.createHttp()
+    const result = await httpRequest.request(ChaoXingApi.URL_PRE_SIGN.buildUrl({
+      activePrimaryId: activePrimaryId,
+      classId: classId,
+      courseId: courseId,
+      uid: uid
+    }).toString(), {
+      method: http.RequestMethod.GET,
+      header: {
+        "Cookie": cookies,
+        "User-Agent": ChaoXingApi.UA
+      }
+    })
+    if (result.responseCode === 302 || (result.result as string).includes("校验失败，未查询到活动数据")) {
+      return -1
+    }
+    if ((result.result as string).includes('<p class="signtime">')) {
+      return 0
+    }
+    return 1
+  }
 }

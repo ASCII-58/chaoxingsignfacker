@@ -214,7 +214,7 @@ class DatabaseManager {
    * @returns {Promise<boolean>} 是否插入成功
    * @throws {Error} 如果数据库未初始化、手机号已存在或插入失败
    */
-  public async insertUser(userData: UserData): Promise<boolean> {
+  public async insertHostUser(userData: UserData): Promise<boolean> {
     try {
       if (!this.rdbStore) {
         throw new Error('Database not initialized. Call init() first.');
@@ -288,7 +288,85 @@ class DatabaseManager {
       const error = err as BusinessError;
       console.error(`Failed to insert user. Code: ${error.code}, Message: ${error.message}`);
       return false
-      throw new Error(`用户插入失败: ${error.message}`);
+    }
+  }
+
+  public async insertOtherUser(userData: UserData): Promise<number> {
+    try {
+      if (!this.rdbStore) {
+        throw new Error('Database not initialized. Call init() first.');
+      }
+
+      // 开始事务确保操作原子性
+      this.rdbStore.beginTransaction();
+
+      try {
+        // 1. 检查手机号是否已在 OtherUser 中存在（防止重复插入）
+        const phoneExists = await this.checkPhoneExists(userData.phone);
+        if (phoneExists) {
+          return -1
+        }
+
+        // 2. 使用参数化查询插入到 OtherUser 表
+        const insertSql = `
+        INSERT INTO OtherUser (phone, pwd, name, pic, cookies, uid, fid)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
+
+        await this.rdbStore.executeSql(insertSql, [
+          userData.phone,
+          userData.pwd,
+          userData.name,
+          userData.pic,
+          userData.cookies,
+          userData.uid,
+          userData.fid
+        ]);
+
+        // 3. 获取最后插入的 ID（可选：用于日志或返回）
+        const resultSet = await this.rdbStore.querySql('SELECT last_insert_rowid() AS id');
+        try {
+          // 可以读取 id 并记录日志，这里仅示例
+          if (resultSet.rowCount > 0) {
+            resultSet.goToFirstRow();
+            const newId = resultSet.getLong(0);
+            console.info(`Inserted OtherUser with ID: ${newId}`);
+          }
+        } finally {
+          resultSet.close();
+        }
+
+        // 4. 提交事务
+        this.rdbStore.commit();
+        return 1;
+      } catch (error) {
+        // 发生错误时回滚事务
+        this.rdbStore.rollBack();
+
+        // 标准化错误抛出
+        const errorMessage = error instanceof Error
+          ? error.message
+          : 'Unknown database error';
+
+        throw new Error(`数据库操作失败: ${errorMessage}`);
+      }
+    } catch (err) {
+      // 外层错误处理：确保事务回滚
+      try {
+        if (this.rdbStore) {
+          this.rdbStore.rollBack();
+        }
+      } catch (rollbackError) {
+        console.error('Failed to rollback transaction', rollbackError);
+      }
+
+      const error = err as BusinessError;
+      console.error(`Failed to insert other user. Code: ${error.code}, Message: ${error.message}`);
+
+      // 注意：此处原逻辑 return false 后又 throw，会导致无法返回
+      // 我们修复为要么返回 false，要么抛出异常 —— 根据你的需求选择
+      // 如果希望函数返回 boolean，则不应再 throw
+      return 0;
     }
   }
 

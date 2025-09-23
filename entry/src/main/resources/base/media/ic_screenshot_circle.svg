@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24" height="24" version="1.1" viewBox="0 0 24 24">
+  <defs>
+    <filter id="_uxs-a">
+      <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0.000000 0 0 0 0 0.000000 0 0 0 0 0.000000 0 0 0 1.000000 0"/>
+    </filter>
+    <path id="_uxs-b" d="M12,21 C16.9705627,21 21,16.9705627 21,12 C21,7.02943725 16.9705627,3 12,3 C7.02943725,3 3,7.02943725 3,12 C3,16.9705627 7.02943725,21 12,21 Z M12,19.5 C7.85786438,19.5 4.5,16.1421356 4.5,12 C4.5,7.85786438 7.85786438,4.5 12,4.5 C16.1421356,4.5 19.5,7.85786438 19.5,12 C19.5,16.1421356 16.1421356,19.5 12,19.5 Z"/>
+  </defs>
+  <g fill="#000" fill-rule="evenodd" stroke="none" stroke-width="1" filter="url(#_uxs-a)" opacity=".86">
+    <mask id="_uxs-c" fill="#fff">
+      <use xlink:href="#_uxs-b"/>
+    </mask>
+    <use fill="#FFF" fill-rule="nonzero" xlink:href="#_uxs-b"/>
+    <rect width="24" height="24" x="0" y="0" fill="#FFF" mask="url(#_uxs-c)"/>
+  </g>
+</svg>

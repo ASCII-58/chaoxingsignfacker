@@ -3,11 +3,14 @@ import { ChaoxingUtils } from '../utils/utils';
 import { promptAction } from '@kit.ArkUI';
 import { DatabaseManager } from '../utils/DataBase';
 import { JSON } from '@kit.ArkTS';
-
+/**
+ * @param signType '0' 普通/拍照签到 | '2' 扫码签到 | '4' 位置签到
+ */
 export interface ActivityInfo {
   ActivityId: number;
   CourseId: number;
   ClassId: number;
+
   signType: string
 }
 
@@ -99,12 +102,7 @@ export struct ActivityListPage {
               .borderRadius(20)
               .onClick(() => {
                 if (typeof Activity.endTime === 'number') {
-                  if (!ChaoxingUtils.isSignActivityActive(Activity.startTime, Activity.endTime)) {
-                    promptAction.showToast({ message: '不在可签到时间内, 无法签到' })
-                    return
-                  }
-                } else {
-                  if (!ChaoxingUtils.isSignActivityStarted(Activity.startTime)) {
+                  if (!ChaoxingUtils.isSignActivityActive(Activity.startTime, Activity.endTime)||!ChaoxingUtils.isSignActivityStarted(Activity.startTime)) {
                     promptAction.showToast({ message: '不在可签到时间内, 无法签到' })
                     return
                   }
