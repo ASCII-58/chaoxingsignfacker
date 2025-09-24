@@ -43,6 +43,10 @@
     {
       "name": "share_btn",
       "value": "分享"
+    },
+    {
+      "name": "other_user",
+      "value": "代签"
     }
   ]
 }

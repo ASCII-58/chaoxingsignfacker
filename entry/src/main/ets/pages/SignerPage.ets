@@ -5,9 +5,80 @@ import { FunctionalButton, functionalButtonComponentManager } from '@kit.Scenari
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DatabaseManager } from '../utils/DataBase';
 import promptAction from '@ohos.promptAction';
+import { image } from '@kit.ImageKit';
+import { loginFunction } from '../utils/Login';
+
 interface userMenu {
   uname: string
   id: number
+}
+
+@Reusable
+@Component
+struct Icon {
+  @Prop UserId: number;
+  @State ImageData: image.PixelMap | null = null;
+
+  build() {
+    Column() {
+      Image(this.ImageData)
+        .width(50)
+        .height(50)
+        .borderColor($r('app.color.class_icon_border'))
+        .borderWidth(3)
+        .borderRadius(40)
+        .margin({left:5})
+        .onAppear(async () => {
+          const dbManager = DatabaseManager.getInstance()
+          const url = await dbManager.getUserInfoById(true,this.UserId,'pic') as string
+          console.log('fuck'+url)
+          this.ImageData = await loginFunction.GetPic(url) as image.PixelMap
+        })
+    }
+  }
+}
+
+@Reusable
+@Component
+struct userItem {
+  @State color: Resource = $r('sys.color.button_background_color_transparent')
+  @Prop user: userMenu
+  @Link @Watch('transformC') signIdArray: number[]
+
+  transformC(){
+    console.log('fuck')
+    if (this.signIdArray.includes(this.user.id)&&this.color!==$r('sys.color.hds_snackbar_button_background_color')) {
+      animateTo({
+        duration: 300,
+        curve: 'smooth'
+      },()=>{
+        this.color = $r('sys.color.hds_snackbar_button_background_color')
+      })
+      console.log('fuck11111111111111')
+    }
+    if (!this.signIdArray.includes(this.user.id)&&this.color!==$r('sys.color.button_background_color_transparent')) {
+      animateTo({
+        duration: 300,
+        curve: 'smooth'
+      },()=>{
+        this.color = $r('sys.color.button_background_color_transparent')
+      })
+      console.log('fuck00000000000000000')
+    }
+  }
+
+  build() {
+    Row() {
+      Row(){
+        Icon({ UserId: this.user.id})
+        Text(this.user.uname).margin({left:30,right:60})
+      }
+      .height(60)
+      .width('90%')
+      .borderRadius(40)
+      .backgroundColor(this.color)
+    }.justifyContent(FlexAlign.Center)
+  }
 }
 
 @Builder
@@ -21,35 +92,33 @@ export struct SignPage {
   @State queryParams: object = JSON.parse('{}') as object
   @State otherUser: Array<userMenu> = [{ uname: '1275673', id: 1 }]
   @State signIdArray: Array<number> = []
+  @State otherUserIsShow: boolean = false
   pathInfos: NavPathStack = new NavPathStack();
 
   @Builder
   NavigationMenu() {
-    Image($r('app.media.ic_contacts_addcontact'))
-      .height(30)
-      .width(30)
-      .bindMenu(this.otherUserMenu)
-      .fillColor($r('app.color.tittle_text'))
+    Column(){
+      Image($r('app.media.ic_contacts_addcontact'))
+        .height(30)
+        .width(30)
+        .onClick(() => {
+          this.otherUserIsShow = false
+          this.otherUserIsShow = true
+        })
+        .bindSheet(this.otherUserIsShow, this.otherUserMenu,{title:{title:$r('app.string.other_user')}})
+        .fillColor($r('app.color.tittle_text'))
+        .margin({ right: 20 })
+    }.justifyContent(FlexAlign.Center)
+    .height('100%')
   }
 
   @Builder
   otherUserMenu() {
+
     List() {
       ForEach(this.otherUser, (user: userMenu) => {
         ListItem() {
-          Row() {
-            Text(user.uname)
-            if (this.signIdArray.includes(user.id) ) {
-
-              Image($r('app.media.ic_public_ok'))
-                .fillColor('#888888')
-                .height(30)
-                .width(30)
-            }
-
-          }.justifyContent(FlexAlign.Start)
-          .height(40)
-          .width(150)
+          userItem({user:user,signIdArray:this.signIdArray})
         }.onClick(() => {
           console.log('fuck' + this.signIdArray.toString())
           if (this.signIdArray.includes(user.id)) {
@@ -60,8 +129,10 @@ export struct SignPage {
             this.signIdArray.push(user.id)
           }
         })
+        .width('100%')
+
       })
-    }.width(150)
+    }.width('100%')
   }
 
   build() {
@@ -114,17 +185,16 @@ export struct SignPage {
           Button('签到')
             .onClick(async () => {
               const dbManager = DatabaseManager.getInstance()
-              const uid = dbManager.getUserInfoById(true,1,'uid')
-              const name = dbManager.getUserInfoById(true,1,'name')
-              const fid = dbManager.getUserInfoById(true,1,'fid')
-              this.queryParams['uid']=uid
-              this.queryParams['name']=name
-              this.queryParams['fid']=fid
-              const cookies =await dbManager.getUserInfoById(true,1,'cookies') as string
-              const result = await Sign.DoSignIn(cookies,this.queryParams)
-              promptAction.showToast({message:result})
+              const uid = dbManager.getUserInfoById(true, 1, 'uid')
+              const name = dbManager.getUserInfoById(true, 1, 'name')
+              const fid = dbManager.getUserInfoById(true, 1, 'fid')
+              this.queryParams['uid'] = uid
+              this.queryParams['name'] = name
+              this.queryParams['fid'] = fid
+              const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
+              const result = await Sign.DoSignIn(cookies, this.queryParams)
+              promptAction.showToast({ message: result })
 
-              // Sign.DoSignIn()
             })
         }.justifyContent(FlexAlign.Center)
         .height('100%')
