@@ -1,5 +1,5 @@
 import { ActivityInfo } from './ActivityListPage';
-import { Sign } from '../utils/sign'
+import { Sign } from '../utils/sign';
 import { JSON } from '@kit.ArkTS';
 import { FunctionalButton, functionalButtonComponentManager } from '@kit.ScenarioFusionKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -27,11 +27,11 @@ struct Icon {
         .borderColor($r('app.color.class_icon_border'))
         .borderWidth(3)
         .borderRadius(40)
-        .margin({left:5})
+        .margin({ left: 5 })
         .onAppear(async () => {
           const dbManager = DatabaseManager.getInstance()
-          const url = await dbManager.getUserInfoById(true,this.UserId,'pic') as string
-          console.log('fuck'+url)
+          const url = await dbManager.getUserInfoById(false, this.UserId, 'pic') as string
+          console.log('fuck' + url)
           this.ImageData = await loginFunction.GetPic(url) as image.PixelMap
         })
     }
@@ -43,24 +43,26 @@ struct Icon {
 struct userItem {
   @State color: Resource = $r('sys.color.button_background_color_transparent')
   @Prop user: userMenu
-  @Link @Watch('transformC') signIdArray: number[]
+  @Link @Watch('transformColor') signIdArray: number[]
 
-  transformC(){
+  transformColor() {
     console.log('fuck')
-    if (this.signIdArray.includes(this.user.id)&&this.color!==$r('sys.color.hds_snackbar_button_background_color')) {
+    if (this.signIdArray.includes(this.user.id) &&
+      this.color !== $r('sys.color.hds_snackbar_button_background_color')) {
       animateTo({
         duration: 300,
         curve: 'smooth'
-      },()=>{
+      }, () => {
         this.color = $r('sys.color.hds_snackbar_button_background_color')
       })
       console.log('fuck11111111111111')
     }
-    if (!this.signIdArray.includes(this.user.id)&&this.color!==$r('sys.color.button_background_color_transparent')) {
+    if (!this.signIdArray.includes(this.user.id) &&
+      this.color !== $r('sys.color.button_background_color_transparent')) {
       animateTo({
         duration: 300,
         curve: 'smooth'
-      },()=>{
+      }, () => {
         this.color = $r('sys.color.button_background_color_transparent')
       })
       console.log('fuck00000000000000000')
@@ -69,9 +71,9 @@ struct userItem {
 
   build() {
     Row() {
-      Row(){
-        Icon({ UserId: this.user.id})
-        Text(this.user.uname).margin({left:30,right:60})
+      Row() {
+        Icon({ UserId: this.user.id })
+        Text(this.user.uname).margin({ left: 30, right: 60 })
       }
       .height(60)
       .width('90%')
@@ -90,24 +92,25 @@ export function initSignInfo(name: string, activityInfo: ActivityInfo) {
 export struct SignPage {
   @State activityInfo: null | ActivityInfo = null
   @State queryParams: object = JSON.parse('{}') as object
-  @State otherUser: Array<userMenu> = [{ uname: '1275673', id: 1 }]
+  @State otherUser: Array<userMenu> = []
   @State signIdArray: Array<number> = []
-  @State otherUserIsShow: boolean = false
+  @State IsSignForHost: boolean = true
+  @State otherUserDialogIsShow: boolean = false
   pathInfos: NavPathStack = new NavPathStack();
 
   @Builder
   NavigationMenu() {
-    Column(){
+    Column() {
       Image($r('app.media.ic_contacts_addcontact'))
         .height(30)
         .width(30)
         .onClick(() => {
-          this.otherUserIsShow = false
-          this.otherUserIsShow = true
+          this.otherUserDialogIsShow = true
         })
-        .bindSheet(this.otherUserIsShow, this.otherUserMenu,{title:{title:$r('app.string.other_user')}})
+        .bindSheet($$this.otherUserDialogIsShow, this.otherUserMenu, { title: { title: $r('app.string.other_user') } })
         .fillColor($r('app.color.tittle_text'))
         .margin({ right: 20 })
+
     }.justifyContent(FlexAlign.Center)
     .height('100%')
   }
@@ -118,7 +121,7 @@ export struct SignPage {
     List() {
       ForEach(this.otherUser, (user: userMenu) => {
         ListItem() {
-          userItem({user:user,signIdArray:this.signIdArray})
+          userItem({ user: user, signIdArray: this.signIdArray })
         }.onClick(() => {
           console.log('fuck' + this.signIdArray.toString())
           if (this.signIdArray.includes(user.id)) {
@@ -179,21 +182,74 @@ export struct SignPage {
                   this.queryParams['longitude'] = data.longitude as number;
                   this.queryParams['latitude'] = data.latitude as number;
                   this.queryParams['activeId'] = this.activityInfo?.ActivityId
+
                 })
             })
           }
           Button('签到')
             .onClick(async () => {
+              const hashTable = new Map<string, string[]>();
               const dbManager = DatabaseManager.getInstance()
-              const uid = dbManager.getUserInfoById(true, 1, 'uid')
-              const name = dbManager.getUserInfoById(true, 1, 'name')
-              const fid = dbManager.getUserInfoById(true, 1, 'fid')
+              const uid = await dbManager.getUserInfoById(true, 1, 'uid')
+              const name = await dbManager.getUserInfoById(true, 1, 'name')
+              const fid = await dbManager.getUserInfoById(true, 1, 'fid')
               this.queryParams['uid'] = uid
               this.queryParams['name'] = name
               this.queryParams['fid'] = fid
               const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
               const result = await Sign.DoSignIn(cookies, this.queryParams)
-              promptAction.showToast({ message: result })
+
+              for (let i = 0; i < this.signIdArray.length; i++) {
+                const dbManager = DatabaseManager.getInstance()
+                const uid = await dbManager.getUserInfoById(false, this.signIdArray[i], 'uid')
+                const name = await dbManager.getUserInfoById(false, this.signIdArray[i], 'name') as string
+                const fid = await dbManager.getUserInfoById(false, this.signIdArray[i], 'fid')
+                this.queryParams['uid'] = uid
+                this.queryParams['name'] = name
+                this.queryParams['fid'] = fid
+                const cookies = await dbManager.getUserInfoById(false, this.signIdArray[i], 'cookies') as string
+                let result = await Sign.DoSignIn(cookies, this.queryParams)
+                if (result.includes('<html') || result.includes('500 Internal Server Error')) {
+                  result='签到不合法：服务器返回错误 (500)'
+                }
+                if (hashTable.has(result)) {
+                  hashTable.get(result)!.push(name);
+                } else {
+                  hashTable.set(result, [name]);
+                }
+              }
+              const messages: Record<string, string> = {
+                "success": `用户${name}签到成功`,
+                "validate": '签到需要验证码',
+                '您已签到过了': `用户${name}已签到过了`
+              };
+
+              let message = '';
+              let duration = 3000;
+
+              // 判断是否是服务器返回的 HTML 错误页（特别是 500 错误）
+              if (typeof result === 'string' &&
+                (result.includes('<html') || result.includes('500 Internal Server Error'))) {
+                message = '签到不合法：服务器返回错误 (500)';
+              } else {
+                // 正常逻辑处理 result
+                message = messages[result] || `签到失败: 签到返回的结果为\n${result}`;
+                duration = messages[result] ? 3000 : 6000;
+              }
+
+              // 如果有其他用户的签到统计数据，追加显示
+              if (hashTable.size > 0) {
+                let statsMessage = '\n\n其他用户的签到统计数据:\n';
+                hashTable.forEach((names, result) => {
+                  statsMessage += `${result}\n${names.join(', ')} (共 ${names.length} 人)\n`;
+                });
+
+                message += statsMessage;
+                duration = 10000; // 有统计信息则延长显示时间
+              }
+
+              // 统一弹窗提示
+              promptAction.showToast({ message, duration });
 
             })
         }.justifyContent(FlexAlign.Center)

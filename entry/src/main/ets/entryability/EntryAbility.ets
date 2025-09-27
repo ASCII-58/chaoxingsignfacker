@@ -2,6 +2,7 @@ import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.Ab
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { DatabaseManager } from '../utils/DataBase';
+import BuildProfile from 'BuildProfile';
 
 const DOMAIN = 0x0000;
 const TAG = 'DB_INIT';
@@ -58,7 +59,18 @@ export default class EntryAbility extends UIAbility {
           hilog.info(DOMAIN, 'testTag', '%{public}s', 'Succeeded in loading the main content.');
         });
       } else {
-        windowStage.loadContent('pages/LoginPage')
+        // Main window is created, set main page for this ability
+        hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
+
+        windowStage.loadContent('pages/Index', () => {
+
+          // 推荐在 DEBUG 模式下使用 - 动态加载。
+          if (BuildProfile.DEBUG) {
+            import('@hadss/debug-db').then(async (ns: ESObject) => {
+              await ns.DebugDB.initialize(this.context, { port: 8080, defaultStart: true });
+            });
+          }
+        });
       }
     } catch (error) {
       hilog.error(DOMAIN, TAG, 'Window stage creation error: %{public}s',

@@ -1,8 +1,11 @@
 import { image } from '@kit.ImageKit';
 import http from '@ohos.net.http';
 import { ChaoxingUtils } from './utils';
-import { JSON } from '@kit.ArkTS';
-import { ChaoXingApi } from './ChaoxingAPI'
+import { JSON, url } from '@kit.ArkTS';
+import { ChaoXingApi } from './ChaoxingAPI';
+import { DatabaseManager } from './DataBase';
+import { promptAction } from '@kit.ArkUI';
+
 export interface UserInfo {
   msg: string,
   uname: string,
@@ -109,6 +112,42 @@ export class loginFunction {
       }
     } finally {
       httpRequest.destroy()
+    }
+  }
+
+  /**
+   * 通过url添加其他用户
+   * @param stringURL
+   */
+  static async LoginByURL(stringURL: string): Promise<string> {
+    try {
+      let urlObject = url.URL.parseURL(stringURL);
+      let urlParse: url.URLParams = urlObject.params
+      let phone = urlParse.getAll('phone')[0]
+      let pwd = urlParse.getAll('pwd')[0]
+      let AESPhone = ChaoxingUtils.encryptByAES(phone)
+      let body = ChaoxingUtils.getLoginBody(AESPhone, pwd);
+      let cookie = await loginFunction.LoginChaoXing(body)
+      let userInfo = await loginFunction.getUserInfo(cookie)
+      const dbManager = DatabaseManager.getInstance()
+      if (await dbManager.insertOtherUser({
+          phone: phone,
+          pwd: pwd,
+          pic: userInfo.pic,
+          uid: userInfo.uid,
+          name: userInfo.uname,
+          cookies: cookie,
+          fid: userInfo.fid
+        }) === 1
+      ) {
+        return '添加成功'
+      } else {
+        console.error('fuck,密码错误或已经登录')
+        return '链接的手机号或密码有误或已经登录'
+      }
+    } catch {
+      console.error('请扫描正确的二维码')
+      return '请使用正确的url'
     }
   }
 

@@ -290,6 +290,24 @@ class DatabaseManager {
       return false
     }
   }
+  /**
+   * 将其他用户信息插入到数据库的 {@code OtherUser} 表中。
+   *
+   * <p>该方法会先检查数据库是否已初始化，随后开启事务并执行以下步骤：
+   *
+   * <ol>
+   *   <li>通过 {@code checkPhoneExists} 判断手机号是否已存在，若已存在返回 {@code -1}。</li>
+   *   <li>使用参数化 SQL 将 {@code userData} 中的字段 {@code phone, pwd, name, pic, cookies, uid, fid}
+   *       插入 {@code OtherUser} 表。</li>
+   *   <li>查询并记录本次插入的自增 ID（仅用于日志），随后提交事务并返回 {@code 1} 表示成功。</li>
+   * </ol>
+   *
+   * 若在插入过程中出现任何异常，将回滚事务并抛出 {@link RuntimeException}，外层捕获后会再次回滚并返回 {@code 0}。
+   *
+   * @param userData 包含待插入用户信息的 {@code UserData} 对象
+   * @return {@code 1} 表示插入成功；{@code -1} 表示手机号已存在；{@code 0} 表示因异常未插入
+   * @throws RuntimeException 当数据库操作失败时抛出，异常信息中包含具体错误原因
+   */
 
   public async insertOtherUser(userData: UserData): Promise<number> {
     try {
