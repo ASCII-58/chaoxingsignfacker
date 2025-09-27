@@ -3,16 +3,13 @@ import { loginFunction } from '../utils/Login';
 import image from '@ohos.multimedia.image';
 import { ClassInfo, CourseAndActivity } from '../utils/classFun';
 import fs from '@ohos.file.fs';
-import { generateBarcode, scanBarcode, scanCore } from '@kit.ScanKit';
-import { UIContext } from '@kit.ArkUI';
+import { scanBarcode, scanCore } from '@kit.ScanKit';
+import { componentSnapshot, UIContext } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { url } from '@kit.ArkTS';
-import { ChaoxingUtils } from '../utils/utils'
 import promptAction from '@ohos.promptAction';
-import ImageScenario from '../Component/photoshear'
-import { componentSnapshot } from '@kit.ArkUI';
-import { loginByCommon } from '../Component/loginCom';
+import ImageScenario from '../Component/photoshear';
+import { loginByCommon, loginByURL } from '../Component/loginCom';
 
 @Reusable
 @Component
@@ -36,75 +33,6 @@ struct ClassIcon {
   }
 }
 
-@Component
-struct OtherUserLogin {
-  private dialogController: CustomDialogController = new CustomDialogController({
-    builder: loginByCommon(), // 占位
-    autoCancel: true,
-    alignment: DialogAlignment.Center
-  });
-  build() {
-    Row() {
-      Column(){
-        Button() {
-          Image($r('app.media.qrcode'))
-            .height(40)
-            .width(40)
-            .fillColor($r('app.color.icon'))
-            .margin(15)
-        }.borderRadius(999)
-        .onClick(() => {
-          let options: scanBarcode.ScanOptions = {
-            scanTypes: [scanCore.ScanType.ALL],
-            enableMultiMode: true,
-            enableAlbum: true
-          };
-          try {
-            // 可调用getHostContext接口获取当前页面关联的Context
-            if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
-              scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
-                .then(async (result: scanBarcode.ScanResult) => {
-                  if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
-                    let loginMSG = await loginFunction.LoginByURL(result.originalValue)
-                    promptAction.showToast({ message: loginMSG })
-                  } else {
-                    promptAction.showToast({ message: '权限错误' })
-                  }
-                  // loginFunction.LoginChaoXing()
-                  // 解析码值结果跳转应用服务页
-                  hilog.info(0x0001, '[Scan CPSample]',
-                    `Succeeded in getting ScanResult by promise with options, result is ${JSON.stringify(result)}`);
-                })
-                .catch((error: BusinessError) => {
-                  hilog.error(0x0001, '[Scan CPSample]',
-                    `Failed to get ScanResult by promise with options. Code:${error.code}, message: ${error.message}`);
-                });
-            } else {
-              // Fallback for unsupported SystemCapability
-            }
-          } catch (error) {
-            hilog.error(0x0001, '[Scan CPSample]',
-              `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
-          }
-        })
-        Text('扫码添加')
-      }
-
-      Column(){
-        Button() {
-          Image($r('app.media.paperclip'))
-            .height(40)
-            .width(40)
-            .fillColor($r('app.color.icon'))
-            .margin(15)
-        }.onClick(() => {
-          this.dialogController.open()
-        })
-      }
-    }.margin({ top: 50 })
-  }
-}
-
 @Entry
 @Component
 struct UI {
@@ -117,8 +45,9 @@ struct UI {
   @State titleName: string = '首页'
   @State classList: ClassInfo[] | null = null
   @State QRCodeIsShow: boolean = false
-  @State OtherUserLoginWayIsShow: boolean = false
   @Provide('pathInfos') pathInfos: NavPathStack = new NavPathStack();
+  @State LoginCommonIsShow: boolean = false
+  @State LoginURLIsSHow:boolean=false
   private controller: TabsController = new TabsController();
   private uiContext: UIContext = this.getUIContext();
 
@@ -227,8 +156,13 @@ struct UI {
   }
 
   @Builder
-  OtherUserLoginWayDialog() {
-    OtherUserLogin()
+  loginCommon() {
+    loginByCommon({ isShow: this.LoginCommonIsShow }).margin({ top: 90 })
+  }
+
+  @Builder
+  loginURL(){
+    loginByURL({isShow:this.LoginURLIsSHow}).margin({top:90})
   }
 
   build() {
@@ -280,7 +214,7 @@ struct UI {
                   Image(this.HostImageData)
                     .width(50)
                     .height(50)
-                    .borderRadius(10)// 设置圆角
+                    .borderRadius(90)// 设置圆角
                     .objectFit(ImageFit.Cover)// 图片填充模式
                     .alt($r('app.media.foreground'))
                     .margin({ left: 7.5 })
@@ -317,44 +251,89 @@ struct UI {
                 .width('97%')
                 .height(70)
                 .backgroundColor($r('app.color.header_background'))
-                .borderRadius({
-                  topLeft: 15,
-                  bottomLeft: 15,
-                  bottomRight: 35,
-                  topRight: 35
-                })
+                .borderRadius(35)
                 .padding({ left: 5, right: 5 })
                 .zIndex(999999)
               }.width('100%')
               .justifyContent(FlexAlign.Start)
 
               Row() {
+
                 Button() {
-                  Column() {
-                    Image($r('app.media.plus')).height(30).width(30)
-                  }.height(60).width(60).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
-                }.borderRadius(30)
+                  Image($r('app.media.qrcode'))
+                    .height(30)
+                    .width(30)
+                    .fillColor($r('app.color.icon'))
+                    .margin(15)
+                }.borderRadius(999)
                 .onClick(() => {
-                  this.OtherUserLoginWayIsShow = true
+                  let options: scanBarcode.ScanOptions = {
+                    scanTypes: [scanCore.ScanType.ALL],
+                    enableMultiMode: true,
+                    enableAlbum: true
+                  };
+                  try {
+                    // 可调用getHostContext接口获取当前页面关联的Context
+                    if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
+                      scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
+                        .then(async (result: scanBarcode.ScanResult) => {
+                          if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
+                            let loginMSG = await loginFunction.LoginByURL(result.originalValue)
+                            promptAction.showToast({ message: loginMSG })
+                          } else {
+                            promptAction.showToast({ message: '权限错误' })
+                          }
+                          // loginFunction.LoginChaoXing()
+                          // 解析码值结果跳转应用服务页
+                          hilog.info(0x0001, '[Scan CPSample]',
+                            `Succeeded in getting ScanResult by promise with options, result is ${JSON.stringify(result)}`);
+                        })
+                        .catch((error: BusinessError) => {
+                          hilog.error(0x0001, '[Scan CPSample]',
+                            `Failed to get ScanResult by promise with options. Code:${error.code}, message: ${error.message}`);
+                        });
+                    } else {
+                      // Fallback for unsupported SystemCapability
+                    }
+                  } catch (error) {
+                    hilog.error(0x0001, '[Scan CPSample]',
+                      `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
+                  }
                 })
-                .bindSheet($$this.OtherUserLoginWayIsShow, this.OtherUserLoginWayDialog,
-                  {
-                    height: '30%',
-                    backgroundColor: $r('app.color.dialog')
-                  })
+
+                Button() {
+                  Image($r('app.media.selector'))
+                    .height(30)
+                    .width(30)
+                    .fillColor($r('app.color.icon'))
+                    .margin(15)
+                }.onClick(() => {
+                  this.LoginCommonIsShow = !this.LoginCommonIsShow
+                }).borderRadius(999)
+                .bindSheet($$this.LoginCommonIsShow, this.loginCommon, { height: '90%' })
+
+                Button() {
+                  Image($r('app.media.paperclip')).height(30)
+                    .width(30)
+                    .fillColor($r('app.color.icon'))
+                    .margin(15)
+                }.onClick(() => {
+                  this.LoginURLIsSHow = !this.LoginURLIsSHow
+                }).borderRadius(999)
+                .bindSheet($$this.LoginURLIsSHow, this.loginURL(), { height: '90%' })
 
                 Button() {
                   Column() {
                     Image($r('app.media.share'))
-                      .height(30).width(30)
+                      .height(30).width(30).fillColor($r('app.color.icon'))
                   }.height(60).width(60).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
                 }.onClick(() => {
                   this.QRCodeIsShow = true
                 })
                 .borderRadius(30)
                 .bindSheet($$this.QRCodeIsShow, this.QRCodeDialog,
-                  { height: '100%', backgroundColor: $r('app.color.dialog'), title: this.shareTitle })
-              }
+                  { height: '90%', backgroundColor: $r('app.color.dialog'), title: this.shareTitle })
+              }.margin({ top: 15, left: '1.5%' }).justifyContent(FlexAlign.SpaceAround).width('97%')
 
             }
             .height('100%')

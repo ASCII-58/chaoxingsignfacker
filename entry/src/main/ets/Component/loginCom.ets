@@ -3,9 +3,9 @@ import { DatabaseManager, UserData } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
 import { ChaoxingUtils } from '../utils/utils';
 
-@CustomDialog
+@Reusable
+@Component
 export struct loginByCommon {
-  controller: CustomDialogController
   @State username: string = '';
   @State password: string = '';
   @State LoginEnable: boolean = false
@@ -13,6 +13,7 @@ export struct loginByCommon {
   @State PasswordTranslateY: number = 45
   @State UsernameScale: number = 0.9
   @State PasswordScale: number = 0.9
+  @Link isShow: boolean
 
   build() {
     Column() {
@@ -181,7 +182,7 @@ export struct loginByCommon {
               let operationResult = await dbManager.insertOtherUser(userData)
               if (operationResult === 1) {
                 promptAction.showToast({ message: '登录成功', duration: 2000 })
-                this.controller.close()
+                this.isShow = !this.isShow
               } else if (operationResult === 0) {
                 promptAction.showToast({ message: '数据库异常，可能需要重启应用', duration: 10000 })
                 let applicationContext = this.getUIContext().getHostContext()?.getApplicationContext();
@@ -211,6 +212,109 @@ export struct loginByCommon {
             });
             this.username = '';
             this.password = '';
+          }
+        })
+        .margin({ bottom: 20 })
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.Center)
+  }
+}
+
+@Reusable
+@Component
+export struct loginByURL {
+  @State LoginURL: string = '';
+  @State LoginEnable: boolean = false
+  @State urlTranslateY: number = 45
+  @State urlScale: number = 0.9
+  @Link isShow: boolean
+
+  build() {
+    Column() {
+      Text('URL')
+        .fontSize(26)
+        .height(40)
+        .width('90%')
+        .textAlign(TextAlign.Start)
+        .translate({ y: this.urlTranslateY })
+        .scale({ x: this.urlScale, y: this.urlScale })
+      TextInput({ placeholder: '', text: this.LoginURL })
+        .type(InputType.Number)
+        .onChange((value: string) => {
+          this.LoginURL = value;
+          if (this.LoginURL) {
+            animateTo({
+              duration: 300,
+              curve: 'smooth'
+            }, () => {
+              this.urlTranslateY = 0
+              this.urlScale = 1
+            })
+          }
+          if (this.LoginURL) {
+            this.LoginEnable = true
+          }
+        })
+        .onFocus(() => {
+          animateTo({
+            duration: 300,
+            curve: 'smooth'
+          }, () => {
+            this.urlTranslateY = 0
+            this.urlScale = 1
+          })
+        })
+        .onBlur(() => {
+          if (!this.LoginURL) {
+            animateTo({
+              duration: 300,
+              curve: 'smooth'
+            }, () => {
+              this.urlTranslateY = 45
+              this.urlScale = 0.9
+            })
+          }
+        })
+        .placeholderFont({ size: 16 })
+        .height(50)
+        .width('90%')
+        .backgroundColor(Color.Transparent)// 透明背景
+        .border({
+          // 设置边框
+          width: {
+            // 分别设置四个方向的边框宽度
+            top: 0,
+            right: 0,
+            bottom: 2, // 只有底部有边框
+            left: 0
+          },
+          color: {
+            // 设置边框颜色
+            top: Color.Transparent,
+            right: Color.Transparent,
+            bottom: Color.Blue, // 底部边框颜色
+            left: Color.Transparent
+          },
+          style: BorderStyle.Solid // 边框样式
+        ,
+          radius: 0
+        })
+        .margin({ bottom: 20 })
+      Button('登录')
+        .enabled(this.LoginEnable)
+        .width('60%')
+        .height(50)
+        .onClick(async () => {
+          const LoginMSG = await loginFunction.LoginByURL(this.LoginURL)
+          promptAction.showToast({ message: LoginMSG })
+          if (LoginMSG === '添加成功') {
+            this.isShow = !this.isShow
+          } else {
+            this.LoginURL = '';
+            this.LoginEnable = false
+            this.urlTranslateY = 45
+            this.urlScale = 0.9
           }
         })
         .margin({ bottom: 20 })
