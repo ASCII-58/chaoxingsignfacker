@@ -184,5 +184,8 @@ export class loginFunction {
       console.error('fuck' + error)
       return null
     }
+    finally {
+      httpRequest.destroy()
+    }
   }
 }

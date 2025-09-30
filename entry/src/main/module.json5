@@ -66,7 +66,11 @@
         "usedScene": {
           "abilities": ["EntryAbility"],
           "when": "always"
-        }
+        }},
+      {"name": "ohos.permission.WRITE_MEDIA","reason": "$string:user",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "always"},
       }
     ]
   }

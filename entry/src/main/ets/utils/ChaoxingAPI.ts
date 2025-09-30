@@ -49,7 +49,7 @@ export class ChaoXingApi {
   /**
    * 正式签到基础URL
    */
-  static readonly URL_SIGN =new BuildableUrl(
+  static readonly URL_SIGN = new BuildableUrl(
     'https://mobilelearn.chaoxing.com/pptSign/stuSignajax?&clientip=&appType=15&ifTiJiao=1&vpProbability=-1');
   /**
    * 预签到基础URL
@@ -61,15 +61,17 @@ export class ChaoXingApi {
     'https://mobilelearn.chaoxing.com/v2/apis/active/student/activelist?fid=0&showNotStartedActive=0'
   static readonly URL_GET_COURSE_LIST = 'https://mooc1-api.chaoxing.com/mycourse/backclazzdata?view=json&rss=1'
   static readonly URL_UPLOAD_PHOTO = new BuildableUrl(
-      'https://pan-yz.chaoxing.com/upload?_from=mobilelearn'
+    'https://pan-yz.chaoxing.com/upload?_from=mobilelearn'
   );
   /**
    * 获取图片上传所需的token
-  */
+   */
   static readonly URL_GET_TOKEN = 'https://pan-yz.chaoxing.com/api/token/uservalid';
+
+  static readonly URL_IF_PHOTO = new BuildableUrl('https://mobilelearn.chaoxing.com/v2/apis/active/getPPTActiveInfo?')
   /**
    * 登录
-  */
+   */
   static readonly URL_LOGIN = "https://passport2.chaoxing.com/fanyalogin"
   static readonly UA =
     "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"
