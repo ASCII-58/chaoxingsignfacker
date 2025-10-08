@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit';
-import { ChaoXingApi} from './ChaoxingAPI'
+import { ChaoXingApi} from './PublicAPI'
 import { DatabaseManager } from './DataBase';
 import { ChaoxingUtils } from './utils';
 export interface ActivityInfo {

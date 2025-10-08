@@ -7,15 +7,16 @@ import { DatabaseManager } from '../utils/DataBase';
 import promptAction from '@ohos.promptAction';
 import { image } from '@kit.ImageKit';
 import { loginFunction } from '../utils/Login';
-import picker from '@ohos.file.picker';
+import { common, Context } from '@kit.AbilityKit';
+import { photoAccessHelper } from '@kit.MediaLibraryKit';
+import fileIo from '@ohos.file.fs';
 import { request } from '@kit.BasicServicesKit';
-import fs from '@ohos.file.fs';
-import { common } from '@kit.AbilityKit';
 import { ChaoxingUtils } from '../utils/utils';
 
 interface userMenu {
   uname: string
   id: number
+  SignPermission: number
 }
 
 @Reusable
@@ -78,7 +79,10 @@ struct userItem {
     Row() {
       Row() {
         Icon({ UserId: this.user.id })
-        Text(this.user.uname).margin({ left: 30, right: 60 })
+        Text(this.user.uname).margin({ left: 30 }).width('20%')
+        Blank()
+        Text(this.user.SignPermission === 1 ? '' : this.user.SignPermission === 0 ? '你已经签过到了' : '你没有签到权限')
+          .width('20%').margin({ right: 30 })
       }
       .height(60)
       .width('90%')
@@ -111,6 +115,22 @@ struct userItem {
   }
 }
 
+@Reusable
+@Component
+struct photoPicker {
+  @State displayURI: string = ''
+  @Prop signIdArray: Array<number>
+  @Link objectidArr: string[]
+  @State backBlur: boolean = false
+  @State isLoading: boolean = false
+  
+  build() {
+    Column() {}
+    .width('100%')
+    .padding({ top: 20 })
+  }
+
+}
 @Builder
 export function initSignInfo(name: string, activityInfo: ActivityInfo) {
   SignPage({ activityInfo: activityInfo })
@@ -125,9 +145,7 @@ export struct SignPage {
   @State IsSignForHost: boolean = true
   @State ifPhoto: boolean = false
   @State otherUserDialogIsShow: boolean = false
-  @State uriArr: string[] = []
   @State objectidArr: string[] = []
-  @State backBlur: boolean = false
   @State canSign: boolean = false
   pathInfos: NavPathStack = new NavPathStack();
 
@@ -179,138 +197,7 @@ export struct SignPage {
           Stack() {
             if (this.activityInfo?.signType === '0') {
               if (this.ifPhoto) {
-                Image(this.uriArr[0])
-                  .objectFit(ImageFit.Contain)
-                  .borderRadius($r('sys.float.corner_radius_level5'))
-                Button('选择图片')
-                  .buttonStyle(ButtonStyleMode.NORMAL)
-                  .backgroundBlurStyle(this.backBlur ? BlurStyle.BACKGROUND_THICK : BlurStyle.NONE,
-                    {
-                      colorMode: ThemeColorMode.SYSTEM,
-                      adaptiveColor: AdaptiveColor.DEFAULT,
-                      scale: 1.0
-                    })
-                  .fontColor(this.backBlur ? $r('sys.color.font_on_primary') : $r('sys.color.font_emphasize'))
-                  .height(40)
-                  .fontWeight(FontWeight.Medium)
-                  .fontSize($r('sys.float.Body_L'))
-                  .margin({ bottom: 36 })
-                  .onClick(() =>{
-                    let context = getContext(this) as common.UIAbilityContext;
-                    if (!context) {
-                      hilog.error(0x0000, 'PhotoUpload', '获取上下文失败：context is null');
-                      return;
-                    }
-
-                    let filesDir: string;
-                    try {
-                      filesDir = context.cacheDir;
-                      if (!filesDir) {
-                        throw new Error('cacheDir is empty');
-                      }
-                    } catch (err) {
-                      hilog.error(0x0000, 'PhotoUpload', `获取缓存目录失败：${err instanceof Error ? err.message : String(err)}`);
-                      return;
-                    }
-
-                    const photoSelectOptions = new picker.PhotoSelectOptions();
-                    photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
-                    photoSelectOptions.maxSelectNumber = this.signIdArray.length + 1;
-
-                    const photoViewPicker = new picker.PhotoViewPicker();
-                    photoViewPicker.select(photoSelectOptions)
-                      .then(async (res) => { // 注意这里添加 async，因为 forEach 内部有 await
-                        this.uriArr = res.photoUris;
-                        hilog.info(0x0000, 'PhotoUpload', `成功选择 ${this.uriArr.length} 张图片`);
-
-                        if (this.uriArr.length === 0) {
-                          hilog.warn(0x0000, 'PhotoUpload', '未选择任何图片');
-                          return;
-                        }
-
-                        this.backBlur = true;
-                        const uploadFile: request.File[] = [];
-
-                        // 使用 for...of 替代 forEach，避免异步操作无法正确捕获错误和控制流程
-                        for (let index = 0; index < this.uriArr.length; index++) {
-                          const photoURI = this.uriArr[index];
-                          try {
-                            // 打开文件
-                            let file: fs.File;
-                            try {
-                              file = fs.openSync(photoURI, fs.OpenMode.READ_ONLY); // 读取图片用 READ_ONLY 更合理
-                            } catch (err) {
-                              throw new Error(`打开文件失败（URI: ${photoURI}）：${err instanceof Error ? err.message : String(err)}`);
-                            }
-
-                            // 生成 UUID 并复制文件
-                            const uuid = ChaoxingUtils.generateUUIDv4();
-                            const targetPath = `${filesDir}/${uuid}.jpg`; // 修复路径拼接错误（缺少 /）
-                            try {
-                              fs.copyFileSync(file.fd, targetPath);
-                              hilog.info(0x0000, 'PhotoUpload', `文件复制成功：${targetPath}`);
-                            } catch (err) {
-                              throw new Error(`复制文件失败（目标路径: ${targetPath}）：${err instanceof Error ? err.message : String(err)}`);
-                            } finally {
-                              // 确保文件描述符关闭，避免资源泄漏
-                              fs.closeSync(file.fd);
-                            }
-
-                            // 构建上传文件对象
-                            const photoFile: request.File = {
-                              filename: `${uuid}.jpg`,
-                              name: `${uuid}.jpg`,
-                              uri: 'internal://cache/'+uuid+'.jpg',
-                              type: 'image/jpeg' // 更标准的 MIME 类型
-                            };
-                            uploadFile.push(photoFile);
-
-                            // 数据库查询
-                            const dbManager = DatabaseManager.getInstance();
-                            if (!dbManager) {
-                              throw new Error('DatabaseManager 实例获取失败');
-                            }
-
-                            const isFirst = !index; // 简化判断逻辑
-                            const userId = isFirst ? 1 : this.signIdArray[index - 1]; // 注意：原逻辑中 index 对应关系可能需要确认
-                            let cookies: string, uid: number;
-
-                            try {
-                              cookies = await dbManager.getUserInfoById(isFirst, userId, 'cookies') as string;
-                              uid = await dbManager.getUserInfoById(isFirst, userId, 'uid') as number;
-                            } catch (err) {
-                              throw new Error(`查询用户信息失败（用户ID: ${userId}）：${err instanceof Error ? err.message : String(err)}`);
-                            }
-                            try {
-                              const objectid = await Sign.UploadPhoto(getContext(this), cookies, [photoFile], uid);
-                              if (!objectid) {
-                                throw new Error('上传返回的 objectid 为空');
-                              }
-                              this.objectidArr.push(objectid);
-                              hilog.info(0x0000, 'PhotoUpload', `图片上传成功（用户ID: ${userId}，objectid: ${objectid}）`);
-                            } catch (err) {
-                              console.error(`图片上传失败（用户ID: ${userId}）：${err instanceof Error ? err.message : String(err)}`);
-                            }
-
-                          } catch (err) {
-                            // 捕获单张图片处理的错误，继续处理下一张
-                            hilog.error(0x0000, 'PhotoUpload', `处理第 ${index + 1} 张图片失败：${err instanceof Error ? err.message : String(err)}`);
-                          }
-                        }
-
-                        // 检查上传文件数量是否符合预期
-                        if (uploadFile.length === this.signIdArray.length + 1) {
-                          this.canSign = true;
-                          hilog.info(0x0000, 'PhotoUpload', '所有图片处理完成，可开始签到');
-                        } else {
-                          hilog.warn(0x0000, 'PhotoUpload', `上传文件数量不匹配：预期 ${this.signIdArray.length + 1}，实际 ${uploadFile.length}`);
-                        }
-
-                      })
-                      .catch((err:Error )=> {
-                        hilog.error(0x0000, 'PhotoUpload', `图片选择失败：${err instanceof Error ? err.message : String(err)}`);
-                      });
-                  })
+                photoPicker({signIdArray:this.signIdArray,objectidArr:this.objectidArr})
               }
             } else if (this.activityInfo?.signType === '2') {
             } else if (this.activityInfo?.signType === '4') {
@@ -351,9 +238,10 @@ export struct SignPage {
                       }
                       // 成功日志处理。
                       hilog.info(0x0000, "testTag", "succeeded in choosing location");
+                      const LoginLocation = ChaoxingUtils.gcj02_to_bd09(data.latitude,data.longitude)
                       this.queryParams['address'] = data.name as string;
-                      this.queryParams['longitude'] = data.longitude as number;
-                      this.queryParams['latitude'] = data.latitude as number;
+                      this.queryParams['longitude'] = LoginLocation.lon as number;
+                      this.queryParams['latitude'] = LoginLocation.lat as number;
                       this.queryParams['activeId'] = this.activityInfo?.ActivityId
                       this.canSign = true
 
@@ -381,7 +269,7 @@ export struct SignPage {
                 this.queryParams['objectid'] = this.objectidArr[0]
               }
               const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
-              console.log('fuck'+cookies)
+              console.log('fuck' + cookies)
               const result = await Sign.DoSignIn(cookies, this.queryParams)
 
               for (let i = 0; i < this.signIdArray.length; i++) {
@@ -437,7 +325,7 @@ export struct SignPage {
               }
 
               // 统一弹窗提示
-              promptAction.showToast({ message, duration });
+              promptAction.showToast({ message, duration, alignment:Alignment.Center});
 
             })
         }.justifyContent(FlexAlign.Center)
@@ -460,7 +348,12 @@ export struct SignPage {
       const userCount = await dbManager.getTableCount('OtherUser')
       for (let i: number = 1; i <= userCount; i++) {
         const userName = await dbManager.getUserInfoById(false, i, 'name')
-        this.otherUser.push({ 'uname': userName as string, 'id': i })
+        const uid = await dbManager.getUserInfoById(false, i, 'uid')
+        const cookies = await dbManager.getUserInfoById(false, i, 'cookies')
+        const SignPermission =
+          await Sign.PreSignIn(this.activityInfo?.ActivityId as number, this.activityInfo?.ClassId as number,
+            this.activityInfo?.CourseId as number, uid as number, cookies as string)
+        this.otherUser.push({ 'uname': userName as string, 'id': i, SignPermission: SignPermission })
       }
       const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
       this.ifPhoto = await Sign.ifPhoto(cookies, this.activityInfo?.ActivityId as number)

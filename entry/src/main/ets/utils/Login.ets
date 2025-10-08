@@ -2,7 +2,7 @@ import { image } from '@kit.ImageKit';
 import http from '@ohos.net.http';
 import { ChaoxingUtils } from './utils';
 import { JSON, url } from '@kit.ArkTS';
-import { ChaoXingApi } from './ChaoxingAPI';
+import { ChaoXingApi } from './PublicAPI';
 import { DatabaseManager } from './DataBase';
 import { promptAction } from '@kit.ArkUI';
 

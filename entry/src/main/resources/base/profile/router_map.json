@@ -9,6 +9,11 @@
       "name" : "SignerPage",
       "pageSourceFile": "src/main/ets/pages/SignerPage.ets",
       "buildFunction": "initSignInfo"
+    },
+    {
+      "name" : "TestPage",
+      "pageSourceFile" : "src/main/ets/pages/TestPage.ets",
+      "buildFunction": "init"
     }
   ]
 }

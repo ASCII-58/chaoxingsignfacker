@@ -52,7 +52,7 @@
     "requestPermissions": [
       {
         "name": "ohos.permission.READ_MEDIA",
-        "reason": "$string:user",
+        "reason": "$string:media",
         "usedScene": {
           "abilities": ["EntryAbility"],
           "when": "always"

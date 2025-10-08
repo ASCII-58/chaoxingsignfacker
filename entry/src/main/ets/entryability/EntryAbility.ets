@@ -1,8 +1,10 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { window } from '@kit.ArkUI';
+import { AnimatedDrawableDescriptor, window } from '@kit.ArkUI';
 import { DatabaseManager } from '../utils/DataBase';
 import BuildProfile from 'BuildProfile';
+import { loginFunction } from '../utils/Login';
+import { ChaoxingUtils } from '../utils/utils';
 
 const DOMAIN = 0x0000;
 const TAG = 'DB_INIT';
@@ -50,27 +52,26 @@ export default class EntryAbility extends UIAbility {
       const isHostLogin: boolean = !(await dbManager.isHostUserTableEmpty())
 
       if (isHostLogin) {
-        // 数据库初始化成功，加载主页面
-        windowStage.loadContent('pages/Index', (err) => {
-          if (err) {
-            hilog.error(DOMAIN, 'testTag', 'Failed to load main page: %{public}s', JSON.stringify(err));
-            return;
-          }
-          hilog.info(DOMAIN, 'testTag', '%{public}s', 'Succeeded in loading the main content.');
-        });
+        const username = await dbManager.getUserInfoById(true,1,'phone') as string
+        const pwd= await dbManager.getUserInfoById(true,1,'pwd') as string
+        const loginBody=ChaoxingUtils.getLoginBody(ChaoxingUtils.encryptByAES(username),pwd)
+        const loginResult = await loginFunction.LoginChaoXing(loginBody)
+        if (loginResult) {
+          windowStage.loadContent('pages/Index', (err) => {
+            if (err) {
+              hilog.error(DOMAIN, 'testTag', 'Failed to load main page: %{public}s', JSON.stringify(err));
+              return;
+            }
+            hilog.info(DOMAIN, 'testTag', '%{public}s', 'Succeeded in loading the main content.');
+          });
+        }
+        AlertDialog.show({ message: '登录过期，请重新登录' })
+
       } else {
         // Main window is created, set main page for this ability
         hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
-        windowStage.loadContent('pages/Index', () => {
-
-          // 推荐在 DEBUG 模式下使用 - 动态加载。
-          if (BuildProfile.DEBUG) {
-            import('@hadss/debug-db').then(async (ns: ESObject) => {
-              await ns.DebugDB.initialize(this.context, { port: 8080, defaultStart: true });
-            });
-          }
-        });
+        windowStage.loadContent('pages/LoginPage', );
       }
     } catch (error) {
       hilog.error(DOMAIN, TAG, 'Window stage creation error: %{public}s',

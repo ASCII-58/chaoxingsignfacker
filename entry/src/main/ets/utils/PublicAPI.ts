@@ -45,6 +45,9 @@ declare global {
 }
 
 // 3. 定义 API 常量
+/**
+ * 超星通用接口
+ */
 export class ChaoXingApi {
   /**
    * 正式签到基础URL
@@ -76,4 +79,11 @@ export class ChaoXingApi {
   static readonly UA =
     "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"
   static readonly URL_GET_USER_INFO = "https://sso.chaoxing.com/apis/login/userLogin4Uname.do"
+}
+
+export class InternalPath {
+  /**
+   * 同context.cacheDir
+   */
+  static readonly CACHE_PATH='internal://cache/'
 }

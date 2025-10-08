@@ -48,6 +48,7 @@ struct UI {
   @Provide('pathInfos') pathInfos: NavPathStack = new NavPathStack();
   @State LoginCommonIsShow: boolean = false
   @State LoginURLIsSHow:boolean=false
+  @State clickTime:number=0
   private controller: TabsController = new TabsController();
   private uiContext: UIContext = this.getUIContext();
 
@@ -218,6 +219,12 @@ struct UI {
                     .objectFit(ImageFit.Cover)// 图片填充模式
                     .alt($r('app.media.foreground'))
                     .margin({ left: 7.5 })
+                    .onClick(()=>{
+                      if ((++this.clickTime)>9) {
+                        this.clickTime=0
+                        this.pathInfos.pushPath({ name: 'TestPage' });
+                      }
+                    })
 
                   Column() {
                     Text(this.hostName)
@@ -348,7 +355,7 @@ struct UI {
         .backgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THIN)
         .fadingEdge(true)
         .barMode(BarMode.Fixed)
-        .animationDuration(0)
+        .animationDuration(300)
         .backgroundColor($r('sys.color.comp_background_secondary'))
         .divider({ strokeWidth: '1px', color: $r('sys.color.comp_divider') })
         .scrollable(false)

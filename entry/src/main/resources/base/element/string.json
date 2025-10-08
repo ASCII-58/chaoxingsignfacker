@@ -47,6 +47,10 @@
     {
       "name": "other_user",
       "value": "代签"
+    },
+    {
+      "name": "media",
+      "value": "读取要上传的图片"
     }
   ]
 }
