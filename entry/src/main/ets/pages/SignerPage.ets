@@ -7,11 +7,11 @@ import { DatabaseManager } from '../utils/DataBase';
 import promptAction from '@ohos.promptAction';
 import { image } from '@kit.ImageKit';
 import { loginFunction } from '../utils/Login';
-import { common, Context } from '@kit.AbilityKit';
-import { photoAccessHelper } from '@kit.MediaLibraryKit';
-import fileIo from '@ohos.file.fs';
+import fs from '@ohos.file.fs';
 import { request } from '@kit.BasicServicesKit';
 import { ChaoxingUtils } from '../utils/utils';
+import { picker } from '@kit.CoreFileKit';
+import { InternalPath } from '../utils/PublicAPI';
 
 interface userMenu {
   uname: string
@@ -119,18 +119,89 @@ struct userItem {
 @Component
 struct photoPicker {
   @State displayURI: string = ''
-  @Prop signIdArray: Array<number>
-  @Link objectidArr: string[]
+  @Link signIdArray: Array<number>
+  @Link objectidArray: string[]
   @State backBlur: boolean = false
   @State isLoading: boolean = false
-  
+
   build() {
-    Column() {}
+    Column() {
+      Button('选择图片')
+        .onClick(async () => {
+          const photoSelectOptions = new picker.PhotoSelectOptions();
+          // 过滤选择媒体文件类型为IMAGE
+          photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
+          // 选择媒体文件的最大数目
+          photoSelectOptions.maxSelectNumber = this.signIdArray.length + 1;
+          const photoNameArray: string[] = [];
+          const len = this.signIdArray.length + 1;
+          for (let i = 0; i < len; i++) {
+            photoNameArray.push(ChaoxingUtils.generatePhotoName());
+          }
+
+          // 二、创建 图片选择对象并选择图片
+          const photoViewPicker = new picker.PhotoViewPicker();
+          // 调用 select 方法，传入选项对象
+          photoViewPicker.select(photoSelectOptions).then(async res => {
+            this.displayURI = res.photoUris[0]
+            const context = getContext(this)
+            const fileType = 'jpg'
+            for (let i = 0; i < len; i++) {
+              const fileName = photoNameArray[i] + '.jpg'
+              const copyFilePath = context.cacheDir + '/' + fileName
+              // 将文件 拷贝到 临时目录
+              const file = fs.openSync(res.photoUris[i%res.photoUris.length], fs.OpenMode.READ_ONLY)
+              try {
+                fs.copyFileSync(file.fd, copyFilePath)
+                console.log('复制成功' + copyFilePath)
+              } catch (error) {
+                console.log('复制失败' + error)
+              }
+              const uploadFile: request.File = {
+                uri: InternalPath.CACHE_PATH + fileName,
+                filename: fileName,
+                name: 'file',
+                type: 'image/jpeg'
+              }
+              const dbManager = DatabaseManager.getInstance()
+              const userInfo = await dbManager.getUserInfoObjectById(i === 0, i === 0 ? 1 : i)
+              const token = Sign.GetToken(userInfo.cookies)
+              const uploadData: request.RequestData = {
+                name: 'puid',
+                value: userInfo.uid.toString()
+              }
+
+              let uploadTask: request.UploadTask;
+              request.uploadFile(getContext(), {
+                url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${token}`,
+                header: {
+                  cookies: userInfo.cookies
+                },
+                method: 'POST',
+                files: [uploadFile],
+                data: [uploadData]
+              }, (err, data) => {
+                if (err) {
+                  console.error(`Failed to request the upload. Code: ${err.code}, message: ${err.message}`);
+                  return;
+                }
+                uploadTask = data;
+                uploadTask.on('headerReceive', (data1) => {
+                  console.info(`NIMALEGEBI${JSON.stringify(data1?.['body'])}`);
+                  if (data1?.['body']) {
+                    this.objectidArray.push((JSON.parse(data1?.['body'] as string) as object)?.['objectId'])
+                  }
+                })
+              })
+            }
+          })
+        })
+    }
     .width('100%')
     .padding({ top: 20 })
   }
-
 }
+
 @Builder
 export function initSignInfo(name: string, activityInfo: ActivityInfo) {
   SignPage({ activityInfo: activityInfo })
@@ -197,7 +268,7 @@ export struct SignPage {
           Stack() {
             if (this.activityInfo?.signType === '0') {
               if (this.ifPhoto) {
-                photoPicker({signIdArray:this.signIdArray,objectidArr:this.objectidArr})
+                photoPicker({ signIdArray: this.signIdArray, objectidArray: this.objectidArr })
               }
             } else if (this.activityInfo?.signType === '2') {
             } else if (this.activityInfo?.signType === '4') {
@@ -238,7 +309,7 @@ export struct SignPage {
                       }
                       // 成功日志处理。
                       hilog.info(0x0000, "testTag", "succeeded in choosing location");
-                      const LoginLocation = ChaoxingUtils.gcj02_to_bd09(data.latitude,data.longitude)
+                      const LoginLocation = ChaoxingUtils.gcj02_to_bd09(data.latitude, data.longitude)
                       this.queryParams['address'] = data.name as string;
                       this.queryParams['longitude'] = LoginLocation.lon as number;
                       this.queryParams['latitude'] = LoginLocation.lat as number;
@@ -325,7 +396,7 @@ export struct SignPage {
               }
 
               // 统一弹窗提示
-              promptAction.showToast({ message, duration, alignment:Alignment.Center});
+              promptAction.showToast({ message, duration, alignment: Alignment.Center });
 
             })
         }.justifyContent(FlexAlign.Center)

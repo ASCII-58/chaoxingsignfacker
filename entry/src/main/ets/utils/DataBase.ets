@@ -176,6 +176,41 @@ class DatabaseManager {
     }
   }
 
+  public async getUserInfoObjectById(isHost: boolean, id: number): Promise<UserData> {
+    // 并行获取所有字段（提升性能）
+    const userInfoKey = await Promise.all([
+      this.getUserInfoById(isHost, id, 'phone'),
+      this.getUserInfoById(isHost, id, 'pwd'),
+      this.getUserInfoById(isHost, id, 'name'),
+      this.getUserInfoById(isHost, id, 'pic'),
+      this.getUserInfoById(isHost, id, 'cookies'),
+      this.getUserInfoById(isHost, id, 'uid'),
+      this.getUserInfoById(isHost, id, 'fid')
+    ]);
+    const phone = userInfoKey[0];
+    const pwd = userInfoKey[1];
+    const name = userInfoKey[2];
+    const pic = userInfoKey[3];
+    const cookies = userInfoKey[4];
+    const uid = userInfoKey[5];
+    const fid = userInfoKey[6];
+
+    // 检查是否所有必要字段都存在（可根据业务调整）
+    if (phone === null || pwd === null) {
+      throw new Error(`用户 ID ${id} 的必要信息缺失（phone 或 pwd 为空）`);
+    }
+
+    // 构造 UserData 对象
+    return {
+      phone: phone as string,      // 数据库中 phone 应为字符串
+      pwd: pwd as string,
+      name: (name as string) ?? '',
+      pic: (pic as string) ?? '',
+      cookies: (cookies as string) ?? '',
+      uid: (uid as number) ?? 0,
+      fid: (fid as number) ?? 0
+    };
+  }
   /**
    * 检查HostUser表是否为空
    *
@@ -549,7 +584,50 @@ class DatabaseManager {
   private normalizeError(err: Error, message: string): Error {
     return new Error(`${message} [原因]: ${err.message}`);
   }
+  public async updateUserInfoById(
+    isHost: boolean,
+    id: number,
+    field: "phone" | "pwd" | "name" | "pic" | "cookies" | "uid" | "fid",
+    value: string | number
+  ): Promise<boolean> {
+    if (!this.rdbStore) {
+      throw new Error('数据库未初始化。请先调用 init() 方法。');
+    }
 
+    const allowedFields = ['phone', 'pwd', 'name', 'pic', 'cookies', 'uid', 'fid'];
+    if (!allowedFields.includes(field)) {
+      throw new Error(`不允许更新字段: ${field}`);
+    }
+
+    // 1. 先检查用户是否存在
+    const exists = await this.userExists(isHost, id);
+    if (!exists) {
+      return false; // 用户不存在，更新失败
+    }
+
+    // 2. 执行更新（即使值没变也会“成功”）
+    try {
+      const table = isHost ? 'HostUser' : 'OtherUser';
+      const sql = `UPDATE ${table} SET ${field} = ? WHERE id = ?`;
+      await this.rdbStore.executeSql(sql, [value, id]);
+      return true; // 假设存在即更新成功
+    } catch (err) {
+      throw new Error(`更新失败: ${err.message || err}`);
+    }
+  }
+
+  // 辅助方法：检查用户是否存在
+  private async userExists(isHost: boolean, id: number): Promise<boolean> {
+    if (!this.rdbStore) return false;
+    const table = isHost ? 'HostUser' : 'OtherUser';
+    const sql = `SELECT 1 FROM ${table} WHERE id = ? LIMIT 1`;
+    const resultSet = await this.rdbStore.querySql(sql, [id]);
+    try {
+      return resultSet.rowCount > 0;
+    } finally {
+      resultSet.close();
+    }
+  }
   /**
    * 检查手机号是否已存在（跨两个表检查）
    *

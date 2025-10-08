@@ -44,6 +44,19 @@ export class ChaoxingUtils {
   }
 
   /**
+   * 生成图片名，长度为12, 无后缀
+   * @returns {string}
+   */
+
+  static generatePhotoName(): string {
+    return 'xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  /**
    * 坐标转换工具模块
    * 提供GCJ-02（国测局坐标系）到BD-09（百度坐标系）的转换功能
    *

@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit';
 import { fileIo as fs, ListFileOptions } from '@kit.CoreFileKit';
-import { uri, util } from '@kit.ArkTS';
+import { JSON, uri, util } from '@kit.ArkTS';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import picker from '@ohos.file.picker';
 import {Sign} from '../utils/sign'
@@ -9,6 +9,7 @@ import { image } from '@kit.ImageKit';
 import { request } from '@kit.BasicServicesKit';
 import { ChaoXingApi, InternalPath } from '../utils/PublicAPI';
 import { data } from '@kit.TelephonyKit';
+import { DatabaseManager } from '../utils/DataBase';
 
 @Builder
 export function init(name: string) {
@@ -98,7 +99,7 @@ export struct test {
             })
           }
           Image(this.displayPhoto)
-          Button()
+          Button('upload')
             .onClick(async () => {
               const photoSelectOptions = new picker.PhotoSelectOptions();
               // 过滤选择媒体文件类型为IMAGE
@@ -158,6 +159,12 @@ export struct test {
                   })
                 })
               })
+            })
+          Button('USER')
+            .onClick(async ()=>{
+              const dbManager = DatabaseManager.getInstance()
+              const user = await dbManager.getUserInfoObjectById(true,1)
+              console.log('NIMALEGEBI:'+JSON.stringify(user))
             })
           Image(this.pixelMap)
             .height(100)

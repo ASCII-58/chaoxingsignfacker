@@ -18,7 +18,7 @@ export class loginFunction {
   /**
    * 登录学习通，获取set-cookie
    * @param {string} LoginString 需要加密的消息
-   * @returns {Promise<returnData>} msg : 请求是否成功, cookies: 请求到的cookie
+   * @returns {Promise<string>} 求到的cookie,异常为空
    */
   static async LoginChaoXing(LoginString: string): Promise<string> {
     console.log('fuck' + LoginString)

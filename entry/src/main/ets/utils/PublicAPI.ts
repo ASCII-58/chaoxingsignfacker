@@ -77,7 +77,8 @@ export class ChaoXingApi {
    */
   static readonly URL_LOGIN = "https://passport2.chaoxing.com/fanyalogin"
   static readonly UA =
-    "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0\n" +
+      "sec-ch-ua: \"Microsoft Edge\";v=\"141\", \"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"141\""
   static readonly URL_GET_USER_INFO = "https://sso.chaoxing.com/apis/login/userLogin4Uname.do"
 }
 

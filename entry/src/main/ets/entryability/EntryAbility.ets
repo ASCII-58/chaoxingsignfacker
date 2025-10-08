@@ -1,8 +1,7 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { AnimatedDrawableDescriptor, window } from '@kit.ArkUI';
+import { window } from '@kit.ArkUI';
 import { DatabaseManager } from '../utils/DataBase';
-import BuildProfile from 'BuildProfile';
 import { loginFunction } from '../utils/Login';
 import { ChaoxingUtils } from '../utils/utils';
 
@@ -52,11 +51,17 @@ export default class EntryAbility extends UIAbility {
       const isHostLogin: boolean = !(await dbManager.isHostUserTableEmpty())
 
       if (isHostLogin) {
-        const username = await dbManager.getUserInfoById(true,1,'phone') as string
-        const pwd= await dbManager.getUserInfoById(true,1,'pwd') as string
-        const loginBody=ChaoxingUtils.getLoginBody(ChaoxingUtils.encryptByAES(username),pwd)
-        const loginResult = await loginFunction.LoginChaoXing(loginBody)
-        if (loginResult) {
+        const username = await dbManager.getUserInfoById(true, 1, 'phone') as string
+        const pwd = await dbManager.getUserInfoById(true, 1, 'pwd') as string
+        const loginBody = ChaoxingUtils.getLoginBody(ChaoxingUtils.encryptByAES(username), pwd)
+        const cookies = await loginFunction.LoginChaoXing(loginBody)
+        if (cookies) {
+          dbManager.updateUserInfoById(true, 1, 'cookies', cookies)
+          const userInfoD = await loginFunction.getUserInfo(cookies)
+          if (userInfoD.msg === 'successful') {
+            dbManager.updateUserInfoById(true, 1, 'pic', userInfoD.pic)
+            dbManager.updateUserInfoById(true, 1, 'name', userInfoD.uname)
+          }
           windowStage.loadContent('pages/Index', (err) => {
             if (err) {
               hilog.error(DOMAIN, 'testTag', 'Failed to load main page: %{public}s', JSON.stringify(err));
@@ -71,7 +76,7 @@ export default class EntryAbility extends UIAbility {
         // Main window is created, set main page for this ability
         hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
-        windowStage.loadContent('pages/LoginPage', );
+        windowStage.loadContent('pages/LoginPage',);
       }
     } catch (error) {
       hilog.error(DOMAIN, TAG, 'Window stage creation error: %{public}s',
