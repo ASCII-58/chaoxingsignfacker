@@ -88,17 +88,18 @@ export class Sign {
       const result = await httpRequest.request(ChaoXingApi.URL_GET_TOKEN, {
         method: http.RequestMethod.GET,
         header: {
-          "Cookie": cookies,
-          "User-Agent": ChaoXingApi.UA
+          "Cookie": cookies
         }
       })
-      const token: string = (JSON.parse(result.result.toString()) as object)?.['_token']
+      const tokenobj: string = result.result.toString()
+      console.log('ffffff'+tokenobj)
+      const token:string = (JSON.parse(tokenobj) as object)?.['_token'] as string
       hilog.info(DOMAIN, TAG, `token obtained: ${token ? 'success' : 'failed'}`);
       return token
     } catch (e) {
       const errorMsg = `GetToken failed: ${e instanceof Error ? e.message : String(e)}`;
       hilog.error(DOMAIN, TAG, errorMsg);
-      throw new Error(errorMsg)
+      return errorMsg
     } finally {
       httpRequest.destroy()
     }

@@ -3,15 +3,15 @@ import { Sign } from '../utils/sign';
 import { JSON } from '@kit.ArkTS';
 import { FunctionalButton, functionalButtonComponentManager } from '@kit.ScenarioFusionKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { DatabaseManager } from '../utils/DataBase';
+import { DatabaseManager, UserData } from '../utils/DataBase';
 import promptAction from '@ohos.promptAction';
 import { image } from '@kit.ImageKit';
 import { loginFunction } from '../utils/Login';
 import fs from '@ohos.file.fs';
-import { request } from '@kit.BasicServicesKit';
+import { request ,BusinessError} from '@kit.BasicServicesKit';
 import { ChaoxingUtils } from '../utils/utils';
 import { picker } from '@kit.CoreFileKit';
-import { InternalPath } from '../utils/PublicAPI';
+import { http } from '@kit.NetworkKit';
 
 interface userMenu {
   uname: string
@@ -127,75 +127,160 @@ struct photoPicker {
   build() {
     Column() {
       Button('选择图片')
-        .onClick(async () => {
-          const photoSelectOptions = new picker.PhotoSelectOptions();
-          // 过滤选择媒体文件类型为IMAGE
-          photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
-          // 选择媒体文件的最大数目
-          photoSelectOptions.maxSelectNumber = this.signIdArray.length + 1;
-          const photoNameArray: string[] = [];
-          const len = this.signIdArray.length + 1;
-          for (let i = 0; i < len; i++) {
-            photoNameArray.push(ChaoxingUtils.generatePhotoName());
-          }
+        .onClick(async () => {// 设置加载状态（操作开始前）
+          this.isLoading = true;
 
-          // 二、创建 图片选择对象并选择图片
-          const photoViewPicker = new picker.PhotoViewPicker();
-          // 调用 select 方法，传入选项对象
-          photoViewPicker.select(photoSelectOptions).then(async res => {
-            this.displayURI = res.photoUris[0]
-            const context = getContext(this)
-            const fileType = 'jpg'
+          try {
+            // 一、配置图片选择选项
+            const photoSelectOptions = new picker.PhotoSelectOptions();
+            photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
+            photoSelectOptions.maxSelectNumber = this.signIdArray.length + 1;
+
+            console.log(`fucknima [PhotoSelect] 配置完成：最大选择数量 = ${photoSelectOptions.maxSelectNumber}`);
+
+            // 生成文件名数组
+            const photoNameArray: string[] = [];
+            const len = this.signIdArray.length + 1;
             for (let i = 0; i < len; i++) {
-              const fileName = photoNameArray[i] + '.jpg'
-              const copyFilePath = context.cacheDir + '/' + fileName
-              // 将文件 拷贝到 临时目录
-              const file = fs.openSync(res.photoUris[i%res.photoUris.length], fs.OpenMode.READ_ONLY)
-              try {
-                fs.copyFileSync(file.fd, copyFilePath)
-                console.log('复制成功' + copyFilePath)
-              } catch (error) {
-                console.log('复制失败' + error)
-              }
-              const uploadFile: request.File = {
-                uri: InternalPath.CACHE_PATH + fileName,
-                filename: fileName,
-                name: 'file',
-                type: 'image/jpeg'
-              }
-              const dbManager = DatabaseManager.getInstance()
-              const userInfo = await dbManager.getUserInfoObjectById(i === 0, i === 0 ? 1 : i)
-              const token = Sign.GetToken(userInfo.cookies)
-              const uploadData: request.RequestData = {
-                name: 'puid',
-                value: userInfo.uid.toString()
-              }
-
-              let uploadTask: request.UploadTask;
-              request.uploadFile(getContext(), {
-                url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${token}`,
-                header: {
-                  cookies: userInfo.cookies
-                },
-                method: 'POST',
-                files: [uploadFile],
-                data: [uploadData]
-              }, (err, data) => {
-                if (err) {
-                  console.error(`Failed to request the upload. Code: ${err.code}, message: ${err.message}`);
-                  return;
-                }
-                uploadTask = data;
-                uploadTask.on('headerReceive', (data1) => {
-                  console.info(`NIMALEGEBI${JSON.stringify(data1?.['body'])}`);
-                  if (data1?.['body']) {
-                    this.objectidArray.push((JSON.parse(data1?.['body'] as string) as object)?.['objectId'])
-                  }
-                })
-              })
+              const name = ChaoxingUtils.generatePhotoName();
+              photoNameArray.push(name);
+              console.log(`fucknima [PhotoSelect] 生成文件名 ${i}: ${name}.jpg`);
             }
-          })
-        })
+
+            // 二、创建选择器并执行选择
+            const photoViewPicker = new picker.PhotoViewPicker();
+            const res = await photoViewPicker.select(photoSelectOptions);
+
+            // 检查选择结果
+            if (!res || !Array.isArray(res.photoUris) || res.photoUris.length === 0) {
+              console.warn('fucknima [PhotoSelect] 用户未选择任何图片或返回结果无效');
+              this.isLoading = false;
+              return;
+            }
+
+            console.log(`fucknima [PhotoSelect] 用户选择了 ${res.photoUris.length} 张图片`);
+
+            // 保存首张图片用于显示
+            this.displayURI = res.photoUris[0];
+
+            const context = getContext(this);
+            const dbManager = DatabaseManager.getInstance();
+
+            // 三、逐个处理每张需要上传的图片（共 len 张）
+            for (let i = 0; i < len; i++) {
+              try {
+                const sourceUri = res.photoUris[i % res.photoUris.length];
+                const fileName = photoNameArray[i] + '.jpg';
+                const copyFilePath = context.cacheDir + '/' + fileName;
+
+                console.log(`fucknima [FileCopy] 正在处理第 ${i + 1} 张图片，源路径: ${sourceUri}, 目标路径: ${copyFilePath}`);
+
+                // 打开源文件
+                const file = fs.openSync(sourceUri, fs.OpenMode.READ_ONLY);
+                fs.copyFileSync(file.fd, copyFilePath);
+                fs.closeSync(file.fd);
+                const uploadFilePath = `internal://cache/${fileName}`
+                console.log('fucknima'+uploadFilePath)
+                // 构造上传文件对象
+                const uploadFile: request.File[] = [{
+                  uri: uploadFilePath,
+                  filename: fileName,
+                  name: 'file',
+                  type: 'image/jpeg'}
+                ];
+                console.log('fucknima, 构建的上传参数为:'+JSON.stringify(uploadFile))
+
+                // 获取用户信息
+                let userInfo:UserData;
+                try {
+                  userInfo = await dbManager.getUserInfoObjectById(i === 0, i === 0 ? 1 : i);
+                  if (!userInfo || !userInfo.cookies || !userInfo.uid) {
+                    throw new Error('用户信息缺失');
+                  }
+                } catch (userErr) {
+                  console.error(`fucknima [Upload] 获取第 ${i} 个用户信息失败:`, userErr);
+                  continue;
+                }
+
+                const token = await Sign.GetToken(userInfo.cookies);
+                console.log('fucknimatoken:'+token);
+                const uploadData: request.RequestData[] = [{
+                  name: 'puid',
+                  value: userInfo.uid.toString()
+                }];
+
+                console.log(`fucknima [Upload] 准备上传第 ${i + 1} 张图片，用户 UID: ${userInfo.uid}`);
+
+                // 执行上传（Promise 封装）
+                await new Promise<void>((resolve, reject) => {
+                  request.uploadFile(
+                    getContext(),
+                    {
+                      url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=820fde763f8165c8b5d9b01b23c6af21`,
+                      files: uploadFile,
+                      data: uploadData,
+                      method: http.RequestMethod.POST,
+                      header: {
+                        'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0',
+                        'sec-ch-ua': `"Microsoft Edge";v="141", "Not?A_Brand";v="8", "Chromium";v="141"`
+
+                      }
+                    },
+                    (err, data) => {
+                      if (err) {
+                        console.error(`fucknima [Upload] 上传请求失败 (索引 ${i}): Code=${err.code}, Message=${err.message},error=${JSON.stringify(err)}`);
+                        reject(err);
+                        return;
+                      }
+
+                      const uploadTask = data;
+                      uploadTask.on('headerReceive', (headerData) => {
+                        try {
+                          console.log('qqt000'+JSON.stringify(headerData));
+                          const bodyStr = headerData?.['body'] as string | undefined;
+                          if (bodyStr) {
+                            const responseBody = JSON.parse(bodyStr) as object;
+                            const objectId:string = responseBody?.['objectId'];
+                            if (objectId) {
+                              this.objectidArray[i] = objectId;
+                              console.log(`fucknima [Upload] 第 ${i + 1} 张图片上传成功，objectId: ${objectId}`);
+                            } else {
+                              console.warn(`fucknima [Upload] 第 ${i + 1} 张图片响应中无 objectId`);
+                            }
+                          } else {
+                            console.warn(`fucknima [Upload] 第 ${i + 1} 张图片响应体为空`);
+                          }
+                        } catch (parseErr) {
+                          console.error(`fucknima [Upload] 解析响应体失败 (索引 ${i}):`, parseErr);
+                        }
+                        resolve();
+                      });
+
+                      uploadTask.on('fail', (failData) => {
+                        console.error(`fucknima [Upload] 上传失败 (索引 ${i}):`, JSON.stringify(failData));
+                        reject(new Error(`Upload failed: ${JSON.stringify(failData)}`));
+                      });
+
+                      uploadTask.on('complete', () => {
+                        resolve();
+                      });
+                    }
+                  );
+                });
+
+              } catch (innerErr) {
+                const errors=innerErr as BusinessError
+                console.error(`fucknima 错误码: ${errors.code}, 信息: ${JSON.stringify(errors)}`);
+                console.error(`fucknima [UploadLoop] 处理第 ${i + 1} 张图片时发生未预期错误:`, JSON.stringify(innerErr));
+              }
+            }
+
+            console.log('fucknima [PhotoUpload] 所有图片处理完成');
+          } catch (outerErr) {
+            console.error('fucknima [PhotoSelect/Upload] 整体流程发生严重错误:', outerErr);
+          } finally {
+            this.isLoading = false;
+          }})
     }
     .width('100%')
     .padding({ top: 20 })
@@ -428,6 +513,7 @@ export struct SignPage {
       }
       const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
       this.ifPhoto = await Sign.ifPhoto(cookies, this.activityInfo?.ActivityId as number)
+      console.log(this.ifPhoto.toString())
     })
   }
 }

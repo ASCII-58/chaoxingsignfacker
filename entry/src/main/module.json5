@@ -54,23 +54,34 @@
         "name": "ohos.permission.READ_MEDIA",
         "reason": "$string:media",
         "usedScene": {
-          "abilities": ["EntryAbility"],
+          "abilities": [
+            "EntryAbility"
+          ],
           "when": "always"
         }
       },
       {
         "name": "ohos.permission.INTERNET"
-      },{
+      },
+      {
         "name": "ohos.permission.LOCATION",
         "reason": "$string:user",
         "usedScene": {
-          "abilities": ["EntryAbility"],
+          "abilities": [
+            "EntryAbility"
+          ],
           "when": "always"
-        }},
-      {"name": "ohos.permission.WRITE_MEDIA","reason": "$string:user",
+        }
+      },
+      {
+        "name": "ohos.permission.WRITE_MEDIA",
+        "reason": "$string:media",
         "usedScene": {
-          "abilities": ["EntryAbility"],
-          "when": "always"},
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "always"
+        },
       }
     ]
   }

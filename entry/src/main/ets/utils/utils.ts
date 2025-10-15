@@ -114,7 +114,14 @@ export class ChaoxingUtils {
     return { lat: bd_lat, lon: bd_lon };
   }
 
-
+  static hasHole(arr: any[]): boolean {
+    for (let i = 0; i < arr.length; i++) {
+      if (!(i in arr)) {
+        return true; // 存在空槽
+      }
+    }
+    return false;
+  }
   /**
    * 超星默认使用的AES密钥
    */
