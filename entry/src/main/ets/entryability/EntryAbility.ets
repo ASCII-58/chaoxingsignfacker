@@ -4,6 +4,7 @@ import { window } from '@kit.ArkUI';
 import { DatabaseManager } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
 import { ChaoxingUtils } from '../utils/utils';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 const DOMAIN = 0x0000;
 const TAG = 'DB_INIT';
@@ -41,7 +42,8 @@ export default class EntryAbility extends UIAbility {
         // 加载错误页面
         windowStage.loadContent('pages/DatabaseError', (err) => {
           if (err) {
-            hilog.error(DOMAIN, 'testTag', 'Failed to load error page: %{public}s', JSON.stringify(err));
+            const error = err as BusinessError;
+            hilog.error(DOMAIN, 'testTag', 'Failed to load error page: Code=%{public}d, Message=%{public}s', error.code, error.message);
           }
         });
         return;
@@ -75,7 +77,8 @@ export default class EntryAbility extends UIAbility {
           }
           windowStage.loadContent('pages/Index', (err) => {
             if (err) {
-              hilog.error(DOMAIN, 'testTag', 'Failed to load main page: %{public}s', JSON.stringify(err));
+              const error = err as BusinessError;
+              hilog.error(DOMAIN, 'testTag', 'Failed to load main page: Code=%{public}d, Message=%{public}s', error.code, error.message);
               return;
             }
             hilog.info(DOMAIN, 'testTag', '%{public}s', 'Succeeded in loading the main content.');
@@ -83,7 +86,8 @@ export default class EntryAbility extends UIAbility {
         } else {
           windowStage.loadContent('pages/LoginPage', (err) => {
             if (err) {
-              hilog.error(DOMAIN, 'testTag', 'Failed to load main page: %{public}s', JSON.stringify(err));
+              const error = err as BusinessError;
+              hilog.error(DOMAIN, 'testTag', 'Failed to load main page: Code=%{public}d, Message=%{public}s', error.code, error.message);
               return;
             }
             hilog.info(DOMAIN, 'testTag', '%{public}s', 'Succeeded in loading the main content.');
@@ -97,15 +101,17 @@ export default class EntryAbility extends UIAbility {
 
         windowStage.loadContent('pages/LoginPage', (err) => {
           if (err) {
-            hilog.error(DOMAIN, 'testTag', 'Failed to load main page: %{public}s', JSON.stringify(err));
+            const error = err as BusinessError;
+            hilog.error(DOMAIN, 'testTag', 'Failed to load main page: Code=%{public}d, Message=%{public}s', error.code, error.message);
             return;
           }
           hilog.info(DOMAIN, 'testTag', '%{public}s', 'Succeeded in loading the main content.');
         });
       }
     } catch (error) {
-      hilog.error(DOMAIN, TAG, 'Window stage creation error: %{public}s',
-        error instanceof Error ? error.message : JSON.stringify(error));
+      const err = error as BusinessError;
+      hilog.error(DOMAIN, TAG, 'Window stage creation error: Code=%{public}d, Message=%{public}s',
+        err.code, err.message);
 
     }
   }
@@ -121,8 +127,9 @@ export default class EntryAbility extends UIAbility {
         hilog.info(DOMAIN, TAG, '%{public}s', 'Database connection closed');
       }
     } catch (error) {
-      hilog.error(DOMAIN, TAG, 'Failed to close database: %{public}s',
-        error instanceof Error ? error.message : JSON.stringify(error));
+      const err = error as BusinessError;
+      hilog.error(DOMAIN, TAG, 'Failed to close database: Code=%{public}d, Message=%{public}s',
+        err.code, err.message);
     }
   }
 

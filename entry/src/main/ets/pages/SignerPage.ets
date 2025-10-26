@@ -202,7 +202,8 @@ struct photoPicker {
                     throw new Error('用户信息缺失');
                   }
                 } catch (userErr) {
-                  console.error(`fucknima [Upload] 获取第 ${i} 个用户信息失败:`, userErr);
+                  const err = userErr as BusinessError;
+                  console.error(`fucknima [Upload] 获取第 ${i} 个用户信息失败: Code=${err.code}, Message=${err.message}`);
                   continue;
                 }
 
@@ -254,7 +255,8 @@ struct photoPicker {
                             console.warn(`fucknima [Upload] 第 ${i + 1} 张图片响应体为空`);
                           }
                         } catch (parseErr) {
-                          console.error(`fucknima [Upload] 解析响应体失败 (索引 ${i}):`, parseErr);
+                          const err = parseErr as BusinessError;
+                          console.error(`fucknima [Upload] 解析响应体失败 (索引 ${i}): Code=${err.code}, Message=${err.message}`);
                         }
                         resolve();
                       });
@@ -272,15 +274,16 @@ struct photoPicker {
                 });
 
               } catch (innerErr) {
-                console.error(`fucknima 信息: ${JSON.stringify(innerErr)}`);
-                console.error(`fucknima [UploadLoop] 处理第 ${i + 1} 张图片时发生未预期错误:`,
-                  JSON.stringify(innerErr));
+                const err = innerErr as BusinessError;
+                console.error(`fucknima 信息: Code=${err.code}, Message=${err.message}`);
+                console.error(`fucknima [UploadLoop] 处理第 ${i + 1} 张图片时发生未预期错误: Code=${err.code}, Message=${err.message}`);
               }
             }
 
             console.log('fucknima [PhotoUpload] 所有图片处理完成');
           } catch (outerErr) {
-            console.error('fucknima [PhotoSelect/Upload] 整体流程发生严重错误:', outerErr);
+            const err = outerErr as BusinessError;
+            console.error(`fucknima [PhotoSelect/Upload] 整体流程发生严重错误: Code=${err.code}, Message=${err.message}`);
           } finally {
             this.isLoading = false;
           }
