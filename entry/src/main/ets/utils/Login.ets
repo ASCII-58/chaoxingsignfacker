@@ -4,14 +4,15 @@ import { ChaoxingUtils } from './utils';
 import { JSON, url } from '@kit.ArkTS';
 import { ChaoXingApi } from './PublicAPI';
 import { DatabaseManager } from './DataBase';
-import { promptAction } from '@kit.ArkUI';
+import { StartupTask } from '@kit.AbilityKit';
 
 export interface UserInfo {
   msg: string,
   uname: string,
   pic: string,
-  uid: number,
-  fid: number
+  uid: string,
+  fid: string,
+  puid:string
 }
 
 export class loginFunction {
@@ -83,22 +84,25 @@ export class loginFunction {
           'msg': 'service error',
           'uname': '',
           'pic': '',
-          uid: 0,
-          fid: 0
+          'uid': '',
+          'fid': '',
+          'puid':''
         }
       } else {
         const JsonResult = JSON.parse(result.result as string) as object;
         const Json = (JsonResult as object)?.['msg'] as object
         const uname: string = (Json as object)?.['name'] || ''
         const pic: string = (Json as object)?.['pic'] || ''
-        const uid: number = (Json as object)?.['uid'] || 0
-        const fid: number = (Json as object)?.['fid'] || 0
+        const uid: string = (Json as object)?.['uid'] || 0
+        const fid: string = (Json as object)?.['fid'] || 0
+        const puid: string = (Json as object)?.['puid'] || 0
         return {
           'msg': (uname && pic) ? 'successful' : 'fetch error',
           'uname': uname,
           'pic': pic,
           'uid': uid,
-          'fid': fid
+          'fid': fid,
+          'puid':puid
         }
       }
     } catch (error) {
@@ -107,8 +111,9 @@ export class loginFunction {
         'msg': 'service error',
         'uname': '',
         'pic': '',
-        uid: 0,
-        fid: 0
+        uid: '',
+        fid: '',
+        puid:''
       }
     } finally {
       httpRequest.destroy()
@@ -130,14 +135,11 @@ export class loginFunction {
       let cookie = await loginFunction.LoginChaoXing(body)
       let userInfo = await loginFunction.getUserInfo(cookie)
       const dbManager = DatabaseManager.getInstance()
-      if (await dbManager.insertOtherUser({
+      if (await dbManager.insertUser({
           phone: phone,
           pwd: pwd,
-          pic: userInfo.pic,
           uid: userInfo.uid,
-          name: userInfo.uname,
-          cookies: cookie,
-          fid: userInfo.fid
+          cookies: cookie
         }) === 1
       ) {
         return '添加成功'

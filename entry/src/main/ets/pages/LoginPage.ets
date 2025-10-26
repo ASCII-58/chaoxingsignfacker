@@ -32,7 +32,7 @@ struct Login {
         .type(InputType.Number)
         .onChange((value: string) => {
           this.username = value;
-          if (this.username)
+          if (this.username) {
             animateTo({
               duration: 300,
               curve: 'smooth'
@@ -40,6 +40,7 @@ struct Login {
               this.UsernameTranslateY = 0
               this.UsernameScale = 1
             })
+          }
           if (this.username && this.password) {
             this.LoginEnable = true
           }
@@ -100,7 +101,7 @@ struct Login {
         .type(InputType.Password)// 设置为密码类型
         .onChange((value: string) => {
           this.password = value;
-          if(this.password)
+          if (this.password) {
             animateTo({
               duration: 300,
               curve: 'smooth'
@@ -108,6 +109,7 @@ struct Login {
               this.PasswordTranslateY = 0
               this.PasswordScale = 1
             })
+          }
           if (this.username && this.password) {
             this.LoginEnable = true
           }
@@ -121,12 +123,12 @@ struct Login {
             this.PasswordScale = 1
           })
         })
-        .onBlur(()=>{
+        .onBlur(() => {
           if (!this.password) {
             animateTo({
               duration: 300,
               curve: 'smooth'
-            },()=>{
+            }, () => {
               this.PasswordTranslateY = 45
               this.PasswordScale = 0.9
             })
@@ -174,14 +176,11 @@ struct Login {
               const userData: UserData = {
                 phone: this.username,
                 pwd: pwd,
-                name: info.uname,
-                pic: info.pic,
-                cookies: cookies, // 可以在登录成功后填充会话信息
-                fid: info.fid,
+                cookies: cookies,
                 uid: info.uid
               };
-              console.log('fuck'+JSON.stringify(userData))
-              await dbManager.insertHostUser(userData)
+              console.log('fuck' + JSON.stringify(userData))
+              await dbManager.insertUser(userData, true)
               this.username = ''
               this.password = ''
               promptAction.showToast({ message: '登录成功', duration: 2000 })

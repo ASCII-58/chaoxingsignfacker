@@ -51,16 +51,27 @@ export default class EntryAbility extends UIAbility {
       const isHostLogin: boolean = !(await dbManager.isHostUserTableEmpty())
 
       if (isHostLogin) {
-        const username = await dbManager.getUserInfoById(true, 1, 'phone') as string
-        const pwd = await dbManager.getUserInfoById(true, 1, 'pwd') as string
+        const user = await dbManager.getUserByPosition(1,true)
+        const username = user?.phone
+        const pwd = user?.pwd
         const loginBody = ChaoxingUtils.getLoginBody(ChaoxingUtils.encryptByAES(username), pwd)
         const cookies = await loginFunction.LoginChaoXing(loginBody)
         if (cookies) {
-          dbManager.updateUserInfoById(true, 1, 'cookies', cookies)
-          const userInfoD = await loginFunction.getUserInfo(cookies)
-          if (userInfoD.msg === 'successful') {
-            dbManager.updateUserInfoById(true, 1, 'pic', userInfoD.pic)
-            dbManager.updateUserInfoById(true, 1, 'name', userInfoD.uname)
+          dbManager.updateUser(1, { 'cookies': cookies }, true)
+          let userCount: number = await dbManager.getTableCount('OtherUser')
+          for (let index = 1; index <= userCount; index++) {
+            const userInfo = await dbManager.getUserByPosition(index)
+            if (userInfo !== null) {
+              const username = userInfo.phone
+              const pwd = userInfo.pwd
+              const loginBody = ChaoxingUtils.getLoginBody(ChaoxingUtils.encryptByAES(username), pwd)
+              const cookies = await loginFunction.LoginChaoXing(loginBody)
+              if (cookies) {
+                dbManager.updateUser(userInfo.id, { cookies: cookies }, false)
+              } else {
+                dbManager.deleteUser(userInfo.id, false)
+              }
+            }
           }
           windowStage.loadContent('pages/Index', (err) => {
             if (err) {
@@ -69,14 +80,28 @@ export default class EntryAbility extends UIAbility {
             }
             hilog.info(DOMAIN, 'testTag', '%{public}s', 'Succeeded in loading the main content.');
           });
+        } else {
+          windowStage.loadContent('pages/LoginPage', (err) => {
+            if (err) {
+              hilog.error(DOMAIN, 'testTag', 'Failed to load main page: %{public}s', JSON.stringify(err));
+              return;
+            }
+            hilog.info(DOMAIN, 'testTag', '%{public}s', 'Succeeded in loading the main content.');
+          })
+          AlertDialog.show({ message: '登录过期，请重新登录' })
         }
-        AlertDialog.show({ message: '登录过期，请重新登录' })
 
       } else {
         // Main window is created, set main page for this ability
         hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
-        windowStage.loadContent('pages/LoginPage',);
+        windowStage.loadContent('pages/LoginPage', (err) => {
+          if (err) {
+            hilog.error(DOMAIN, 'testTag', 'Failed to load main page: %{public}s', JSON.stringify(err));
+            return;
+          }
+          hilog.info(DOMAIN, 'testTag', '%{public}s', 'Succeeded in loading the main content.');
+        });
       }
     } catch (error) {
       hilog.error(DOMAIN, TAG, 'Window stage creation error: %{public}s',

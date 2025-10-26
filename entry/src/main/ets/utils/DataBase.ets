@@ -6,23 +6,25 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 interface UserData {
   phone: string;
   pwd: string;
-  name: string;
-  pic: string;
   cookies: string;
-  fid: number;
-  uid: number;
+  uid: string
 }
 
-interface BasicUserInfo {
-  id: number;
+export interface UserDataAndId {
+  id: number
   phone: string;
-  name: string;
-  password: string;
+  pwd: string;
+  cookies: string;
+  uid: string
 }
 
-interface AllInfo {
-  host: BasicUserInfo,
-  other: BasicUserInfo[]
+/**
+ * 可更新的用户数据接口
+ */
+interface UpdateUserData {
+  phone?: string;
+  pwd?: string;
+  cookies?: string;
 }
 
 class DatabaseManager {
@@ -47,7 +49,6 @@ class DatabaseManager {
     if (this.rdbStore !== null) {
       return;
     }
-
     const STORE_CONFIG: relationalStore.StoreConfig = {
       name: 'data.db',
       securityLevel: relationalStore.SecurityLevel.S1
@@ -62,155 +63,6 @@ class DatabaseManager {
     }
   }
 
-  /**
-   * 通过id获取用户所有数据
-   * @param tableName 表头
-   * @param id 用户ID
-   * @returns {Promise<UserData>} 包含用户所有信息的对象
-   */
-  public async getHostUserInfoByID(id: number = 1): Promise<UserData> {
-    if (typeof id !== 'number' || id <= 0) {
-      throw new Error(`无效的ID: ${id}. 必须是正整数`);
-    }
-    let tableName = ""
-
-    // 2. 检查数据库连接
-    if (!this.rdbStore) {
-      throw new Error('数据库未初始化。请先调用init()方法。');
-    }
-
-    try {
-      // 3. 构建SQL查询语句（使用参数化查询防止SQL注入）
-      const sql = `
-        SELECT phone, pwd, name, pic, cookies, uid, fid
-        FROM HostName
-        WHERE id = ${[id]}
-      `;
-
-      // 4. 执行查询
-      const resultSet = await this.rdbStore.querySql(sql);
-
-      try {
-        console.error('fuck,' + resultSet.rowCount)
-        // 5. 处理查询结果
-        if (resultSet.rowCount != 0) {
-          try {
-            resultSet.goToFirstRow();
-          } catch (error) {
-            console.error('fuckkkkkkkkkkkkkkkkkkkkkkkk,' + error)
-          }
-          // 获取各列索引
-          const phoneIndex = resultSet.getColumnIndex('phone');
-          const pwdIndex = resultSet.getColumnIndex('pwd');
-          const nameIndex = resultSet.getColumnIndex('name');
-          const picIndex = resultSet.getColumnIndex('pic');
-          const cookiesIndex = resultSet.getColumnIndex('cookies');
-          const uidIndex = resultSet.getColumnIndex('uid');
-          const fidIndex = resultSet.getColumnIndex('fid');
-
-          // 构建返回对象
-          const userData: UserData = {
-            phone: resultSet.getString(phoneIndex),
-            pwd: resultSet.getString(pwdIndex),
-            name: resultSet.getString(nameIndex),
-            pic: resultSet.getString(picIndex),
-            cookies: resultSet.getString(cookiesIndex),
-            uid: resultSet.getLong(uidIndex),
-            fid: resultSet.getLong(fidIndex)
-          };
-
-          return userData;
-        }
-        console.error(`在表${tableName}中未找到ID为${id}的用户`)
-        // 6. 未找到记录时抛出错误
-        throw new Error(`在表${tableName}中未找到ID为${id}的用户`);
-
-      } finally {
-        // 7. 确保结果集被关闭
-        resultSet.close();
-      }
-    } catch (err) {
-      // 8. 规范化错误并重新抛出
-      throw this.normalizeError(err, `获取${tableName}表中UID为${id}的用户数据失败`);
-    }
-  }
-
-  /**
-   * 通过手机号或id获取单个用户的单项数据
-   * @param tableName
-   * @param phone
-   * @param search
-   * @returns
-   */
-  public async getUserInfoById(
-    isHost: boolean,
-    id: number,
-    search: "phone" | "pwd" | "name" | "pic" | "cookies" | "uid" | "fid" | 'id'): Promise<string | null | number> {
-    // 2. 检查数据库连接
-    if (!this.rdbStore) {
-      throw new Error('数据库未初始化。请先调用init()方法。');
-    }
-
-    try {
-      const sql = `SELECT ${search} FROM ${isHost ? 'HostUser' : 'OtherUser'} WHERE id = ?`;
-      const params = [id];
-
-      // 4. 执行查询
-      const resultSet = await this.rdbStore.querySql(sql, params);
-
-      try {
-        // 5. 处理查询结果
-        if (resultSet.rowCount > 0) {
-          resultSet.goToFirstRow();
-          const Index = resultSet.getColumnIndex(search);
-          const result = resultSet.getString(Index);
-          return result
-        }
-        return null; // 未找到记录
-      } finally {
-        // 6. 确保结果集被关闭
-        resultSet.close();
-      }
-    } catch (err) {
-      throw new Error(err)
-    }
-  }
-
-  public async getUserInfoObjectById(isHost: boolean, id: number): Promise<UserData> {
-    // 并行获取所有字段（提升性能）
-    const userInfoKey = await Promise.all([
-      this.getUserInfoById(isHost, id, 'phone'),
-      this.getUserInfoById(isHost, id, 'pwd'),
-      this.getUserInfoById(isHost, id, 'name'),
-      this.getUserInfoById(isHost, id, 'pic'),
-      this.getUserInfoById(isHost, id, 'cookies'),
-      this.getUserInfoById(isHost, id, 'uid'),
-      this.getUserInfoById(isHost, id, 'fid')
-    ]);
-    const phone = userInfoKey[0];
-    const pwd = userInfoKey[1];
-    const name = userInfoKey[2];
-    const pic = userInfoKey[3];
-    const cookies = userInfoKey[4];
-    const uid = userInfoKey[5];
-    const fid = userInfoKey[6];
-
-    // 检查是否所有必要字段都存在（可根据业务调整）
-    if (phone === null || pwd === null) {
-      throw new Error(`用户 ID ${id} 的必要信息缺失（phone 或 pwd 为空）`);
-    }
-
-    // 构造 UserData 对象
-    return {
-      phone: phone as string,      // 数据库中 phone 应为字符串
-      pwd: pwd as string,
-      name: (name as string) ?? '',
-      pic: (pic as string) ?? '',
-      cookies: (cookies as string) ?? '',
-      uid: (uid as number) ?? 0,
-      fid: (fid as number) ?? 0
-    };
-  }
   /**
    * 检查HostUser表是否为空
    *
@@ -243,183 +95,236 @@ class DatabaseManager {
   }
 
   /**
-   * 插入用户数据：如果HostUser表为空则插入HostUser，否则报错
-   *
+   * 插入用户数据（统一处理主用户和其他用户）
    * @param userData 用户数据对象
-   * @returns {Promise<boolean>} 是否插入成功
-   * @throws {Error} 如果数据库未初始化、手机号已存在或插入失败
+   * @param isHost 是否插入为主用户，默认false
+   * @returns 插入结果状态码：1-成功，-1-手机号已存在，-2-主用户已存在，0-失败
    */
-  public async insertHostUser(userData: UserData): Promise<boolean> {
+  public async insertUser(userData: UserData, isHost: boolean = false): Promise<number> {
+    if (!this.rdbStore) {
+      throw new Error('Database not initialized. Call init() first.');
+    }
+
+    // 输入参数验证
+    if (!userData.phone || !userData.pwd || !userData.cookies || !userData.uid) {
+      throw new Error('手机号、密码、cookies和uid不能为空');
+    }
+
+    if (userData.phone.trim().length === 0) {
+      throw new Error('手机号不能为空字符串');
+    }
+
     try {
-      if (!this.rdbStore) {
-        throw new Error('Database not initialized. Call init() first.');
-      }
-      // 开始事务确保操作原子性
       this.rdbStore.beginTransaction();
 
       try {
-        // 1. 检查手机号是否已存在（跨两个表检查）
+        // 检查手机号是否已存在
         const phoneExists = await this.checkPhoneExists(userData.phone);
         if (phoneExists) {
-          throw new Error('手机号登录，请使用其他手机号');
+          this.rdbStore.rollBack();
+          return -1; // 手机号已存在
         }
 
-        // 2. 检查HostUser表是否为空
-        const isHostUserEmpty = await this.isHostUserTableEmpty();
-        if (!isHostUserEmpty) {
-          throw new Error('主用户已登录')
+        // 如果是主用户，检查是否已有主用户
+        if (isHost) {
+          const isHostUserEmpty = await this.isHostUserTableEmpty();
+          if (!isHostUserEmpty) {
+            this.rdbStore.rollBack();
+            return -2; // 主用户已存在
+          }
         }
 
-        // 3. 使用参数化查询执行插入
-        const insertSql = `
-        INSERT INTO HostUser (phone, pwd, name, pic, cookies, uid, fid)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `;
+        // 根据用户类型选择表名
+        const tableName = isHost ? 'HostUser' : 'OtherUser';
 
+        // 记录插入前的记录数
+        const countBefore = await this.getTableCount(tableName);
+
+        // 执行插入操作
+        const insertSql = `INSERT INTO ${tableName} (phone, pwd, cookies, uid) VALUES (?, ?, ?, ?)`;
         await this.rdbStore.executeSql(insertSql, [
           userData.phone,
           userData.pwd,
-          userData.name,
-          userData.pic,
           userData.cookies,
-          userData.uid,
-          userData.fid
+          userData.uid
         ]);
 
-        // 4. 获取最后插入的行ID
-        const resultSet = await this.rdbStore.querySql('SELECT last_insert_rowid() AS id');
-        try {
-
-          // 5. 提交事务
-          this.rdbStore.commit();
-          return true;
-
-        } catch {
-          return false
-        } finally {
-          resultSet.close();
+        // 验证插入结果：检查记录数是否增加
+        const countAfter = await this.getTableCount(tableName);
+        if (countAfter !== countBefore + 1) {
+          throw new Error('插入操作未成功，记录数未增加');
         }
+
+        // 提交事务
+        this.rdbStore.commit();
+
+        hilog.info(0x0000, 'DB',
+          `Successfully inserted ${isHost ? 'host' : 'other'} user: ${userData.phone.substring(0, 3)}***`);
+        return 1; // 插入成功
+
       } catch (error) {
-        // 6. 发生错误时回滚事务
+        // 回滚事务
         this.rdbStore.rollBack();
-
-        // 重新抛出标准化的错误
-        const errorMessage = error instanceof Error
-          ? error.message
-          : 'Unknown database error';
-
-        throw new Error(`数据库操作失败: ${errorMessage}`);
+        throw Error(error);
       }
     } catch (err) {
-      // 7. 外层错误处理（确保事务回滚）
-      try {
-        if (this.rdbStore) {
-          this.rdbStore.rollBack();
-        }
-      } catch (rollbackError) {
-        console.error('Failed to rollback transaction', rollbackError);
-      }
-
-      const error = err as BusinessError;
-      console.error(`Failed to insert user. Code: ${error.code}, Message: ${error.message}`);
-      return false
+      // 外层错误处理
+      hilog.error(0x0000, 'DB', `Failed to insert ${isHost ? 'host' : 'other'} user: ${err.message}`);
+      return 0; // 插入失败
     }
   }
+
   /**
-   * 将其他用户信息插入到数据库的 {@code OtherUser} 表中。
-   *
-   * <p>该方法会先检查数据库是否已初始化，随后开启事务并执行以下步骤：
-   *
-   * <ol>
-   *   <li>通过 {@code checkPhoneExists} 判断手机号是否已存在，若已存在返回 {@code -1}。</li>
-   *   <li>使用参数化 SQL 将 {@code userData} 中的字段 {@code phone, pwd, name, pic, cookies, uid, fid}
-   *       插入 {@code OtherUser} 表。</li>
-   *   <li>查询并记录本次插入的自增 ID（仅用于日志），随后提交事务并返回 {@code 1} 表示成功。</li>
-   * </ol>
-   *
-   * 若在插入过程中出现任何异常，将回滚事务并抛出 {@link RuntimeException}，外层捕获后会再次回滚并返回 {@code 0}。
-   *
-   * @param userData 包含待插入用户信息的 {@code UserData} 对象
-   * @return {@code 1} 表示插入成功；{@code -1} 表示手机号已存在；{@code 0} 表示因异常未插入
-   * @throws RuntimeException 当数据库操作失败时抛出，异常信息中包含具体错误原因
+   * 更新单个用户数据
+   * @param id 用户ID
+   * @param userData 要更新的用户数据
+   * @param isHost 是否更新主用户表，默认false
+   * @returns 更新结果状态码：1-成功，-1-用户不存在，-2-手机号已存在，0-失败
    */
+  public async updateUser(
+    id: number,
+    userData: UpdateUserData,
+    isHost: boolean = false
+  ): Promise<number> {
+    if (!this.rdbStore) {
+      throw new Error('Database not initialized. Call init() first.');
+    }
 
-  public async insertOtherUser(userData: UserData): Promise<number> {
+    // 参数验证
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new Error('无效的用户ID');
+    }
+
+    // 检查是否有要更新的字段
+    const hasUpdateField = userData.phone !== undefined ||
+      userData.pwd !== undefined ||
+      userData.cookies !== undefined;
+
+    if (!hasUpdateField) {
+      throw new Error('至少需要提供一个要更新的字段');
+    }
+
     try {
-      if (!this.rdbStore) {
-        throw new Error('Database not initialized. Call init() first.');
-      }
-
-      // 开始事务确保操作原子性
       this.rdbStore.beginTransaction();
 
       try {
-        // 1. 检查手机号是否已在 OtherUser 中存在（防止重复插入）
-        const phoneExists = await this.checkPhoneExists(userData.phone);
-        if (phoneExists) {
-          return -1
+        const tableName = isHost ? 'HostUser' : 'OtherUser';
+
+        // 检查用户是否存在
+        const userExists = await this.userExists(isHost, id);
+        if (!userExists) {
+          this.rdbStore.rollBack();
+          return -1; // 用户不存在
         }
 
-        // 2. 使用参数化查询插入到 OtherUser 表
-        const insertSql = `
-        INSERT INTO OtherUser (phone, pwd, name, pic, cookies, uid, fid)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `;
-
-        await this.rdbStore.executeSql(insertSql, [
-          userData.phone,
-          userData.pwd,
-          userData.name,
-          userData.pic,
-          userData.cookies,
-          userData.uid,
-          userData.fid
-        ]);
-
-        // 3. 获取最后插入的 ID（可选：用于日志或返回）
-        const resultSet = await this.rdbStore.querySql('SELECT last_insert_rowid() AS id');
-        try {
-          // 可以读取 id 并记录日志，这里仅示例
-          if (resultSet.rowCount > 0) {
-            resultSet.goToFirstRow();
-            const newId = resultSet.getLong(0);
-            console.info(`Inserted OtherUser with ID: ${newId}`);
+        // 如果要更新手机号，检查唯一性
+        if (userData.phone !== undefined) {
+          const phoneExists = await this.checkPhoneExists(userData.phone);
+          if (phoneExists) {
+            this.rdbStore.rollBack();
+            return -2; // 手机号已存在
           }
-        } finally {
-          resultSet.close();
         }
 
-        // 4. 提交事务
+        // 构建更新语句
+        const updateParts: string[] = [];
+        const params: (string | number)[] = [];
+
+        if (userData.phone !== undefined) {
+          updateParts.push('phone = ?');
+          params.push(userData.phone);
+        }
+        if (userData.pwd !== undefined) {
+          updateParts.push('pwd = ?');
+          params.push(userData.pwd);
+        }
+        if (userData.cookies !== undefined) {
+          updateParts.push('cookies = ?');
+          params.push(userData.cookies);
+        }
+
+        params.push(id);
+        const updateSql = `UPDATE ${tableName} SET ${updateParts.join(', ')} WHERE id = ?`;
+
+        // 执行更新
+        await this.rdbStore.executeSql(updateSql, params);
         this.rdbStore.commit();
-        return 1;
+
+        return 1; // 更新成功
+
       } catch (error) {
-        // 发生错误时回滚事务
         this.rdbStore.rollBack();
-
-        // 标准化错误抛出
-        const errorMessage = error instanceof Error
-          ? error.message
-          : 'Unknown database error';
-
-        throw new Error(`数据库操作失败: ${errorMessage}`);
+        throw new Error(error);
       }
     } catch (err) {
-      // 外层错误处理：确保事务回滚
-      try {
-        if (this.rdbStore) {
-          this.rdbStore.rollBack();
-        }
-      } catch (rollbackError) {
-        console.error('Failed to rollback transaction', rollbackError);
+      hilog.error(0x0000, 'DB', `Failed to update user: ${err.message}`);
+      return 0; // 更新失败
+    }
+  }
+
+  /**
+   * 根据位置获取第几条用户数据（从1开始计数）- 使用RdbPredicates
+   * @param position 位置序号，从1开始
+   * @param isHost 是否查询主用户表，默认false
+   * @param orderBy 排序字段，默认按id排序
+   * @param ascending 是否升序排列，默认true
+   * @returns 用户数据或null（如果位置超出范围）
+   */
+  public async getUserByPosition(
+    position: number,
+    isHost: boolean = false,
+    orderBy: string = 'id',
+    ascending: boolean = true
+  ): Promise<UserDataAndId | null> {
+    if (!this.rdbStore) {
+      throw new Error('Database not initialized. Call init() first.');
+    }
+
+    // 参数验证
+    if (!Number.isInteger(position) || position <= 0) {
+      throw new Error('位置序号必须是大于0的整数');
+    }
+
+    try {
+      const tableName = isHost ? 'HostUser' : 'OtherUser';
+
+      // 使用RdbPredicates进行查询
+      let predicates = new relationalStore.RdbPredicates(tableName);
+
+      // 设置排序
+      if (ascending) {
+        predicates.orderByAsc(orderBy);
+      } else {
+        predicates.orderByDesc(orderBy);
       }
 
-      const error = err as BusinessError;
-      console.error(`Failed to insert other user. Code: ${error.code}, Message: ${error.message}`);
+      // 设置偏移和限制：获取第position条记录
+      // offsetAs的参数是从0开始的，所以第n条记录的offset是n-1
+      predicates.limitAs(1).offsetAs(position - 1);
 
-      // 注意：此处原逻辑 return false 后又 throw，会导致无法返回
-      // 我们修复为要么返回 false，要么抛出异常 —— 根据你的需求选择
-      // 如果希望函数返回 boolean，则不应再 throw
-      return 0;
+      const resultSet = await this.rdbStore.query(predicates);
+
+      if (resultSet.rowCount > 0) {
+        resultSet.goToFirstRow();
+
+        const userData: UserDataAndId = {
+          id: resultSet.getLong(resultSet.getColumnIndex('id')),
+          uid: resultSet.getString(resultSet.getColumnIndex('uid')),
+          phone: resultSet.getString(resultSet.getColumnIndex('phone')),
+          pwd: resultSet.getString(resultSet.getColumnIndex('pwd')),
+          cookies: resultSet.getString(resultSet.getColumnIndex('cookies'))
+        };
+
+        resultSet.close();
+        return userData;
+      }
+
+      resultSet.close();
+      return null; // 位置超出范围
+
+    } catch (error) {
+      hilog.error(0x0000, 'DB', `Failed to get user by position ${position}: ${error.message}`);
+      throw Error(error);
     }
   }
 
@@ -469,6 +374,61 @@ class DatabaseManager {
       throw new Error('Database not initialized. Call init() first.');
     }
     return this.rdbStore;
+  }
+
+  /**
+   * 删除指定用户
+   * @param id 用户ID
+   * @param isHost 是否删除主用户表，默认false
+   * @returns 删除结果状态码：1-成功，-1-用户不存在，0-失败
+   */
+  public async deleteUser(id: number, isHost: boolean = false): Promise<number> {
+    if (!this.rdbStore) {
+      throw new Error('Database not initialized. Call init() first.');
+    }
+
+    // 参数验证
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new Error('无效的用户ID');
+    }
+
+    try {
+      this.rdbStore.beginTransaction();
+
+      try {
+        const tableName = isHost ? 'HostUser' : 'OtherUser';
+
+        // 检查用户是否存在
+        const userExists = await this.userExists(isHost, id);
+        if (!userExists) {
+          this.rdbStore.rollBack();
+          return -1; // 用户不存在
+        }
+
+        // 使用RdbPredicates进行删除
+        let predicates = new relationalStore.RdbPredicates(tableName);
+        predicates.equalTo('id', id);
+
+        // 执行删除操作
+        const deletedRows = await this.rdbStore.delete(predicates);
+
+        if (deletedRows > 0) {
+          this.rdbStore.commit();
+          hilog.info(0x0000, 'DB', `Successfully deleted ${isHost ? 'host' : 'other'} user ID: ${id}`);
+          return 1; // 删除成功
+        } else {
+          this.rdbStore.rollBack();
+          return -1; // 没有删除任何记录
+        }
+
+      } catch (error) {
+        this.rdbStore.rollBack();
+        throw Error(error);
+      }
+    } catch (err) {
+      hilog.error(0x0000, 'DB', `Failed to delete ${isHost ? 'host' : 'other'} user ID ${id}: ${err.message}`);
+      return 0; // 删除失败
+    }
   }
 
   /**
@@ -546,11 +506,8 @@ class DatabaseManager {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           phone TEXT NOT NULL,
           pwd TEXT NOT NULL,
-          name TEXT NOT NULL,
-          pic TEXT NOT NULL,
           cookies TEXT NOT NULL,
-          uid INTEGER,
-          fid INTEGER
+          uid TEXT NOT NULL
         );
       `);
 
@@ -559,20 +516,8 @@ class DatabaseManager {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           phone TEXT NOT NULL,
           pwd TEXT NOT NULL,
-          name TEXT NOT NULL,
-          pic TEXT NOT NULL,
           cookies TEXT NOT NULL,
-          uid INTEGER,
-          fid INTEGER
-        );
-      `);
-
-      await this.rdbStore.executeSql(`
-        CREATE TABLE IF NOT EXISTS SignInfo (
-          signid INTEGER PRIMARY KEY AUTOINCREMENT,
-          phone TEXT NOT NULL,
-          signinfo TEXT,
-          timestamp INTEGER NOT NULL
+          uid TEXT NOT NULL
         );
       `);
     } catch (err) {
@@ -584,41 +529,12 @@ class DatabaseManager {
   private normalizeError(err: Error, message: string): Error {
     return new Error(`${message} [原因]: ${err.message}`);
   }
-  public async updateUserInfoById(
-    isHost: boolean,
-    id: number,
-    field: "phone" | "pwd" | "name" | "pic" | "cookies" | "uid" | "fid",
-    value: string | number
-  ): Promise<boolean> {
-    if (!this.rdbStore) {
-      throw new Error('数据库未初始化。请先调用 init() 方法。');
-    }
-
-    const allowedFields = ['phone', 'pwd', 'name', 'pic', 'cookies', 'uid', 'fid'];
-    if (!allowedFields.includes(field)) {
-      throw new Error(`不允许更新字段: ${field}`);
-    }
-
-    // 1. 先检查用户是否存在
-    const exists = await this.userExists(isHost, id);
-    if (!exists) {
-      return false; // 用户不存在，更新失败
-    }
-
-    // 2. 执行更新（即使值没变也会“成功”）
-    try {
-      const table = isHost ? 'HostUser' : 'OtherUser';
-      const sql = `UPDATE ${table} SET ${field} = ? WHERE id = ?`;
-      await this.rdbStore.executeSql(sql, [value, id]);
-      return true; // 假设存在即更新成功
-    } catch (err) {
-      throw new Error(`更新失败: ${err.message || err}`);
-    }
-  }
 
   // 辅助方法：检查用户是否存在
   private async userExists(isHost: boolean, id: number): Promise<boolean> {
-    if (!this.rdbStore) return false;
+    if (!this.rdbStore) {
+      return false;
+    }
     const table = isHost ? 'HostUser' : 'OtherUser';
     const sql = `SELECT 1 FROM ${table} WHERE id = ? LIMIT 1`;
     const resultSet = await this.rdbStore.querySql(sql, [id]);
@@ -628,6 +544,7 @@ class DatabaseManager {
       resultSet.close();
     }
   }
+
   /**
    * 检查手机号是否已存在（跨两个表检查）
    *
@@ -665,5 +582,5 @@ class DatabaseManager {
 }
 
 export {
-  DatabaseManager, UserData, BasicUserInfo, AllInfo,
+  DatabaseManager, UserData
 }

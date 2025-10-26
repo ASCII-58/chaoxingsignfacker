@@ -1,4 +1,4 @@
-import { DatabaseManager } from '../utils/DataBase';
+import { DatabaseManager, UserDataAndId } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
 import image from '@ohos.multimedia.image';
 import { ClassInfo, CourseAndActivity } from '../utils/classFun';
@@ -47,8 +47,8 @@ struct UI {
   @State QRCodeIsShow: boolean = false
   @Provide('pathInfos') pathInfos: NavPathStack = new NavPathStack();
   @State LoginCommonIsShow: boolean = false
-  @State LoginURLIsSHow:boolean=false
-  @State clickTime:number=0
+  @State LoginURLIsSHow: boolean = false
+  @State clickTime: number = 0
   private controller: TabsController = new TabsController();
   private uiContext: UIContext = this.getUIContext();
 
@@ -162,8 +162,8 @@ struct UI {
   }
 
   @Builder
-  loginURL(){
-    loginByURL({isShow:this.LoginURLIsSHow}).margin({top:90})
+  loginURL() {
+    loginByURL({ isShow: this.LoginURLIsSHow }).margin({ top: 90 })
   }
 
   build() {
@@ -200,7 +200,7 @@ struct UI {
           .onAppear(async () => {
             // 加载课程列表
             const dbManager = DatabaseManager.getInstance()
-            const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
+            const cookies = (await dbManager.getUserByPosition(1, true) as UserDataAndId).cookies
             console.log('fuck' + cookies)
             this.classList = (await CourseAndActivity.getClassList(cookies)).classList
             this.classList.forEach(element => {
@@ -219,9 +219,9 @@ struct UI {
                     .objectFit(ImageFit.Cover)// 图片填充模式
                     .alt($r('app.media.foreground'))
                     .margin({ left: 7.5 })
-                    .onClick(()=>{
-                      if ((++this.clickTime)>9) {
-                        this.clickTime=0
+                    .onClick(() => {
+                      if ((++this.clickTime) > 9) {
+                        this.clickTime = 0
                         this.pathInfos.pushPath({ name: 'TestPage' });
                       }
                     })
@@ -378,13 +378,19 @@ struct UI {
     .onAppear(async () => {
       try {
         const dbManager = DatabaseManager.getInstance()
-        const url = await dbManager.getUserInfoById(true, 1, 'pic') as string
+        const HostUser =
+          await loginFunction.getUserInfo((await dbManager.getUserByPosition(1, true) as UserDataAndId).cookies)
+        if (HostUser.msg !== 'successful') {
+          console.error('资源获取失败' + HostUser.msg)
+          return
+        }
+        const url = HostUser.pic
         this.HostImageData = await loginFunction.GetPic(url) as image.PixelMap
-        this.hostName = await dbManager.getUserInfoById(true, 1, 'name') as string
-        this.hostPhone = await dbManager.getUserInfoById(true, 1, 'phone') as string
+        this.hostName = HostUser.uname
+        this.hostPhone = (await dbManager.getUserByPosition(1, true) as UserDataAndId).phone
         this.QRvalue =
-          `http://cdn.aquamarine5.fun/?phone=${this.hostPhone}&pwd=${encodeURIComponent(await dbManager.getUserInfoById(true,
-            1, 'pwd') as string)}&name=${decodeURIComponent(this.hostName)}`
+          `http://cdn.aquamarine5.fun/?phone=${this.hostPhone}&pwd=${encodeURIComponent((await dbManager.getUserByPosition(1,
+            true) as UserDataAndId).pwd)}&name=${decodeURIComponent(this.hostName)}`
         if (this.hostName.toString() === $r('app.string.defaultUname').toString()) {
           this.uiContext.getRouter().pushUrl({ url: 'pages/Login' });
         }

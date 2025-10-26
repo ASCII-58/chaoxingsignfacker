@@ -52,7 +52,7 @@ export class Sign {
     })
     return result.result.toString()
   }
-  static async ifPhoto(cookies: string ,activeId: number): Promise<boolean> {
+  static async ifPhoto(cookies: string ,activeId: string): Promise<boolean> {
     const httpRequest = http.createHttp()
     const url = ChaoXingApi.URL_IF_PHOTO.buildUrl({'activeId':activeId}).toString()
     try {
@@ -113,7 +113,7 @@ export class Sign {
  * @param cookies
  * @returns -1 = 无权限 | 0 = 已签到 | 1 = 可签到
  */
-  static async PreSignIn(activePrimaryId: number, classId: number, courseId: number, uid: number,
+  static async PreSignIn(activePrimaryId: string, classId: string, courseId: string, uid: string,
     cookies: string): Promise<number> {
     const httpRequest = http.createHttp()
     const result = await httpRequest.request(ChaoXingApi.URL_PRE_SIGN.buildUrl({

@@ -3,15 +3,15 @@ import { Sign } from '../utils/sign';
 import { JSON } from '@kit.ArkTS';
 import { FunctionalButton, functionalButtonComponentManager } from '@kit.ScenarioFusionKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { DatabaseManager, UserData } from '../utils/DataBase';
-import promptAction from '@ohos.promptAction';
+import { DatabaseManager, UserDataAndId } from '../utils/DataBase';
 import { image } from '@kit.ImageKit';
 import { loginFunction } from '../utils/Login';
 import fs from '@ohos.file.fs';
-import { request ,BusinessError} from '@kit.BasicServicesKit';
+import { BusinessError, request } from '@kit.BasicServicesKit';
 import { ChaoxingUtils } from '../utils/utils';
 import { picker } from '@kit.CoreFileKit';
 import { http } from '@kit.NetworkKit';
+import { ChaoXingApi } from '../utils/PublicAPI';
 
 interface userMenu {
   uname: string
@@ -36,7 +36,9 @@ struct Icon {
         .margin({ left: 5 })
         .onAppear(async () => {
           const dbManager = DatabaseManager.getInstance()
-          const url = await dbManager.getUserInfoById(false, this.UserId, 'pic') as string
+          const url =
+            (await loginFunction.getUserInfo((await dbManager.getUserByPosition(this.UserId,
+              false) as UserDataAndId).cookies)).pic
           console.log('fuck' + url)
           this.ImageData = await loginFunction.GetPic(url) as image.PixelMap
         })
@@ -127,7 +129,7 @@ struct photoPicker {
   build() {
     Column() {
       Button('选择图片')
-        .onClick(async () => {// 设置加载状态（操作开始前）
+        .onClick(async () => { // 设置加载状态（操作开始前）
           this.isLoading = true;
 
           try {
@@ -173,28 +175,30 @@ struct photoPicker {
                 const fileName = photoNameArray[i] + '.jpg';
                 const copyFilePath = context.cacheDir + '/' + fileName;
 
-                console.log(`fucknima [FileCopy] 正在处理第 ${i + 1} 张图片，源路径: ${sourceUri}, 目标路径: ${copyFilePath}`);
+                console.log(`fucknima [FileCopy] 正在处理第 ${i +
+                  1} 张图片，源路径: ${sourceUri}, 目标路径: ${copyFilePath}`);
 
                 // 打开源文件
                 const file = fs.openSync(sourceUri, fs.OpenMode.READ_ONLY);
                 fs.copyFileSync(file.fd, copyFilePath);
                 fs.closeSync(file.fd);
                 const uploadFilePath = `internal://cache/${fileName}`
-                console.log('fucknima'+uploadFilePath)
+                console.log('fucknima' + uploadFilePath)
                 // 构造上传文件对象
                 const uploadFile: request.File[] = [{
                   uri: uploadFilePath,
                   filename: fileName,
                   name: 'file',
-                  type: 'image/jpeg'}
+                  type: 'image/jpeg'
+                }
                 ];
-                console.log('fucknima, 构建的上传参数为:'+JSON.stringify(uploadFile))
+                console.log('fucknima, 构建的上传参数为:' + JSON.stringify(uploadFile))
 
                 // 获取用户信息
-                let userInfo:UserData;
+                let userInfo: UserDataAndId;
                 try {
-                  userInfo = await dbManager.getUserInfoObjectById(i === 0, i === 0 ? 1 : i);
-                  if (!userInfo || !userInfo.cookies || !userInfo.uid) {
+                  userInfo = await dbManager.getUserByPosition(i === 0 ? 1 : i, i === 0) as UserDataAndId;
+                  if (!userInfo) {
                     throw new Error('用户信息缺失');
                   }
                 } catch (userErr) {
@@ -203,10 +207,11 @@ struct photoPicker {
                 }
 
                 const token = await Sign.GetToken(userInfo.cookies);
-                console.log('fucknimatoken:'+token);
+                console.log('fucknimatoken:' + token);
+                const puid = (await loginFunction.getUserInfo(userInfo.cookies)).puid
                 const uploadData: request.RequestData[] = [{
                   name: 'puid',
-                  value: userInfo.uid.toString()
+                  value: puid
                 }];
 
                 console.log(`fucknima [Upload] 准备上传第 ${i + 1} 张图片，用户 UID: ${userInfo.uid}`);
@@ -216,14 +221,12 @@ struct photoPicker {
                   request.uploadFile(
                     getContext(),
                     {
-                      url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=820fde763f8165c8b5d9b01b23c6af21`,
+                      url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${token}`,
                       files: uploadFile,
                       data: uploadData,
                       method: http.RequestMethod.POST,
                       header: {
-                        'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0',
-                        'sec-ch-ua': `"Microsoft Edge";v="141", "Not?A_Brand";v="8", "Chromium";v="141"`
-
+                        'Accept': '*/*'
                       }
                     },
                     (err, data) => {
@@ -236,11 +239,11 @@ struct photoPicker {
                       const uploadTask = data;
                       uploadTask.on('headerReceive', (headerData) => {
                         try {
-                          console.log('qqt000'+JSON.stringify(headerData));
+                          console.log('qqt000' + JSON.stringify(headerData));
                           const bodyStr = headerData?.['body'] as string | undefined;
                           if (bodyStr) {
                             const responseBody = JSON.parse(bodyStr) as object;
-                            const objectId:string = responseBody?.['objectId'];
+                            const objectId: string = responseBody?.['objectId'];
                             if (objectId) {
                               this.objectidArray[i] = objectId;
                               console.log(`fucknima [Upload] 第 ${i + 1} 张图片上传成功，objectId: ${objectId}`);
@@ -269,9 +272,9 @@ struct photoPicker {
                 });
 
               } catch (innerErr) {
-                const errors=innerErr as BusinessError
-                console.error(`fucknima 错误码: ${errors.code}, 信息: ${JSON.stringify(errors)}`);
-                console.error(`fucknima [UploadLoop] 处理第 ${i + 1} 张图片时发生未预期错误:`, JSON.stringify(innerErr));
+                console.error(`fucknima 信息: ${JSON.stringify(innerErr)}`);
+                console.error(`fucknima [UploadLoop] 处理第 ${i + 1} 张图片时发生未预期错误:`,
+                  JSON.stringify(innerErr));
               }
             }
 
@@ -280,7 +283,8 @@ struct photoPicker {
             console.error('fucknima [PhotoSelect/Upload] 整体流程发生严重错误:', outerErr);
           } finally {
             this.isLoading = false;
-          }})
+          }
+        })
     }
     .width('100%')
     .padding({ top: 20 })
@@ -412,78 +416,78 @@ export struct SignPage {
           Button('签到')
             .enabled(this.canSign)
             .accessibilityDescription('当前按钮不可用')
-            .onClick(async () => {
-              const hashTable = new Map<string, string[]>();
-              const dbManager = DatabaseManager.getInstance()
-              const uid = await dbManager.getUserInfoById(true, 1, 'uid')
-              const name = await dbManager.getUserInfoById(true, 1, 'name')
-              const fid = await dbManager.getUserInfoById(true, 1, 'fid')
-              this.queryParams['uid'] = uid
-              this.queryParams['name'] = name
-              this.queryParams['fid'] = fid
-              if (this.ifPhoto) {
-                this.queryParams['objectid'] = this.objectidArr[0]
-              }
-              const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
-              console.log('fuck' + cookies)
-              const result = await Sign.DoSignIn(cookies, this.queryParams)
-
-              for (let i = 0; i < this.signIdArray.length; i++) {
-                const dbManager = DatabaseManager.getInstance()
-                const uid = await dbManager.getUserInfoById(false, this.signIdArray[i], 'uid')
-                const name = await dbManager.getUserInfoById(false, this.signIdArray[i], 'name') as string
-                const fid = await dbManager.getUserInfoById(false, this.signIdArray[i], 'fid')
-                this.queryParams['uid'] = uid
-                this.queryParams['name'] = name
-                this.queryParams['fid'] = fid
-                if (this.ifPhoto) {
-                  this.queryParams['objectid'] = this.objectidArr[i+1]
-                }
-                const cookies = await dbManager.getUserInfoById(false, this.signIdArray[i], 'cookies') as string
-                let result = await Sign.DoSignIn(cookies, this.queryParams)
-                if (result.includes('<html') || result.includes('500 Internal Server Error')) {
-                  result = '签到不合法：服务器返回错误 (500)'
-                }
-                if (hashTable.has(result)) {
-                  hashTable.get(result)!.push(name);
-                } else {
-                  hashTable.set(result, [name]);
-                }
-              }
-              const messages: Record<string, string> = {
-                "success": `用户${name}签到成功`,
-                "validate": '签到需要验证码',
-                '您已签到过了': `用户${name}已签到过了`
-              };
-
-              let message = '';
-              let duration = 3000;
-
-              // 判断是否是服务器返回的 HTML 错误页（特别是 500 错误）
-              if (typeof result === 'string' &&
-                (result.includes('<html') || result.includes('500 Internal Server Error'))) {
-                message = '签到不合法：服务器返回错误 (500)';
-              } else {
-                // 正常逻辑处理 result
-                message = messages[result] || `签到失败: 签到返回的结果为\n${result}`;
-                duration = messages[result] ? 3000 : 6000;
-              }
-
-              // 如果有其他用户的签到统计数据，追加显示
-              if (hashTable.size > 0) {
-                let statsMessage = '\n\n其他用户的签到统计数据:\n';
-                hashTable.forEach((names, result) => {
-                  statsMessage += `${result}\n${names.join(', ')} (共 ${names.length} 人)\n`;
-                });
-
-                message += statsMessage;
-                duration = 10000; // 有统计信息则延长显示时间
-              }
-
-              // 统一弹窗提示
-              promptAction.showToast({ message, duration, alignment: Alignment.Center });
-
-            })
+          // .onClick(async () => {
+          //   const hashTable = new Map<string, string[]>();
+          //   const dbManager = DatabaseManager.getInstance()
+          //   const uid = await dbManager.getUserInfoById(true, 1, 'uid')
+          //   const name = await dbManager.getUserInfoById(true, 1, 'name')
+          //   const fid = await dbManager.getUserInfoById(true, 1, 'fid')
+          //   this.queryParams['uid'] = uid
+          //   this.queryParams['name'] = name
+          //   this.queryParams['fid'] = fid
+          //   if (this.ifPhoto) {
+          //     this.queryParams['objectid'] = this.objectidArr[0]
+          //   }
+          //   const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
+          //   console.log('fuck' + cookies)
+          //   const result = await Sign.DoSignIn(cookies, this.queryParams)
+          //
+          //   for (let i = 0; i < this.signIdArray.length; i++) {
+          //     const dbManager = DatabaseManager.getInstance()
+          //     const uid = await dbManager.getUserInfoById(false, this.signIdArray[i], 'uid')
+          //     const name = await dbManager.getUserInfoById(false, this.signIdArray[i], 'name') as string
+          //     const fid = await dbManager.getUserInfoById(false, this.signIdArray[i], 'fid')
+          //     this.queryParams['uid'] = uid
+          //     this.queryParams['name'] = name
+          //     this.queryParams['fid'] = fid
+          //     if (this.ifPhoto) {
+          //       this.queryParams['objectid'] = this.objectidArr[i+1]
+          //     }
+          //     const cookies = await dbManager.getUserInfoById(false, this.signIdArray[i], 'cookies') as string
+          //     let result = await Sign.DoSignIn(cookies, this.queryParams)
+          //     if (result.includes('<html') || result.includes('500 Internal Server Error')) {
+          //       result = '签到不合法：服务器返回错误 (500)'
+          //     }
+          //     if (hashTable.has(result)) {
+          //       hashTable.get(result)!.push(name);
+          //     } else {
+          //       hashTable.set(result, [name]);
+          //     }
+          //   }
+          //   const messages: Record<string, string> = {
+          //     "success": `用户${name}签到成功`,
+          //     "validate": '签到需要验证码',
+          //     '您已签到过了': `用户${name}已签到过了`
+          //   };
+          //
+          //   let message = '';
+          //   let duration = 3000;
+          //
+          //   // 判断是否是服务器返回的 HTML 错误页（特别是 500 错误）
+          //   if (typeof result === 'string' &&
+          //     (result.includes('<html') || result.includes('500 Internal Server Error'))) {
+          //     message = '签到不合法：服务器返回错误 (500)';
+          //   } else {
+          //     // 正常逻辑处理 result
+          //     message = messages[result] || `签到失败: 签到返回的结果为\n${result}`;
+          //     duration = messages[result] ? 3000 : 6000;
+          //   }
+          //
+          //   // 如果有其他用户的签到统计数据，追加显示
+          //   if (hashTable.size > 0) {
+          //     let statsMessage = '\n\n其他用户的签到统计数据:\n';
+          //     hashTable.forEach((names, result) => {
+          //       statsMessage += `${result}\n${names.join(', ')} (共 ${names.length} 人)\n`;
+          //     });
+          //
+          //     message += statsMessage;
+          //     duration = 10000; // 有统计信息则延长显示时间
+          //   }
+          //
+          //   // 统一弹窗提示
+          //   promptAction.showToast({ message, duration, alignment: Alignment.Center });
+          //
+          // })
         }.justifyContent(FlexAlign.Center)
         .height('100%')
         .width('100%')
@@ -503,16 +507,24 @@ export struct SignPage {
       const dbManager = DatabaseManager.getInstance()
       const userCount = await dbManager.getTableCount('OtherUser')
       for (let i: number = 1; i <= userCount; i++) {
-        const userName = await dbManager.getUserInfoById(false, i, 'name')
-        const uid = await dbManager.getUserInfoById(false, i, 'uid')
-        const cookies = await dbManager.getUserInfoById(false, i, 'cookies')
-        const SignPermission =
-          await Sign.PreSignIn(this.activityInfo?.ActivityId as number, this.activityInfo?.ClassId as number,
-            this.activityInfo?.CourseId as number, uid as number, cookies as string)
-        this.otherUser.push({ 'uname': userName as string, 'id': i, SignPermission: SignPermission })
+        const userInfo = await dbManager.getUserByPosition(i)
+        if (userInfo) {
+          const cookies = userInfo.cookies
+          const userName = (await loginFunction.getUserInfo(cookies)).uname
+          const info = await loginFunction.getUserInfo(cookies)
+          const uid = info.uid
+          if (this.activityInfo) {
+            const SignPermission =
+              await Sign.PreSignIn(this.activityInfo.ActivityId, this.activityInfo.ClassId, this.activityInfo.CourseId,
+                uid, cookies as string)
+            this.otherUser.push({ 'uname': userName as string, 'id': i, SignPermission: SignPermission })
+          }
+        }
       }
-      const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
-      this.ifPhoto = await Sign.ifPhoto(cookies, this.activityInfo?.ActivityId as number)
+      const cookies = (await dbManager.getUserByPosition(1, true))?.cookies as string
+      if (this.activityInfo) {
+        this.ifPhoto = await Sign.ifPhoto(cookies, this.activityInfo.ActivityId)
+      }
       console.log(this.ifPhoto.toString())
     })
   }

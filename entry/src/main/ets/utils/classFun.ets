@@ -56,16 +56,16 @@ export class CourseAndActivity {
       [
         {
           imageurl: '',
-          id: 0,
+          id: '',
           teacherfactor: '',
-          classId: 0,
+          classId: '',
           name: ''
         }
       ]
     }
   }
 
-  static async getActivityList(cookies: string, classId: number, courseId: number): Promise<ActivityItem[]|null> {
+  static async getActivityList(cookies: string, classId: string, courseId: string): Promise<ActivityItem[]|null> {
     const httpRequest = http.createHttp();
     const url=ChaoxingUtils.buildUrl(ChaoXingApi.URL_GET_ACTIVITY_LIST,
       {
@@ -108,16 +108,16 @@ export interface ActivityItem {
   startTime: number;
 
   /** 活动ID，用于页面导航参数传递 */
-  id: number;
+  id: string;
 
   /** 活动结束时间戳，用于判断签到是否结束和控制UI状态 */
   endTime: number;
 }
 export interface ClassInfo {
   imageurl: string;
-  id: number; // 课程id
+  id: string; // 课程id
   teacherfactor: string;
-  classId: number; // 班级id
+  classId: string; // 班级id
   name: string;
 }
 
@@ -149,13 +149,13 @@ export interface CourseContent {
   course: Data;
 
   /** 班级ID */
-  id: number;
+  id: string;
 }
 
 // 课程基本信息接口
 export interface CourseInfo {
   /** 课程ID */
-  id: number;
+  id: string;
 
   /** 课程名称 */
   name: string;

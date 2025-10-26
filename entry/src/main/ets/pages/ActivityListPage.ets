@@ -3,14 +3,14 @@ import { ChaoxingUtils } from '../utils/utils';
 import { promptAction } from '@kit.ArkUI';
 import { DatabaseManager } from '../utils/DataBase';
 import { JSON } from '@kit.ArkTS';
+
 /**
  * @param signType '0' 普通/拍照签到 | '2' 扫码签到 | '4' 位置签到
  */
 export interface ActivityInfo {
-  ActivityId: number;
-  CourseId: number;
-  ClassId: number;
-
+  ActivityId: string;
+  CourseId: string;
+  ClassId: string;
   signType: string
 }
 
@@ -60,9 +60,9 @@ export function initClassInfo(name: string, classInfo: ClassInfo) {
 export struct ActivityListPage {
   classInfo: ClassInfo | null = null;
   pathInfos: NavPathStack = new NavPathStack();
-  @State courseId: number = 0; // 课程id
+  @State courseId: string = ''; // 课程id
   @State teacherfactor: string = '';
-  @State classId: number = 0; // 班级id
+  @State classId: string = ''; // 班级id
   @State name: string = '';
   @State ActivityList: ActivityItem[] | null = null
 
@@ -102,7 +102,8 @@ export struct ActivityListPage {
               .borderRadius(20)
               .onClick(() => {
                 if (typeof Activity.endTime === 'number') {
-                  if (!ChaoxingUtils.isSignActivityActive(Activity.startTime, Activity.endTime)||!ChaoxingUtils.isSignActivityStarted(Activity.startTime)) {
+                  if (!ChaoxingUtils.isSignActivityActive(Activity.startTime, Activity.endTime) ||
+                    !ChaoxingUtils.isSignActivityStarted(Activity.startTime)) {
                     promptAction.showToast({ message: '不在可签到时间内, 无法签到' })
                     return
                   }
@@ -130,22 +131,34 @@ export struct ActivityListPage {
     })
     .onAppear(async () => {
       try {
-        this.courseId = this.classInfo?.id as number; // 课程id
-        console.log('fuck', this.courseId)
-        this.teacherfactor = this.classInfo?.teacherfactor as string;
-        console.log('fuck', this.teacherfactor)
-        this.classId = this.classInfo?.classId as number; // 班级id
-        this.name = this.classInfo?.name as string
-        console.log('fuck', this.name)
-        const dbManager = DatabaseManager.getInstance()
-        const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
-        console.log('fuck', cookies)
-        console.error('fuck', 'true', 'false')
-        this.ActivityList = await CourseAndActivity.getActivityList(cookies, this.classId, this.courseId);
-        console.error('fuck' + this.ActivityList ? 'true' : 'false')
-        this.ActivityList?.forEach(element => {
-          console.log('fuck' + JSON.stringify(element))
-        });
+        if (this.classInfo) {
+          this.courseId = this.classInfo.id; // 课程id
+          console.log('fuck', this.courseId)
+          this.teacherfactor = this.classInfo?.teacherfactor as string;
+          console.log('fuck', this.teacherfactor)
+          this.classId = this.classInfo.classId; // 班级id
+          this.name = this.classInfo?.name as string
+          console.log('fuck', this.name)
+          const dbManager = DatabaseManager.getInstance()
+          const cookies = (await dbManager.getUserByPosition(1, true))?.cookies
+          if (cookies) {
+            console.log('fuck', cookies)
+            console.error('fuck', 'true', 'false')
+            this.ActivityList = await CourseAndActivity.getActivityList(cookies, this.classId, this.courseId);
+            console.error('fuck' + this.ActivityList ? 'true' : 'false')
+            if (this.ActivityList) {
+              this.ActivityList.forEach(element => {
+                console.log('fuck' + JSON.stringify(element))
+              });
+            } else {
+              throw new Error('签到列表获取为空')
+            }
+          } else {
+            throw new Error('用户登录信息错误')
+          }
+        } else {
+          throw new Error('未获取到课程信息')
+        }
       } catch (e) {
         console.error('fuck' + e)
       }

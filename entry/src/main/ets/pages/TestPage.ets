@@ -2,24 +2,29 @@ import picker from '@ohos.file.picker';
 import common from '@ohos.app.ability.common';
 import fs from '@ohos.file.fs';
 import request from '@ohos.request';
-import { ErrorCallback } from '@kit.BasicServicesKit';
 import { JSON } from '@kit.ArkTS';
 
 // 获取应用文件路径
 let context = getContext(this) as common.UIAbilityContext;
 let cacheDir = context.cacheDir;
 // 上传任务配置项
-let uploadConfig:request.UploadConfig = {
+let uploadConfig: request.UploadConfig = {
   url: 'http://192.168.3.48:8740/file/upload',
   header: { key1: 'Content-Type', key2: 'multipart/form-data' },
   method: 'POST',
   files: [
-    { filename: 'test.jpg', name: 'test', uri: 'internal://cache/test.jpg', type: 'jpg' }
+    {
+      filename: 'test.jpg',
+      name: 'test',
+      uri: 'internal://cache/test.jpg',
+      type: 'jpg'
+    }
   ],
   data: [
     { name: 'fileId', value: 'FP000008' }
   ]
 }
+
 @Builder
 export function init(name: string) {
   test()
@@ -37,7 +42,8 @@ export struct test {
       PhotoSelectOptions.maxSelectNumber = 1;
       let photoPicker = new picker.PhotoViewPicker();
       photoPicker.select(PhotoSelectOptions).then((PhotoSelectResult) => {
-        console.info('xx PhotoViewPicker.select successfully, PhotoSelectResult uri: ' + JSON.stringify(PhotoSelectResult));
+        console.info('xx PhotoViewPicker.select successfully, PhotoSelectResult uri: ' +
+        JSON.stringify(PhotoSelectResult));
         // 从图库选择图片后，返回图片uri
         let uri = PhotoSelectResult.photoUris[0];
         console.info('xx uri:' + uri)
@@ -48,7 +54,7 @@ export struct test {
         fs.copyFileSync(file.fd, cacheDir + '/test.jpg')
         // 上传文件到服务器上
         this.uploadImage()
-      }).catch((err:string) => {
+      }).catch((err: string) => {
         console.error('xx PhotoViewPicker.select failed with err: ' + err);
       });
     } catch (err) {
@@ -68,7 +74,7 @@ export struct test {
             }
           });
         })
-        .catch((err:Error) => {
+        .catch((err: Error) => {
           console.error(`fuckxx Invoke uploadFile failed, code is ${JSON.stringify(err)}, message is ${err.message}`);
           this.message = err.message
         })
@@ -77,9 +83,10 @@ export struct test {
       this.message = err.message
     }
   }
+
   build() {
     NavDestination() {
-      Column({space: 30}) {
+      Column({ space: 30 }) {
         Button('打开图库')
           .width('80%').height('40')
           .onClick(() => {

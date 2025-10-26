@@ -172,14 +172,11 @@ export struct loginByCommon {
               const userData: UserData = {
                 phone: this.username,
                 pwd: pwd,
-                name: info.uname,
-                pic: info.pic,
-                cookies: cookies, // 可以在登录成功后填充会话信息
-                fid: info.fid,
+                cookies: cookies,
                 uid: info.uid
               };
               console.log('fuck' + JSON.stringify(userData))
-              let operationResult = await dbManager.insertOtherUser(userData)
+              let operationResult = await dbManager.insertUser(userData)
               if (operationResult === 1) {
                 promptAction.showToast({ message: '登录成功', duration: 2000 })
                 this.isShow = !this.isShow
