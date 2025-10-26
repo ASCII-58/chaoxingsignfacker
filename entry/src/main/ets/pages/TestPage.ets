@@ -3,6 +3,7 @@ import common from '@ohos.app.ability.common';
 import fs from '@ohos.file.fs';
 import request from '@ohos.request';
 import { JSON } from '@kit.ArkTS';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 // 获取应用文件路径
 let context = getContext(this) as common.UIAbilityContext;
@@ -74,13 +75,14 @@ export struct test {
             }
           });
         })
-        .catch((err: Error) => {
-          console.error(`fuckxx Invoke uploadFile failed, code is ${JSON.stringify(err)}, message is ${err.message}`);
+        .catch((err: BusinessError) => {
+          console.error(`fuckxx Invoke uploadFile failed, code is ${err.code}, message is ${err.message}`);
           this.message = err.message
         })
     } catch (err) {
-      console.error(`fuckxx Invoke uploadFile failed, code is ${err.code}, message is ${err.message}`);
-      this.message = err.message
+      const error = err as BusinessError;
+      console.error(`fuckxx Invoke uploadFile failed, code is ${error.code}, message is ${error.message}`);
+      this.message = error.message
     }
   }
 
