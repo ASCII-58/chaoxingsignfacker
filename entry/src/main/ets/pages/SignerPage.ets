@@ -11,7 +11,6 @@ import { BusinessError, request } from '@kit.BasicServicesKit';
 import { ChaoxingUtils } from '../utils/utils';
 import { picker } from '@kit.CoreFileKit';
 import { http } from '@kit.NetworkKit';
-import { ChaoXingApi } from '../utils/PublicAPI';
 
 interface userMenu {
   uname: string
@@ -138,7 +137,7 @@ struct photoPicker {
             photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
             photoSelectOptions.maxSelectNumber = this.signIdArray.length + 1;
 
-            console.log(`fucknima [PhotoSelect] 配置完成：最大选择数量 = ${photoSelectOptions.maxSelectNumber}`);
+            console.log(`  [PhotoSelect] 配置完成：最大选择数量 = ${photoSelectOptions.maxSelectNumber}`);
 
             // 生成文件名数组
             const photoNameArray: string[] = [];
@@ -146,7 +145,7 @@ struct photoPicker {
             for (let i = 0; i < len; i++) {
               const name = ChaoxingUtils.generatePhotoName();
               photoNameArray.push(name);
-              console.log(`fucknima [PhotoSelect] 生成文件名 ${i}: ${name}.jpg`);
+              console.log(`  [PhotoSelect] 生成文件名 ${i}: ${name}.jpg`);
             }
 
             // 二、创建选择器并执行选择
@@ -155,12 +154,12 @@ struct photoPicker {
 
             // 检查选择结果
             if (!res || !Array.isArray(res.photoUris) || res.photoUris.length === 0) {
-              console.warn('fucknima [PhotoSelect] 用户未选择任何图片或返回结果无效');
+              console.warn('  [PhotoSelect] 用户未选择任何图片或返回结果无效');
               this.isLoading = false;
               return;
             }
 
-            console.log(`fucknima [PhotoSelect] 用户选择了 ${res.photoUris.length} 张图片`);
+            console.log(`  [PhotoSelect] 用户选择了 ${res.photoUris.length} 张图片`);
 
             // 保存首张图片用于显示
             this.displayURI = res.photoUris[0];
@@ -175,7 +174,7 @@ struct photoPicker {
                 const fileName = photoNameArray[i] + '.jpg';
                 const copyFilePath = context.cacheDir + '/' + fileName;
 
-                console.log(`fucknima [FileCopy] 正在处理第 ${i +
+                console.log(`  [FileCopy] 正在处理第 ${i +
                   1} 张图片，源路径: ${sourceUri}, 目标路径: ${copyFilePath}`);
 
                 // 打开源文件
@@ -183,7 +182,7 @@ struct photoPicker {
                 fs.copyFileSync(file.fd, copyFilePath);
                 fs.closeSync(file.fd);
                 const uploadFilePath = `internal://cache/${fileName}`
-                console.log('fucknima' + uploadFilePath)
+                console.log(' ' + uploadFilePath)
                 // 构造上传文件对象
                 const uploadFile: request.File[] = [{
                   uri: uploadFilePath,
@@ -192,7 +191,7 @@ struct photoPicker {
                   type: 'image/jpeg'
                 }
                 ];
-                console.log('fucknima, 构建的上传参数为:' + JSON.stringify(uploadFile))
+                console.log(' , 构建的上传参数为:' + JSON.stringify(uploadFile))
 
                 // 获取用户信息
                 let userInfo: UserDataAndId;
@@ -203,19 +202,30 @@ struct photoPicker {
                   }
                 } catch (userErr) {
                   const err = userErr as BusinessError;
-                  console.error(`fucknima [Upload] 获取第 ${i} 个用户信息失败: Code=${err.code}, Message=${err.message}`);
+                  console.error(`  [Upload] 获取第 ${i} 个用户信息失败: Code=${err.code}, Message=${err.message}`);
                   continue;
                 }
 
                 const token = await Sign.GetToken(userInfo.cookies);
-                console.log('fucknimatoken:' + token);
+                console.log('UploadInfo token:' + token);
                 const puid = (await loginFunction.getUserInfo(userInfo.cookies)).puid
                 const uploadData: request.RequestData[] = [{
                   name: 'puid',
                   value: puid
                 }];
 
-                console.log(`fucknima [Upload] 准备上传第 ${i + 1} 张图片，用户 UID: ${userInfo.uid}`);
+                console.log(`[UploadInfo] 准备上传第 ${i + 1} 张图片，用户 PUID: ${userInfo.uid}, request.UploadConfig: ${
+                JSON.stringify(
+                  {
+                  url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${token}`,
+                  method: http.RequestMethod.POST,
+                  header: {
+                    'Accept': '*/*',
+                    'cookies': userInfo.cookies
+                  },
+                  files: uploadFile,
+                  data: uploadData
+                } as request.UploadConfig)}`);
 
                 // 执行上传（Promise 封装）
                 await new Promise<void>((resolve, reject) => {
@@ -223,16 +233,17 @@ struct photoPicker {
                     getContext(),
                     {
                       url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${token}`,
-                      files: uploadFile,
-                      data: uploadData,
                       method: http.RequestMethod.POST,
                       header: {
-                        'Accept': '*/*'
-                      }
+                        'Accept': '*/*',
+                        'cookies': userInfo.cookies
+                      },
+                      files: uploadFile,
+                      data: uploadData
                     },
                     (err, data) => {
                       if (err) {
-                        console.error(`fucknima [Upload] 上传请求失败 (索引 ${i}): Code=${err.code}, Message=${err.message},error=${JSON.stringify(err)}`);
+                        console.error(`[Upload] 上传请求失败 (索引 ${i}): Code=${err.code}, Message=${err.message},error=${JSON.stringify(err)}`);
                         reject(err);
                         return;
                       }
@@ -240,29 +251,29 @@ struct photoPicker {
                       const uploadTask = data;
                       uploadTask.on('headerReceive', (headerData) => {
                         try {
-                          console.log('qqt000' + JSON.stringify(headerData));
+                          console.log('ResponseBody: ' + JSON.stringify(headerData));
                           const bodyStr = headerData?.['body'] as string | undefined;
                           if (bodyStr) {
                             const responseBody = JSON.parse(bodyStr) as object;
                             const objectId: string = responseBody?.['objectId'];
                             if (objectId) {
                               this.objectidArray[i] = objectId;
-                              console.log(`fucknima [Upload] 第 ${i + 1} 张图片上传成功，objectId: ${objectId}`);
+                              console.log(`  [Upload] 第 ${i + 1} 张图片上传成功，objectId: ${objectId}`);
                             } else {
-                              console.warn(`fucknima [Upload] 第 ${i + 1} 张图片响应中无 objectId`);
+                              console.warn(`  [Upload] 第 ${i + 1} 张图片响应中无 objectId`);
                             }
                           } else {
-                            console.warn(`fucknima [Upload] 第 ${i + 1} 张图片响应体为空`);
+                            console.warn(`  [Upload] 第 ${i + 1} 张图片响应体为空`);
                           }
                         } catch (parseErr) {
                           const err = parseErr as BusinessError;
-                          console.error(`fucknima [Upload] 解析响应体失败 (索引 ${i}): Code=${err.code}, Message=${err.message}`);
+                          console.error(`  [Upload] 解析响应体失败 (索引 ${i}): Code=${err.code}, Message=${err.message}`);
                         }
                         resolve();
                       });
 
                       uploadTask.on('fail', (failData) => {
-                        console.error(`fucknima [Upload] 上传失败 (索引 ${i}):`, JSON.stringify(failData));
+                        console.error(`  [Upload] 上传失败 (索引 ${i}):`, JSON.stringify(failData));
                         reject(new Error(`Upload failed: ${JSON.stringify(failData)}`));
                       });
 
@@ -275,15 +286,16 @@ struct photoPicker {
 
               } catch (innerErr) {
                 const err = innerErr as BusinessError;
-                console.error(`fucknima 信息: Code=${err.code}, Message=${err.message}`);
-                console.error(`fucknima [UploadLoop] 处理第 ${i + 1} 张图片时发生未预期错误: Code=${err.code}, Message=${err.message}`);
+                console.error(`  信息: Code=${err.code}, Message=${err.message}`);
+                console.error(`  [UploadLoop] 处理第 ${i +
+                  1} 张图片时发生未预期错误: Code=${err.code}, Message=${err.message}`);
               }
             }
 
-            console.log('fucknima [PhotoUpload] 所有图片处理完成');
+            console.log('  [PhotoUpload] 所有图片处理完成');
           } catch (outerErr) {
             const err = outerErr as BusinessError;
-            console.error(`fucknima [PhotoSelect/Upload] 整体流程发生严重错误: Code=${err.code}, Message=${err.message}`);
+            console.error(`  [PhotoSelect/Upload] 整体流程发生严重错误: Code=${err.code}, Message=${err.message}`);
           } finally {
             this.isLoading = false;
           }
