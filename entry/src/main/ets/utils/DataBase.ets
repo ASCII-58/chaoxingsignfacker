@@ -7,7 +7,7 @@ interface UserData {
   phone: string;
   pwd: string;
   cookies: string;
-  uid: string
+  uid: number
 }
 
 export interface UserDataAndId {
@@ -15,7 +15,7 @@ export interface UserDataAndId {
   phone: string;
   pwd: string;
   cookies: string;
-  uid: string
+  uid: number
 }
 
 /**
@@ -149,14 +149,14 @@ class DatabaseManager {
           userData.uid
         ]);
 
+        // 提交事务
+        this.rdbStore.commit();
         // 验证插入结果：检查记录数是否增加
         const countAfter = await this.getTableCount(tableName);
         if (countAfter !== countBefore + 1) {
           throw new Error('插入操作未成功，记录数未增加');
         }
 
-        // 提交事务
-        this.rdbStore.commit();
 
         hilog.info(0x0000, 'DB',
           `Successfully inserted ${isHost ? 'host' : 'other'} user: ${userData.phone.substring(0, 3)}***`);
@@ -309,7 +309,7 @@ class DatabaseManager {
 
         const userData: UserDataAndId = {
           id: resultSet.getLong(resultSet.getColumnIndex('id')),
-          uid: resultSet.getString(resultSet.getColumnIndex('uid')),
+          uid: resultSet.getLong(resultSet.getColumnIndex('uid')),
           phone: resultSet.getString(resultSet.getColumnIndex('phone')),
           pwd: resultSet.getString(resultSet.getColumnIndex('pwd')),
           cookies: resultSet.getString(resultSet.getColumnIndex('cookies'))
@@ -507,7 +507,7 @@ class DatabaseManager {
           phone TEXT NOT NULL,
           pwd TEXT NOT NULL,
           cookies TEXT NOT NULL,
-          uid TEXT NOT NULL
+          uid INTEGER NOT NULL
         );
       `);
 
@@ -517,7 +517,7 @@ class DatabaseManager {
           phone TEXT NOT NULL,
           pwd TEXT NOT NULL,
           cookies TEXT NOT NULL,
-          uid TEXT NOT NULL
+          uid INTEGER NOT NULL
         );
       `);
     } catch (err) {

@@ -5,6 +5,7 @@ import { DatabaseManager } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
 import { ChaoxingUtils } from '../utils/utils';
 import { BusinessError } from '@kit.BasicServicesKit';
+import BuildProfile from 'BuildProfile';
 
 const DOMAIN = 0x0000;
 const TAG = 'DB_INIT';
@@ -32,22 +33,15 @@ export default class EntryAbility extends UIAbility {
 
   async onWindowStageCreate(windowStage: window.WindowStage): Promise<void> {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
+    if (BuildProfile.DEBUG) {
+      import('@hadss/debug-db').then(async (ns: ESObject) => {
+        await ns.DebugDB.initialize(this.context, { port: 8080, defaultStart: true });
+      });
+    }
 
     try {
       // 确保数据库初始化完成（带超时）
       await this.waitForDatabaseInit();
-
-      if (this.databaseInitError) {
-        hilog.error(DOMAIN, TAG, 'Database initialization failed: %{public}s', this.databaseInitError);
-        // 加载错误页面
-        windowStage.loadContent('pages/DatabaseError', (err) => {
-          if (err) {
-            const error = err as BusinessError;
-            hilog.error(DOMAIN, 'testTag', 'Failed to load error page: Code=%{public}d, Message=%{public}s', error.code, error.message);
-          }
-        });
-        return;
-      }
 
       const dbManager = DatabaseManager.getInstance()
       const isHostLogin: boolean = !(await dbManager.isHostUserTableEmpty())

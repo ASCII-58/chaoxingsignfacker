@@ -5,6 +5,8 @@
   "main": "",
   "author": "ASCII58",
   "license": "",
-  "dependencies": {}
+  "dependencies": {
+    "@hadss/debug-db": "^1.0.0-rc.11"
+  }
 }
 

@@ -7,7 +7,7 @@ import { DatabaseManager, UserDataAndId } from '../utils/DataBase';
 import { image } from '@kit.ImageKit';
 import { loginFunction } from '../utils/Login';
 import fs from '@ohos.file.fs';
-import { BusinessError, request } from '@kit.BasicServicesKit';
+import request from '@ohos.request';
 import { ChaoxingUtils } from '../utils/utils';
 import { picker } from '@kit.CoreFileKit';
 import { http } from '@kit.NetworkKit';
@@ -115,192 +115,107 @@ struct userItem {
     })
   }
 }
-
+interface CookiesTokenPUID{
+  cookies:string
+  Token:string
+  PUID:string
+}
 @Reusable
 @Component
 struct photoPicker {
   @State displayURI: string = ''
   @Link signIdArray: Array<number>
+  @State signerInfoArr: CookiesTokenPUID[]=[]
   @Link objectidArray: string[]
-  @State backBlur: boolean = false
-  @State isLoading: boolean = false
 
   build() {
     Column() {
       Button('选择图片')
-        .onClick(async () => { // 设置加载状态（操作开始前）
-          this.isLoading = true;
+        .onClick(async () => {
 
-          try {
-            // 一、配置图片选择选项
-            const photoSelectOptions = new picker.PhotoSelectOptions();
-            photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
-            photoSelectOptions.maxSelectNumber = this.signIdArray.length + 1;
+          // 实例化 选项对象
+          const photoSelectOptions = new picker.PhotoSelectOptions();
+          // 过滤选择媒体文件类型为IMAGE
+          photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
+          // 选择媒体文件的最大数目
+          photoSelectOptions.maxSelectNumber = this.signIdArray.length + 1;
+          // 创建 图片选择对象
+          const photoViewPicker = new picker.PhotoViewPicker();
+          // 调用 select 方法，传入选项对象
+          photoViewPicker.select(photoSelectOptions)
+            .then(async res => {
+              const uriArr = res.photoUris
+              const signerNum = this.signIdArray.length
+              for (let index = 0; index <= signerNum; index++) {
+                const uri = uriArr[signerNum%uriArr.length]
+                const context = getContext(this)
+                const fileType = 'jpg'
+                // 生成一个新的文件名
+                const fileName = ChaoxingUtils.generatePhotoName() + '.' + fileType
+                // 通过缓存路径+文件名 拼接出完整的路径
+                const copyFilePath = context.cacheDir + '/' + fileName
 
-            console.log(`  [PhotoSelect] 配置完成：最大选择数量 = ${photoSelectOptions.maxSelectNumber}`);
-
-            // 生成文件名数组
-            const photoNameArray: string[] = [];
-            const len = this.signIdArray.length + 1;
-            for (let i = 0; i < len; i++) {
-              const name = ChaoxingUtils.generatePhotoName();
-              photoNameArray.push(name);
-              console.log(`  [PhotoSelect] 生成文件名 ${i}: ${name}.jpg`);
-            }
-
-            // 二、创建选择器并执行选择
-            const photoViewPicker = new picker.PhotoViewPicker();
-            const res = await photoViewPicker.select(photoSelectOptions);
-
-            // 检查选择结果
-            if (!res || !Array.isArray(res.photoUris) || res.photoUris.length === 0) {
-              console.warn('  [PhotoSelect] 用户未选择任何图片或返回结果无效');
-              this.isLoading = false;
-              return;
-            }
-
-            console.log(`  [PhotoSelect] 用户选择了 ${res.photoUris.length} 张图片`);
-
-            // 保存首张图片用于显示
-            this.displayURI = res.photoUris[0];
-
-            const context = getContext(this);
-            const dbManager = DatabaseManager.getInstance();
-
-            // 三、逐个处理每张需要上传的图片（共 len 张）
-            for (let i = 0; i < len; i++) {
-              try {
-                const sourceUri = res.photoUris[i % res.photoUris.length];
-                const fileName = photoNameArray[i] + '.jpg';
-                const copyFilePath = context.cacheDir + '/' + fileName;
-
-                console.log(`  [FileCopy] 正在处理第 ${i +
-                  1} 张图片，源路径: ${sourceUri}, 目标路径: ${copyFilePath}`);
-
-                // 打开源文件
-                const file = fs.openSync(sourceUri, fs.OpenMode.READ_ONLY);
-                fs.copyFileSync(file.fd, copyFilePath);
-                fs.closeSync(file.fd);
-                const uploadFilePath = `internal://cache/${fileName}`
-                console.log(' ' + uploadFilePath)
-                // 构造上传文件对象
-                const uploadFile: request.File[] = [{
-                  uri: uploadFilePath,
-                  filename: fileName,
-                  name: 'file',
-                  type: 'image/jpeg'
-                }
-                ];
-                console.log(' , 构建的上传参数为:' + JSON.stringify(uploadFile))
-
-                // 获取用户信息
-                let userInfo: UserDataAndId;
-                try {
-                  userInfo = await dbManager.getUserByPosition(i === 0 ? 1 : i, i === 0) as UserDataAndId;
-                  if (!userInfo) {
-                    throw new Error('用户信息缺失');
-                  }
-                } catch (userErr) {
-                  const err = userErr as BusinessError;
-                  console.error(`  [Upload] 获取第 ${i} 个用户信息失败: Code=${err.code}, Message=${err.message}`);
-                  continue;
-                }
-
-                const token = await Sign.GetToken(userInfo.cookies);
-                console.log('UploadInfo token:' + token);
-                const puid = (await loginFunction.getUserInfo(userInfo.cookies)).puid
-                const uploadData: request.RequestData[] = [{
-                  name: 'puid',
-                  value: puid
-                }];
-
-                console.log(`[UploadInfo] 准备上传第 ${i + 1} 张图片，用户 PUID: ${userInfo.uid}, request.UploadConfig: ${
-                JSON.stringify(
+                // 将文件 拷贝到 临时目录
+                const file = fs.openSync(uri, fs.OpenMode.READ_ONLY)
+                fs.copyFileSync(file.fd, copyFilePath)
+                // 四、上传图片
+                // 上传文件
+                let files: Array<request.File> = [
+                  // internal://cache/ 固定的，后面跟上 咱们上一步拷贝文件名即可
+                  // name 和接口文档的要求对上
                   {
-                  url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${token}`,
-                  method: http.RequestMethod.POST,
-                  header: {
-                    'Accept': '*/*',
-                    'cookies': userInfo.cookies
-                  },
-                  files: uploadFile,
-                  data: uploadData
-                } as request.UploadConfig)}`);
+                    filename: ChaoxingUtils.generatePhotoName() + '.' + fileType,
+                    type: fileType,
+                    name: 'file',
+                    uri: `internal://cache/${fileName}`
+                  }
+                ]
 
-                // 执行上传（Promise 封装）
-                await new Promise<void>((resolve, reject) => {
-                  request.uploadFile(
-                    getContext(),
-                    {
-                      url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${token}`,
-                      method: http.RequestMethod.POST,
-                      header: {
-                        'Accept': '*/*',
-                        'cookies': userInfo.cookies
-                      },
-                      files: uploadFile,
-                      data: uploadData
+                try {
+                  request.uploadFile(context, {
+                    url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${this.signerInfoArr[index].Token}`, // url 地址
+                    method: http.RequestMethod.POST, // 请求方法
+                    header: {
+                      // 和接口文档的要求的格式对象
+                      contentType: 'multipart/form-data',
                     },
-                    (err, data) => {
-                      if (err) {
-                        console.error(`[Upload] 上传请求失败 (索引 ${i}): Code=${err.code}, Message=${err.message},error=${JSON.stringify(err)}`);
-                        reject(err);
-                        return;
-                      }
-
-                      const uploadTask = data;
-                      uploadTask.on('headerReceive', (headerData) => {
-                        try {
-                          console.log('ResponseBody: ' + JSON.stringify(headerData));
-                          const bodyStr = headerData?.['body'] as string | undefined;
-                          if (bodyStr) {
-                            const responseBody = JSON.parse(bodyStr) as object;
-                            const objectId: string = responseBody?.['objectId'];
-                            if (objectId) {
-                              this.objectidArray[i] = objectId;
-                              console.log(`  [Upload] 第 ${i + 1} 张图片上传成功，objectId: ${objectId}`);
-                            } else {
-                              console.warn(`  [Upload] 第 ${i + 1} 张图片响应中无 objectId`);
-                            }
-                          } else {
-                            console.warn(`  [Upload] 第 ${i + 1} 张图片响应体为空`);
-                          }
-                        } catch (parseErr) {
-                          const err = parseErr as BusinessError;
-                          console.error(`  [Upload] 解析响应体失败 (索引 ${i}): Code=${err.code}, Message=${err.message}`);
-                        }
-                        resolve();
-                      });
-
-                      uploadTask.on('fail', (failData) => {
-                        console.error(`  [Upload] 上传失败 (索引 ${i}):`, JSON.stringify(failData));
-                        reject(new Error(`Upload failed: ${JSON.stringify(failData)}`));
-                      });
-
-                      uploadTask.on('complete', () => {
-                        resolve();
-                      });
-                    }
-                  );
-                });
-
-              } catch (innerErr) {
-                const err = innerErr as BusinessError;
-                console.error(`  信息: Code=${err.code}, Message=${err.message}`);
-                console.error(`  [UploadLoop] 处理第 ${i +
-                  1} 张图片时发生未预期错误: Code=${err.code}, Message=${err.message}`);
+                    files, // 文件信息
+                    data: [{ name: 'puid', value: this.signerInfoArr[index].PUID }] // 额外提交的数据，不能省略
+                  })
+                    .then((res => {
+                      // 这里可以获取到响应的内容
+                      res.on('headerReceive', (value) => {
+                        // body 是 JSON
+                        AlertDialog.show({
+                          message: JSON.stringify(value)
+                        })
+                        console.log('上传结果:', JSON.stringify(value), index)
+                      })
+                    }))
+                }catch (error){
+                  console.log('错误',error,'json',JSON.stringify(error))
+                }
               }
-            }
-
-            console.log('  [PhotoUpload] 所有图片处理完成');
-          } catch (outerErr) {
-            const err = outerErr as BusinessError;
-            console.error(`  [PhotoSelect/Upload] 整体流程发生严重错误: Code=${err.code}, Message=${err.message}`);
-          } finally {
-            this.isLoading = false;
-          }
+            })
         })
-    }
+    }.onAttach(async ()=>{
+      const dbManager = DatabaseManager.getInstance()
+      const cookies = ((await dbManager.getUserByPosition(1,true))as UserDataAndId).cookies
+      const PUID = (await loginFunction.getUserInfo(cookies)).puid
+      const Token = await Sign.GetToken(cookies)
+      this.signerInfoArr.push({cookies:cookies,PUID:PUID,Token:Token})
+      this.signIdArray.map(async num=>{
+        let info:CookiesTokenPUID= {
+          cookies: '',
+          Token: '',
+          PUID: ''
+        }
+        info.cookies=((await dbManager.getUserByPosition(num))as UserDataAndId).cookies
+        info.PUID = (await loginFunction.getUserInfo(info.cookies)).puid
+        info.Token = await Sign.GetToken(info.cookies)
+        return info
+      })
+    })
     .width('100%')
     .padding({ top: 20 })
   }

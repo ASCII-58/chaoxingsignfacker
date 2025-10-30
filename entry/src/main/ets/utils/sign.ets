@@ -113,7 +113,7 @@ export class Sign {
  * @param cookies
  * @returns -1 = 无权限 | 0 = 已签到 | 1 = 可签到
  */
-  static async PreSignIn(activePrimaryId: string, classId: string, courseId: string, uid: string,
+  static async PreSignIn(activePrimaryId: string, classId: string, courseId: string, uid: number,
     cookies: string): Promise<number> {
     const httpRequest = http.createHttp()
     const result = await httpRequest.request(ChaoXingApi.URL_PRE_SIGN.buildUrl({

@@ -1,108 +1,133 @@
 import picker from '@ohos.file.picker';
-import common from '@ohos.app.ability.common';
-import fs from '@ohos.file.fs';
-import request from '@ohos.request';
-import { JSON } from '@kit.ArkTS';
-import { BusinessError } from '@kit.BasicServicesKit';
 
-// 获取应用文件路径
-let context = getContext(this) as common.UIAbilityContext;
-let cacheDir = context.cacheDir;
-// 上传任务配置项
-let uploadConfig: request.UploadConfig = {
-  url: 'http://192.168.3.48:8740/file/upload',
-  header: { key1: 'Content-Type', key2: 'multipart/form-data' },
-  method: 'POST',
-  files: [
-    {
-      filename: 'test.jpg',
-      name: 'test',
-      uri: 'internal://cache/test.jpg',
-      type: 'jpg'
-    }
-  ],
-  data: [
-    { name: 'fileId', value: 'FP000008' }
-  ]
+import fs from '@ohos.file.fs';
+
+import request from '@ohos.request';
+import http from '@ohos.net.http';
+
+// 定义类型
+interface UploadResponse {
+  body: string
+}
+
+export interface Response {
+  /**
+   * 业务状态码，10000成功, 其他失败
+   */
+  code: number;
+
+  /**
+   * 响应数据
+   */
+  data: Data;
+
+  /**
+   * 响应消息
+   */
+  message: string;
+}
+
+/**
+ * 响应数据
+ */
+export interface Data {
+  /**
+   * 上传成功的图片-在线地址
+   */
+  url: string;
 }
 
 @Builder
 export function init(name: string) {
-  test()
+  Page03_uploadImg()
 }
 
+// 实例化 选项对象
+const photoSelectOptions = new picker.PhotoSelectOptions();
+// 过滤选择媒体文件类型为IMAGE
+photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
+// 选择媒体文件的最大数目
+photoSelectOptions.maxSelectNumber = 1;
+
 @Component
-export struct test {
-  @State message: string = ''
-  @State imgSrc: string = ''
-
-  async selectImage() {
-    try {
-      let PhotoSelectOptions = new picker.PhotoSelectOptions();
-      PhotoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
-      PhotoSelectOptions.maxSelectNumber = 1;
-      let photoPicker = new picker.PhotoViewPicker();
-      photoPicker.select(PhotoSelectOptions).then((PhotoSelectResult) => {
-        console.info('xx PhotoViewPicker.select successfully, PhotoSelectResult uri: ' +
-        JSON.stringify(PhotoSelectResult));
-        // 从图库选择图片后，返回图片uri
-        let uri = PhotoSelectResult.photoUris[0];
-        console.info('xx uri:' + uri)
-        this.imgSrc = uri
-        // 读取上面返回uri
-        let file = fs.openSync(uri, fs.OpenMode.CREATE);
-        // 复制文件到缓存目录下
-        fs.copyFileSync(file.fd, cacheDir + '/test.jpg')
-        // 上传文件到服务器上
-        this.uploadImage()
-      }).catch((err: string) => {
-        console.error('xx PhotoViewPicker.select failed with err: ' + err);
-      });
-    } catch (err) {
-      console.error('xx PhotoViewPicker failed with err: ' + err);
-    }
-  }
-
-  uploadImage() {
-    // 将本地应用文件上传至网络服务器
-    try {
-      request.uploadFile(context, uploadConfig)
-        .then((uploadTask) => {
-          uploadTask.on('complete', (taskStates) => {
-            for (let i = 0; i < taskStates.length; i++) {
-              console.info(`fuckxx upload complete taskState: ${JSON.stringify(taskStates[i])}`);
-              this.message = JSON.stringify(taskStates[i])
-            }
-          });
-        })
-        .catch((err: BusinessError) => {
-          console.error(`fuckxx Invoke uploadFile failed, code is ${err.code}, message is ${err.message}`);
-          this.message = err.message
-        })
-    } catch (err) {
-      const error = err as BusinessError;
-      console.error(`fuckxx Invoke uploadFile failed, code is ${error.code}, message is ${error.message}`);
-      this.message = error.message
-    }
-  }
+export struct Page03_uploadImg {
+  pathInfos: NavPathStack = new NavPathStack();
 
   build() {
     NavDestination() {
-      Column({ space: 30 }) {
-        Button('打开图库')
-          .width('80%').height('40')
+
+      Column() {
+        Image('http://yjy-teach-oss.oss-cn-beijing.aliyuncs.com/ajax/17128585871360.5802423440443907.jpg')
+          .height(30)
+          .width(30)
+        Button('选择并上传图片')
           .onClick(() => {
-            this.selectImage()
+            // 创建 图片选择对象
+            const photoViewPicker = new picker.PhotoViewPicker();
+            // 调用 select 方法，传入选项对象
+            photoViewPicker.select(photoSelectOptions)
+              .then(res => {
+                const uri = res.photoUris[0]
+                // 因为只选了一张
+                // AlertDialog.show({ message: '图片路径为:' + uri })
+
+                // 三、拷贝文件到缓存目录
+                // 将文件保存到缓存目录(只能上传在缓存目录中的文件)
+                for (let index = 0; index < 10; index++) {
+                const context = getContext(this)
+                const fileType = 'jpg'
+                // 生成一个新的文件名
+                const fileName = Date.now() + '.' + fileType
+                // 通过缓存路径+文件名 拼接出完整的路径
+                const copyFilePath = context.cacheDir + '/' + fileName
+
+                // 将文件 拷贝到 临时目录
+                const file = fs.openSync(uri, fs.OpenMode.READ_ONLY)
+                fs.copyFileSync(file.fd, copyFilePath)
+                  // 四、上传图片
+                  // 上传文件
+                  let files: Array<request.File> = [
+                    // internal://cache/ 固定的，后面跟上 咱们上一步拷贝文件名即可
+                    // name 和接口文档的要求对上
+                    {
+                      filename: Date.now() + '.' + fileType,
+                      type: fileType,
+                      name: 'file',
+                      uri: `internal://cache/${fileName}`
+                    }
+                  ]
+                  const a:string[]=['341133751','820fde763f8165c8b5d9b01b23c6af21']
+                  request.uploadFile(context, {
+                    url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${a[1]}`, // url 地址
+                    method: http.RequestMethod.POST, // 请求方法
+                    header: {
+                      // 和接口文档的要求的格式对象
+                      contentType: 'multipart/form-data',
+                    },
+                    files, // 文件信息
+                    data: [{ name: 'puid', value: a[0] }] // 额外提交的数据，不能省略
+                  })
+                    .then((res => {
+                      // 这里可以获取到响应的内容
+                      res.on('headerReceive', (value) => {
+                        // body 是 JSON
+                        AlertDialog.show({
+                          message: JSON.stringify(value)
+                        })
+                        console.log('上传结果:', JSON.stringify(value),index)
+                      })
+                    }))
+                }
+              })
           })
-        Image(this.imgSrc)
-          .width('50%').height('50%')
-        Text(this.message)
-          .fontSize(20).width('100%')
       }
-      .width('100%').height('100%')
-      .padding(10)
-    }.height('100%')
+    }
+    .title('上传图片')
+    .height('100%')
     .width('100%')
-    .title('测试')
+    .onReady((ctx: NavDestinationContext) => {
+      // NavDestinationContext获取当前所在的导航控制器
+      this.pathInfos = ctx.pathStack;
+    })
   }
 }

@@ -169,9 +169,9 @@ struct Login {
           const pwd = ChaoxingUtils.encryptByAES(this.password)
           const result = await (loginFunction.LoginChaoXing(ChaoxingUtils.getLoginBody(uname, pwd)))
           if (result) {
-            const cookies = result
-            const info = await loginFunction.getUserInfo(cookies)
             try {
+              const cookies = result
+              const info = await loginFunction.getUserInfo(cookies)
               const dbManager = DatabaseManager.getInstance()
               const userData: UserData = {
                 phone: this.username,

@@ -10,7 +10,7 @@ export interface UserInfo {
   msg: string,
   uname: string,
   pic: string,
-  uid: string,
+  uid: number,
   fid: string,
   puid:string
 }
@@ -84,7 +84,7 @@ export class loginFunction {
           'msg': 'service error',
           'uname': '',
           'pic': '',
-          'uid': '',
+          'uid': 0,
           'fid': '',
           'puid':''
         }
@@ -93,7 +93,7 @@ export class loginFunction {
         const Json = (JsonResult as object)?.['msg'] as object
         const uname: string = (Json as object)?.['name'] || ''
         const pic: string = (Json as object)?.['pic'] || ''
-        const uid: string = (Json as object)?.['uid'] || 0
+        const uid: number = (Json as object)?.['uid'] || 0
         const fid: string = (Json as object)?.['fid'] || 0
         const puid: string = (Json as object)?.['puid'] || 0
         return {
@@ -111,7 +111,7 @@ export class loginFunction {
         'msg': 'service error',
         'uname': '',
         'pic': '',
-        uid: '',
+        uid: 0,
         fid: '',
         puid:''
       }
