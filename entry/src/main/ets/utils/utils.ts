@@ -4,9 +4,10 @@
  */
 
 // 使用 import 语法引入 CryptoJS
-import * as CryptoJSModule from '../../../../node_modules/crypto-js';
-// 使用另一个变量名避免与全局类型冲突
-const CryptoJS = CryptoJSModule;
+import CryptoJS from '@ohos/crypto-js'
+// import * as CryptoJSModule from '../../../../node_modules/crypto-js';
+// // 使用另一个变量名避免与全局类型冲突
+// const CryptoJS = CryptoJSModule;
 /**
  * 拼接 URL 参数
  * @param {string} url - 基础 URL
