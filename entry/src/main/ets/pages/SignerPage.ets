@@ -171,7 +171,6 @@ struct photoPicker {
                   }
                 ]
 
-                try {
                   request.uploadFile(context, {
                     url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${this.signerInfoArr[index].Token}`, // url 地址
                     method: http.RequestMethod.POST, // 请求方法
@@ -182,19 +181,33 @@ struct photoPicker {
                     files, // 文件信息
                     data: [{ name: 'puid', value: this.signerInfoArr[index].PUID }] // 额外提交的数据，不能省略
                   })
-                    .then((res => {
+                    .then((task => {
+                      // 进度
+                      task.on("progress", (uploadedSize: number, totalSize: number) => {
+                        console.log("upload_progress_:" + uploadedSize + ":" + totalSize)
+                      })
+                      // 失败
+                      task.on("fail", (event) => {
+                        AlertDialog.show({
+                          message: '失败：' + JSON.stringify(event)
+                        })
+                      })
                       // 这里可以获取到响应的内容
-                      res.on('headerReceive', (value) => {
+                      task.on('headerReceive', (value) => {
                         // body 是 JSON
                         AlertDialog.show({
                           message: JSON.stringify(value)
                         })
                         console.log('上传结果:', JSON.stringify(value), index)
                       })
+                      // 完成
+                      task.on("complete", (event) => {
+                        AlertDialog.show({ message: '成功：' + JSON.stringify(event) })
+                      })
                     }))
-                }catch (error){
-                  console.log('错误',error,'json',JSON.stringify(error))
-                }
+                    .catch((error: Error) => {
+                      console.log('错误',error,'json',JSON.stringify(error))
+                    })
               }
             })
         })
