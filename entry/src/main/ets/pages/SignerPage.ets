@@ -11,6 +11,7 @@ import request from '@ohos.request';
 import { ChaoxingUtils } from '../utils/utils';
 import { picker } from '@kit.CoreFileKit';
 import { http } from '@kit.NetworkKit';
+import { Context } from '@kit.AbilityKit';
 
 interface userMenu {
   uname: string
@@ -115,17 +116,19 @@ struct userItem {
     })
   }
 }
-interface CookiesTokenPUID{
-  cookies:string
-  Token:string
-  PUID:string
+
+interface CookiesTokenPUID {
+  cookies: string
+  Token: string
+  PUID: string
 }
+
 @Reusable
 @Component
 struct photoPicker {
   @State displayURI: string = ''
   @Link signIdArray: Array<number>
-  @State signerInfoArr: CookiesTokenPUID[]=[]
+  @State signerInfoArr: CookiesTokenPUID[] = []
   @Link objectidArray: string[]
 
   build() {
@@ -142,88 +145,91 @@ struct photoPicker {
           // 创建 图片选择对象
           const photoViewPicker = new picker.PhotoViewPicker();
           // 调用 select 方法，传入选项对象
-          photoViewPicker.select(photoSelectOptions)
-            .then(async res => {
-              const uriArr = res.photoUris
-              const signerNum = this.signIdArray.length
-              for (let index = 0; index <= signerNum; index++) {
-                const uri = uriArr[signerNum%uriArr.length]
-                const context = getContext(this)
-                const fileType = 'jpg'
-                // 生成一个新的文件名
-                const fileName = ChaoxingUtils.generatePhotoName() + '.' + fileType
-                // 通过缓存路径+文件名 拼接出完整的路径
-                const copyFilePath = context.cacheDir + '/' + fileName
+          // const context = getContext(this)
+          const context = this.getUIContext().getHostContext() as Context
 
-                // 将文件 拷贝到 临时目录
-                const file = fs.openSync(uri, fs.OpenMode.READ_ONLY)
-                fs.copyFileSync(file.fd, copyFilePath)
-                // 四、上传图片
-                // 上传文件
-                let files: Array<request.File> = [
-                  // internal://cache/ 固定的，后面跟上 咱们上一步拷贝文件名即可
-                  // name 和接口文档的要求对上
-                  {
-                    filename: ChaoxingUtils.generatePhotoName() + '.' + fileType,
-                    type: fileType,
-                    name: 'file',
-                    uri: `internal://cache/${fileName}`
-                  }
-                ]
+          // 上传文件
+          let files: Array<request.File> = []
+          const res = await photoViewPicker.select(photoSelectOptions)
 
-                  request.uploadFile(context, {
-                    url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${this.signerInfoArr[index].Token}`, // url 地址
-                    method: http.RequestMethod.POST, // 请求方法
-                    header: {
-                      // 和接口文档的要求的格式对象
-                      contentType: 'multipart/form-data',
-                    },
-                    files, // 文件信息
-                    data: [{ name: 'puid', value: this.signerInfoArr[index].PUID }] // 额外提交的数据，不能省略
-                  })
-                    .then((task => {
-                      // 进度
-                      task.on("progress", (uploadedSize: number, totalSize: number) => {
-                        console.log("upload_progress_:" + uploadedSize + ":" + totalSize)
-                      })
-                      // 失败
-                      task.on("fail", (event) => {
-                        AlertDialog.show({
-                          message: '失败：' + JSON.stringify(event)
-                        })
-                      })
-                      // 这里可以获取到响应的内容
-                      task.on('headerReceive', (value) => {
-                        // body 是 JSON
-                        AlertDialog.show({
-                          message: JSON.stringify(value)
-                        })
-                        console.log('上传结果:', JSON.stringify(value), index)
-                      })
-                      // 完成
-                      task.on("complete", (event) => {
-                        AlertDialog.show({ message: '成功：' + JSON.stringify(event) })
-                      })
-                    }))
-                    .catch((error: Error) => {
-                      console.log('错误',error,'json',JSON.stringify(error))
-                    })
-              }
+          const uriArr = res.photoUris
+          const signerNum = this.signIdArray.length
+          for (let index = 0; index <= signerNum; index++) {
+            const uri = uriArr[signerNum%uriArr.length]
+            const fileType = 'jpg'
+            // 生成一个新的文件名
+            const fileName = ChaoxingUtils.generatePhotoName() + '.' + fileType
+            // 通过缓存路径+文件名 拼接出完整的路径
+            const copyFilePath = context.cacheDir + '/' + fileName
+
+            // 将文件 拷贝到 临时目录
+            const file = fs.openSync(uri, fs.OpenMode.READ_ONLY)
+            fs.copyFileSync(file.fd, copyFilePath)
+            // 四、添加上传图片
+            files.push({
+              // internal://cache/ 固定的，后面跟上 咱们上一步拷贝文件名即可
+              // name 和接口文档的要求对上
+              filename: ChaoxingUtils.generatePhotoName() + '.' + fileType,
+              type: fileType,
+              name: 'file',
+              uri: `internal://cache/${fileName}`
             })
+          }
+
+          const uploadConfig: request.UploadConfig = {
+            url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${this.signerInfoArr[0].Token}`, // url 地址
+            method: 'POST', // 请求方法
+            header: {
+              // 和接口文档的要求的格式对象
+              "Content-Type": "multipart/form-data", // TODO 请求头标准写法
+            },
+            files, // 文件信息
+            data: [{ name: 'puid', value: this.signerInfoArr[0].PUID.toString() /* TODO 这里是 number 类型需要转换 */ }] // 额外提交的数据，不能省略
+          }
+
+
+          try { // 创建上传任务
+            const task = await request.uploadFile(context, uploadConfig)
+
+            // 进度
+            task.on("progress", (uploadedSize: number, totalSize: number) => {
+              console.log("upload_progress_:" + uploadedSize + ":" + totalSize)
+            })
+            // 失败
+            task.on("fail", (event) => {
+              AlertDialog.show({
+                message: '失败：' + JSON.stringify(event)
+              })
+            })
+            // 这里可以获取到响应的内容
+            task.on('headerReceive', (value) => {
+              // body 是 JSON
+              AlertDialog.show({
+                message: JSON.stringify(value)
+              })
+              console.log('上传结果:', JSON.stringify(value), 0)
+            })
+            // 完成
+            task.on("complete", (event) => {
+              AlertDialog.show({ message: '成功：' + JSON.stringify(event) })
+            })
+          } catch (error) {
+            hilog.info(0x0001, 'error', JSON.stringify(error))
+          }
         })
-    }.onAttach(async ()=>{
+    }.onAttach(async () => {
       const dbManager = DatabaseManager.getInstance()
-      const cookies = ((await dbManager.getUserByPosition(1,true))as UserDataAndId).cookies
+      const cookies = ((await dbManager.getUserByPosition(1, true)) as UserDataAndId).cookies
       const PUID = (await loginFunction.getUserInfo(cookies)).puid
       const Token = await Sign.GetToken(cookies)
-      this.signerInfoArr.push({cookies:cookies,PUID:PUID,Token:Token})
-      this.signIdArray.map(async num=>{
-        let info:CookiesTokenPUID= {
+      this.signerInfoArr.push({ cookies: cookies, PUID: PUID, Token: Token })
+      this.signIdArray.map(async num => {
+        let info: CookiesTokenPUID = {
           cookies: '',
           Token: '',
           PUID: ''
         }
-        info.cookies=((await dbManager.getUserByPosition(num))as UserDataAndId).cookies
+        info.cookies = ((await dbManager.getUserByPosition(num)) as UserDataAndId).cookies
         info.PUID = (await loginFunction.getUserInfo(info.cookies)).puid
         info.Token = await Sign.GetToken(info.cookies)
         return info
