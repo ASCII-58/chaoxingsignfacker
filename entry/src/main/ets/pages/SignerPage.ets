@@ -10,7 +10,6 @@ import fs from '@ohos.file.fs';
 import request from '@ohos.request';
 import { ChaoxingUtils } from '../utils/utils';
 import { picker } from '@kit.CoreFileKit';
-import { http } from '@kit.NetworkKit';
 import { Context } from '@kit.AbilityKit';
 
 interface userMenu {
@@ -135,6 +134,23 @@ struct photoPicker {
     Column() {
       Button('选择图片')
         .onClick(async () => {
+          const dbManager = DatabaseManager.getInstance()
+          const cookies = ((await dbManager.getUserByPosition(1, true)) as UserDataAndId).cookies
+          const PUID = (await loginFunction.getUserInfo(cookies)).puid
+          const Token = await Sign.GetToken(cookies)
+          this.signerInfoArr = await Promise.all(
+            this.signIdArray.map(async num => {
+              let info: CookiesTokenPUID = {
+                cookies: '',
+                Token: '',
+                PUID: ''
+              }
+              info.cookies = ((await dbManager.getUserByPosition(num)) as UserDataAndId).cookies
+              info.PUID = (await loginFunction.getUserInfo(info.cookies)).puid
+              info.Token = await Sign.GetToken(info.cookies)
+              return info
+            }))
+          this.signerInfoArr.push({ cookies: cookies, PUID: PUID, Token: Token })
 
           // 实例化 选项对象
           const photoSelectOptions = new picker.PhotoSelectOptions();
@@ -148,13 +164,11 @@ struct photoPicker {
           // const context = getContext(this)
           const context = this.getUIContext().getHostContext() as Context
 
-          // 上传文件
-          let files: Array<request.File> = []
           const res = await photoViewPicker.select(photoSelectOptions)
 
           const uriArr = res.photoUris
-          const signerNum = this.signIdArray.length
-          for (let index = 0; index <= signerNum; index++) {
+          const signerNum = this.signerInfoArr.length
+          for (let index = 0; index < signerNum; index++) {
             const uri = uriArr[signerNum%uriArr.length]
             const fileType = 'jpg'
             // 生成一个新的文件名
@@ -165,56 +179,50 @@ struct photoPicker {
             // 将文件 拷贝到 临时目录
             const file = fs.openSync(uri, fs.OpenMode.READ_ONLY)
             fs.copyFileSync(file.fd, copyFilePath)
-            // 四、添加上传图片
-            files.push({
-              // internal://cache/ 固定的，后面跟上 咱们上一步拷贝文件名即可
-              // name 和接口文档的要求对上
-              filename: ChaoxingUtils.generatePhotoName() + '.' + fileType,
-              type: fileType,
-              name: 'file',
-              uri: `internal://cache/${fileName}`
-            })
-          }
 
-          const uploadConfig: request.UploadConfig = {
-            url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${this.signerInfoArr[0].Token}`, // url 地址
-            method: 'POST', // 请求方法
-            header: {
-              // 和接口文档的要求的格式对象
-              "Content-Type": "multipart/form-data", // TODO 请求头标准写法
-            },
-            files, // 文件信息
-            data: [{ name: 'puid', value: this.signerInfoArr[0].PUID.toString() /* TODO 这里是 number 类型需要转换 */ }] // 额外提交的数据，不能省略
-          }
+            const uploadConfig: request.UploadConfig = {
+              url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${this.signerInfoArr[index].Token}`, // url 地址
+              method: 'POST', // 请求方法
+              header: {
+                // 和接口文档的要求的格式对象
+                "Content-Type": "multipart/form-data", // TODO 请求头标准写法
+              },
+              files: [{
+                // internal://cache/ 固定的，后面跟上 咱们上一步拷贝文件名即可
+                // name 和接口文档的要求对上
+                filename: ChaoxingUtils.generatePhotoName() + '.' + fileType,
+                type: fileType,
+                name: 'file',
+                uri: `internal://cache/${fileName}`
+              }], // 文件信息
+              data: [{
+                name: 'puid',
+                value: this.signerInfoArr[index].PUID.toString() /* TODO 这里是 number 类型需要转换 */
+              }] // 额外提交的数据，不能省略
+            }
 
 
-          try { // 创建上传任务
-            const task = await request.uploadFile(context, uploadConfig)
-
-            // 进度
-            task.on("progress", (uploadedSize: number, totalSize: number) => {
-              console.log("upload_progress_:" + uploadedSize + ":" + totalSize)
-            })
-            // 失败
-            task.on("fail", (event) => {
-              AlertDialog.show({
-                message: '失败：' + JSON.stringify(event)
-              })
-            })
-            // 这里可以获取到响应的内容
-            task.on('headerReceive', (value) => {
-              // body 是 JSON
-              AlertDialog.show({
-                message: JSON.stringify(value)
-              })
-              console.log('上传结果:', JSON.stringify(value), 0)
-            })
-            // 完成
-            task.on("complete", (event) => {
-              AlertDialog.show({ message: '成功：' + JSON.stringify(event) })
-            })
-          } catch (error) {
-            hilog.info(0x0001, 'error', JSON.stringify(error))
+            try { // 创建上传任务
+              this.uploadPhoto(context, uploadConfig, index)
+              // const task = await request.uploadFile(context, uploadConfig)
+              // // 失败
+              // task.on("fail", (event) => {
+              //   AlertDialog.show({
+              //     message: '失败：' + JSON.stringify(event)
+              //   })
+              // })
+              // // 这里可以获取到响应的内容
+              // task.on('headerReceive', (value) => {
+              //   // body 是 JSON
+              //   AlertDialog.show({
+              //     message: JSON.stringify(value)
+              //   })
+              //   console.log('上传结果:', JSON.stringify(value), 0)
+              // })
+            } catch (error) {
+              hilog.info(0x0001, 'error', 'fuck' + JSON.stringify(error))
+              console.log('fuck upload error' + JSON.stringify(error))
+            }
           }
         })
     }.onAttach(async () => {
@@ -222,21 +230,43 @@ struct photoPicker {
       const cookies = ((await dbManager.getUserByPosition(1, true)) as UserDataAndId).cookies
       const PUID = (await loginFunction.getUserInfo(cookies)).puid
       const Token = await Sign.GetToken(cookies)
+      this.signerInfoArr = await Promise.all(
+        this.signIdArray.map(async num => {
+          let info: CookiesTokenPUID = {
+            cookies: '',
+            Token: '',
+            PUID: ''
+          }
+          info.cookies = ((await dbManager.getUserByPosition(num)) as UserDataAndId).cookies
+          info.PUID = (await loginFunction.getUserInfo(info.cookies)).puid
+          info.Token = await Sign.GetToken(info.cookies)
+          return info
+        }))
       this.signerInfoArr.push({ cookies: cookies, PUID: PUID, Token: Token })
-      this.signIdArray.map(async num => {
-        let info: CookiesTokenPUID = {
-          cookies: '',
-          Token: '',
-          PUID: ''
-        }
-        info.cookies = ((await dbManager.getUserByPosition(num)) as UserDataAndId).cookies
-        info.PUID = (await loginFunction.getUserInfo(info.cookies)).puid
-        info.Token = await Sign.GetToken(info.cookies)
-        return info
-      })
     })
     .width('100%')
     .padding({ top: 20 })
+  }
+
+  private async uploadPhoto(context: Context, uploadConfig: request.UploadConfig, signIndex: number) {
+    const task = await request.uploadFile(context, uploadConfig)
+    // 失败
+    task.on("fail", (event) => {
+      AlertDialog.show({
+        message: '失败：' + JSON.stringify(event)
+      })
+    })
+    // 这里可以获取到响应的内容
+    task.on('headerReceive', (value) => {
+      // body 是 JSON
+      AlertDialog.show({
+        message: JSON.stringify(value)
+      })
+      console.log('上传结果:', JSON.stringify(value), signIndex)
+      this.objectidArray[signIndex] = (JSON.parse(value['body']) as object)['objectId'] as string
+      console.log('object内容', JSON.stringify(this.objectidArray));
+
+    })
   }
 }
 
@@ -248,15 +278,20 @@ export function initSignInfo(name: string, activityInfo: ActivityInfo) {
 @Component
 export struct SignPage {
   @State activityInfo: null | ActivityInfo = null
-  @State queryParams: object = JSON.parse('{}') as object
+  @State @Watch('updateCanSign') queryParams: object = JSON.parse('{}') as object
   @State otherUser: Array<userMenu> = []
   @State signIdArray: Array<number> = []
   @State IsSignForHost: boolean = true
   @State ifPhoto: boolean = false
   @State otherUserDialogIsShow: boolean = false
-  @State objectidArr: string[] = []
+  @State @Watch('updateCanSign') objectidArr: string[] = []
   @State canSign: boolean = false
   pathInfos: NavPathStack = new NavPathStack();
+
+  // 初始化时计算一次初始值
+  aboutToAppear() {
+    this.updateCanSign();
+  }
 
   @Builder
   NavigationMenu() {
@@ -302,6 +337,9 @@ export struct SignPage {
     NavDestination() {
 
       if (this.activityInfo) {
+        Button().onClick(() => {
+          console.log('')
+        })
         Column() {
           Stack() {
             if (this.activityInfo?.signType === '0') {
@@ -364,79 +402,78 @@ export struct SignPage {
 
           Button('签到')
             .enabled(this.canSign)
-            .accessibilityDescription('当前按钮不可用')
-          // .onClick(async () => {
-          //   const hashTable = new Map<string, string[]>();
-          //   const dbManager = DatabaseManager.getInstance()
-          //   const uid = await dbManager.getUserInfoById(true, 1, 'uid')
-          //   const name = await dbManager.getUserInfoById(true, 1, 'name')
-          //   const fid = await dbManager.getUserInfoById(true, 1, 'fid')
-          //   this.queryParams['uid'] = uid
-          //   this.queryParams['name'] = name
-          //   this.queryParams['fid'] = fid
-          //   if (this.ifPhoto) {
-          //     this.queryParams['objectid'] = this.objectidArr[0]
-          //   }
-          //   const cookies = await dbManager.getUserInfoById(true, 1, 'cookies') as string
-          //   console.log('fuck' + cookies)
-          //   const result = await Sign.DoSignIn(cookies, this.queryParams)
-          //
-          //   for (let i = 0; i < this.signIdArray.length; i++) {
-          //     const dbManager = DatabaseManager.getInstance()
-          //     const uid = await dbManager.getUserInfoById(false, this.signIdArray[i], 'uid')
-          //     const name = await dbManager.getUserInfoById(false, this.signIdArray[i], 'name') as string
-          //     const fid = await dbManager.getUserInfoById(false, this.signIdArray[i], 'fid')
-          //     this.queryParams['uid'] = uid
-          //     this.queryParams['name'] = name
-          //     this.queryParams['fid'] = fid
-          //     if (this.ifPhoto) {
-          //       this.queryParams['objectid'] = this.objectidArr[i+1]
-          //     }
-          //     const cookies = await dbManager.getUserInfoById(false, this.signIdArray[i], 'cookies') as string
-          //     let result = await Sign.DoSignIn(cookies, this.queryParams)
-          //     if (result.includes('<html') || result.includes('500 Internal Server Error')) {
-          //       result = '签到不合法：服务器返回错误 (500)'
-          //     }
-          //     if (hashTable.has(result)) {
-          //       hashTable.get(result)!.push(name);
-          //     } else {
-          //       hashTable.set(result, [name]);
-          //     }
-          //   }
-          //   const messages: Record<string, string> = {
-          //     "success": `用户${name}签到成功`,
-          //     "validate": '签到需要验证码',
-          //     '您已签到过了': `用户${name}已签到过了`
-          //   };
-          //
-          //   let message = '';
-          //   let duration = 3000;
-          //
-          //   // 判断是否是服务器返回的 HTML 错误页（特别是 500 错误）
-          //   if (typeof result === 'string' &&
-          //     (result.includes('<html') || result.includes('500 Internal Server Error'))) {
-          //     message = '签到不合法：服务器返回错误 (500)';
-          //   } else {
-          //     // 正常逻辑处理 result
-          //     message = messages[result] || `签到失败: 签到返回的结果为\n${result}`;
-          //     duration = messages[result] ? 3000 : 6000;
-          //   }
-          //
-          //   // 如果有其他用户的签到统计数据，追加显示
-          //   if (hashTable.size > 0) {
-          //     let statsMessage = '\n\n其他用户的签到统计数据:\n';
-          //     hashTable.forEach((names, result) => {
-          //       statsMessage += `${result}\n${names.join(', ')} (共 ${names.length} 人)\n`;
-          //     });
-          //
-          //     message += statsMessage;
-          //     duration = 10000; // 有统计信息则延长显示时间
-          //   }
-          //
-          //   // 统一弹窗提示
-          //   promptAction.showToast({ message, duration, alignment: Alignment.Center });
-          //
-          // })
+            .onClick(async () => {
+              const hashTable = new Map<string, string[]>();
+              const dbManager = DatabaseManager.getInstance()
+              const info = await dbManager.getUserByPosition(1, true) as UserDataAndId
+              const userInfo = await loginFunction.getUserInfo(info.cookies)
+              const uid = info.uid
+              const name = userInfo.uname
+              const fid = userInfo.fid
+              this.queryParams['uid'] = uid
+              this.queryParams['name'] = name
+              this.queryParams['fid'] = fid
+              if (this.ifPhoto) {
+                this.queryParams['objectId'] = this.objectidArr.pop()
+              }
+              const cookies = info.cookies
+              const result = await Sign.DoSignIn(cookies, this.queryParams)
+
+              for (let i = 0; i < this.signIdArray.length; i++) {
+                const dbManager = DatabaseManager.getInstance()
+                const otherInfo = await dbManager.getUserByPosition(this.signIdArray[i]) as UserDataAndId
+                const userInfo = await loginFunction.getUserInfo(otherInfo.cookies)
+                const uid = userInfo.uid
+                const name = userInfo.uname
+                const fid = userInfo.fid
+                this.queryParams['uid'] = uid
+                this.queryParams['name'] = name
+                this.queryParams['fid'] = fid
+                if (this.ifPhoto) {
+                  this.queryParams['objectId'] = this.objectidArr[i]
+                }
+                const cookies = otherInfo.cookies
+                let result = await Sign.DoSignIn(cookies, this.queryParams)
+                if (result.includes('500 Internal Server Error')) {
+                  result = '签到不合法：服务器返回错误 (500)'
+                }
+                if (hashTable.has(result)) {
+                  hashTable.get(result)!.push(name);
+                } else {
+                  hashTable.set(result, [name]);
+                }
+              }
+              const messages: Record<string, string> = {
+                "success": `用户${name}签到成功`,
+                "validate": '签到需要验证码',
+                '您已签到过了': `用户${name}已签到过了`
+              };
+
+              let message = '';
+
+              // 判断是否是服务器返回的 HTML 错误页（特别是 500 错误）
+              if (typeof result === 'string' &&
+                (result.includes('<html') || result.includes('500 Internal Server Error'))) {
+                message = '签到不合法：服务器返回错误 (500)';
+              } else {
+                // 正常逻辑处理 result
+                message = messages[result] || `签到失败: 签到返回的结果为\n${result}`;
+              }
+
+              // 如果有其他用户的签到统计数据，追加显示
+              if (hashTable.size > 0) {
+                let statsMessage = '\n\n其他用户的签到统计数据:\n';
+                hashTable.forEach((names, result) => {
+                  statsMessage += `${result}\n${names.join(', ')} (共 ${names.length} 人)\n`;
+                });
+
+                message += statsMessage;
+              }
+
+              // 统一弹窗提示
+              AlertDialog.show({ message });
+
+            })
         }.justifyContent(FlexAlign.Center)
         .height('100%')
         .width('100%')
@@ -476,5 +513,13 @@ export struct SignPage {
       }
       console.log(this.ifPhoto.toString())
     })
+  }
+
+  private updateCanSign() {
+    // 计算非空元素数量（处理稀疏数组）
+    const nonEmptyCount = this.objectidArr.filter(item => item !== undefined).length;
+    // 重新计算canSign的值
+    this.canSign = (this.ifPhoto && nonEmptyCount === this.signIdArray.length + 1)
+      || (this.queryParams['longitude'] !== undefined);
   }
 }

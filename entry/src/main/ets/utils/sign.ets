@@ -42,6 +42,7 @@ export class Sign {
 
   static async DoSignIn(cookies: string, queryParams: object) {
     const url = ChaoXingApi.URL_SIGN.buildUrl(queryParams).toString()
+    console.log('DoSignInURL: ',url,'\nCookies: ',cookies)
     const httpRequest = http.createHttp()
     const result = await httpRequest.request(url, {
       method: http.RequestMethod.GET,
@@ -68,18 +69,6 @@ export class Sign {
     } finally {
       httpRequest.destroy()
     }
-  }
-
-  static async UploadPhoto(
-    context: Context,
-    cookies: string,
-    files: Array<request.File>,
-    uid: number
-  ): Promise<string>{
-    const httpRequest = http.createHttp()
-
-
-    return '上传失败'
   }
 
   static async GetToken(cookies: string): Promise<string> {
