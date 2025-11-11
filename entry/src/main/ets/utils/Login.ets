@@ -131,6 +131,7 @@ export class loginFunction {
       let urlParse: url.URLParams = urlObject.params
       let phone = urlParse.getAll('phone')[0]
       let pwd = urlParse.getAll('pwd')[0]
+      console.log(phone + '&&&&' + pwd)
       let AESPhone = ChaoxingUtils.encryptByAES(phone)
       let body = ChaoxingUtils.getLoginBody(AESPhone, pwd);
       let cookie = await loginFunction.LoginChaoXing(body)

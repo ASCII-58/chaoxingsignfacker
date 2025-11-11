@@ -29,7 +29,7 @@ struct Login {
         .translate({ y: this.UsernameTranslateY })
         .scale({ x: this.UsernameScale, y: this.UsernameScale })
       TextInput({ placeholder: '', text: this.username })
-        .type(InputType.Number)
+        .type(InputType.PhoneNumber)
         .onChange((value: string) => {
           this.username = value;
           if (this.username) {

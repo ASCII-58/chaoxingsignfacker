@@ -4,13 +4,11 @@ import image from '@ohos.multimedia.image';
 import { ClassInfo, CourseAndActivity } from '../utils/classFun';
 import fs from '@ohos.file.fs';
 import { scanBarcode, scanCore } from '@kit.ScanKit';
-import { componentSnapshot, UIContext } from '@kit.ArkUI';
+import { componentSnapshot, LengthMetrics, UIContext } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import promptAction from '@ohos.promptAction';
 import { loginByCommon, loginByURL } from '../Component/loginCom';
-import { common } from '@kit.AbilityKit';
-import { ImageKnifeComponent } from '@ohos/imageknife';
 
 @Reusable
 @Component
@@ -31,6 +29,55 @@ struct ClassIcon {
           this.ImageData = await loginFunction.GetPic(this.imageurl)
         })
     }
+  }
+}
+
+@Reusable
+@Component
+struct OtherUserItem {
+  @Prop userData: UserDataAndId;
+  @Prop index: number;
+  @Link otherUserList: UserDataAndId[]
+  @State userImage: image.PixelMap | null = null;
+  @State userName: string = ''
+  private dbManger: DatabaseManager = DatabaseManager.getInstance()
+
+  build() {
+    Row() {
+      Image(this.userImage)
+        .width(50)
+        .height(50)
+        .borderColor($r('app.color.class_icon_border'))
+        .borderWidth(3)
+        .borderRadius(10)
+        .margin(10)
+      Column() {
+        Text(this.userName)
+        .fontSize(20)
+          .textAlign(TextAlign.Center)
+        Text(this.userData.phone)
+        .fontSize(10)
+      }.margin({left:10})
+      .width(130)
+      Blank()
+      Button('删除')
+        .backgroundColor($r('sys.color.warning'))
+        .onClick(async () => {
+          let result = await this.dbManger.deleteUser(this.userData.id)
+          if (result===1) {
+            this.otherUserList.splice(this.index,1)
+          }
+        })
+
+    }.onAppear(async () => {
+      let userInfo = await loginFunction.getUserInfo(this.userData.cookies)
+      this.userName = userInfo.uname
+      this.userImage = await loginFunction.GetPic(userInfo.pic)
+    })
+    .height(70)
+    .width('100%')
+    .borderRadius(20)
+    .backgroundColor($r('app.color.class_button'))
   }
 }
 
@@ -155,12 +202,12 @@ struct UI {
 
   @Builder
   loginCommon() {
-    loginByCommon({ isShow: this.LoginCommonIsShow }).margin({ top: 90 })
+    loginByCommon({ isShow: this.LoginCommonIsShow ,otherUserList:this.otherUserList}).margin({ top: 90 })
   }
 
   @Builder
   loginURL() {
-    loginByURL({ isShow: this.LoginURLIsSHow }).margin({ top: 90 })
+    loginByURL({ isShow: this.LoginURLIsSHow ,otherUserList:this.otherUserList}).margin({ top: 90 })
   }
 
   build() {
@@ -188,7 +235,8 @@ struct UI {
                     this.pathInfos.pushPath({ name: 'ActivityListPage', param: classInfo });
                   })
                 })
-              }.height('100%')
+              }.fadingEdge(true, { fadingEdgeLength: LengthMetrics.vp(80) })
+              .height('100%')
               .width('100%')
             }.height('100%')
             .width('100%')
@@ -283,6 +331,8 @@ struct UI {
                           if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
                             let loginMSG = await loginFunction.LoginByURL(result.originalValue)
                             promptAction.showToast({ message: loginMSG })
+                            let dbManager = DatabaseManager.getInstance();
+                            this.otherUserList = await dbManager.getAllUsers()
                           } else {
                             promptAction.showToast({ message: '权限错误' })
                           }
@@ -337,9 +387,24 @@ struct UI {
                 .bindSheet($$this.QRCodeIsShow, this.QRCodeDialog,
                   { height: '90%', backgroundColor: $r('app.color.dialog'), title: this.shareTitle })
               }.margin({ top: 15, left: '1.5%' }).justifyContent(FlexAlign.SpaceAround).width('97%')
-              if (this.otherUserList.length > 0) {
-                ForEach(this.otherUserList, (item:UserDataAndId) => {})
+              Column(){
+                List() {
+                  ForEach(this.otherUserList, (item: UserDataAndId,index) => {
+                    ListItem() {
+                      OtherUserItem({ userData: item ,otherUserList:this.otherUserList,index:index})
+                    }.width('100%')
+                    .margin({bottom:'2%'})
+                  })
+                }.fadingEdge(true, { fadingEdgeLength: LengthMetrics.vp(80) })
+                .margin({top:'2%'})
+                .alignListItem(ListItemAlign.Center)
+                .width('96%')
+                .height(300)
               }
+              .margin({ top: 30 })
+              .borderRadius(25)
+              .backgroundColor($r('sys.color.comp_background_secondary'))
+              .width('98%')
             }
             .height('100%')
           }.tabBar($r('app.string.user'))
@@ -380,8 +445,11 @@ struct UI {
           await loginFunction.getUserInfo((await dbManager.getUserByPosition(1, true) as UserDataAndId).cookies)
         if (HostUser.msg !== 'successful') {
           console.error('资源获取失败' + HostUser.msg)
+          this.uiContext.getRouter().replaceUrl({ url: 'pages/Login' });
           return
         }
+        this.otherUserList = await dbManager.getAllUsers()
+        console.log(this.otherUserList.length.toString())
         let url = HostUser.pic
         this.HostImageData = await loginFunction.GetPic(url) as image.PixelMap
         this.hostName = HostUser.uname

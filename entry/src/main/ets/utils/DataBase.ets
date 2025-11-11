@@ -175,6 +175,42 @@ class DatabaseManager {
   }
 
   /**
+   * 获取表中所有用户数据
+   * @param isHost 是否查询主用户表，默认false
+   * @returns 包含所有用户数据的数组
+   */
+  public async getAllUsers(isHost: boolean = false): Promise<UserDataAndId[]> {
+    if (!this.rdbStore) {
+      throw new Error('Database not initialized. Call init() first.');
+    }
+
+    const tableName = isHost ? 'HostUser' : 'OtherUser';
+    const sql = `SELECT * FROM ${tableName}`;
+
+    try {
+      const resultSet = await this.rdbStore.querySql(sql);
+      const users: UserDataAndId[] = [];
+
+      while (resultSet.goToNextRow()) {
+        users.push({
+          id: resultSet.getLong(resultSet.getColumnIndex('id')),
+          phone: resultSet.getString(resultSet.getColumnIndex('phone')),
+          pwd: resultSet.getString(resultSet.getColumnIndex('pwd')),
+          cookies: resultSet.getString(resultSet.getColumnIndex('cookies')),
+          uid: resultSet.getLong(resultSet.getColumnIndex('uid'))
+        });
+      }
+
+      resultSet.close();
+      return users;
+    } catch (error) {
+      const err = new Error(`Failed to fetch users from ${tableName}: ${error.message}`);
+      hilog.error(0x0000, 'DB', err.message);
+      throw err;
+    }
+  }
+
+  /**
    * 更新单个用户数据
    * @param id 用户ID
    * @param userData 要更新的用户数据

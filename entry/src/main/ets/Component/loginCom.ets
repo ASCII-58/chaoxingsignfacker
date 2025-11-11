@@ -1,11 +1,12 @@
 import { promptAction } from '@kit.ArkUI';
-import { DatabaseManager, UserData } from '../utils/DataBase';
+import { DatabaseManager, UserData, UserDataAndId } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
 import { ChaoxingUtils } from '../utils/utils';
 
 @Reusable
 @Component
 export struct loginByCommon {
+  @Link otherUserList: UserDataAndId[];
   @State username: string = '';
   @State password: string = '';
   @State LoginEnable: boolean = false
@@ -25,7 +26,7 @@ export struct loginByCommon {
         .translate({ y: this.UsernameTranslateY })
         .scale({ x: this.UsernameScale, y: this.UsernameScale })
       TextInput({ placeholder: '', text: this.username })
-        .type(InputType.Number)
+        .type(InputType.PhoneNumber)
         .onChange((value: string) => {
           this.username = value;
           if (this.username) {
@@ -179,6 +180,7 @@ export struct loginByCommon {
               let operationResult = await dbManager.insertUser(userData)
               if (operationResult === 1) {
                 promptAction.showToast({ message: '登录成功', duration: 2000 })
+                this.otherUserList = await dbManager.getAllUsers()
                 this.isShow = !this.isShow
               } else if (operationResult === 0) {
                 promptAction.showToast({ message: '数据库异常，可能需要重启应用', duration: 10000 })
@@ -221,6 +223,7 @@ export struct loginByCommon {
 @Reusable
 @Component
 export struct loginByURL {
+  @Link otherUserList: UserDataAndId[];
   @State LoginURL: string = '';
   @State LoginEnable: boolean = false
   @State urlTranslateY: number = 45
@@ -237,7 +240,7 @@ export struct loginByURL {
         .translate({ y: this.urlTranslateY })
         .scale({ x: this.urlScale, y: this.urlScale })
       TextInput({ placeholder: '', text: this.LoginURL })
-        .type(InputType.Number)
+        .type(InputType.Normal)
         .onChange((value: string) => {
           this.LoginURL = value;
           if (this.LoginURL) {
@@ -306,6 +309,8 @@ export struct loginByURL {
           const LoginMSG = await loginFunction.LoginByURL(this.LoginURL)
           promptAction.showToast({ message: LoginMSG })
           if (LoginMSG === '添加成功') {
+            let dbManager=DatabaseManager.getInstance();
+            this.otherUserList = await dbManager.getAllUsers()
             this.isShow = !this.isShow
           } else {
             this.LoginURL = '';
