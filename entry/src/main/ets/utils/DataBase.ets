@@ -580,7 +580,6 @@ class DatabaseManager {
     }
   }
 }
-
 export {
   DatabaseManager, UserData
 }

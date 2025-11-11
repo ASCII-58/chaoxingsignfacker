@@ -53,7 +53,7 @@ export class ChaoXingApi {
    * 正式签到基础URL
    */
   static readonly URL_SIGN = new BuildableUrl(
-    'https://mobilelearn.chaoxing.com/pptSign/stuSignajax?&clientip=&appType=15&ifTiJiao=1&vpProbability=-1');
+    'https://mobilelearn.chaoxing.com/pptSign/stuSignajax?&clientip=&appType=15&ifTiJiao=1&vpProbability=-1&vpStrategy=');
   /**
    * 预签到基础URL
    */
@@ -76,10 +76,11 @@ export class ChaoXingApi {
    * 登录
    */
   static readonly URL_LOGIN = "https://passport2.chaoxing.com/fanyalogin"
-  static readonly UA =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0\n" +
-      "sec-ch-ua: \"Microsoft Edge\";v=\"141\", \"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"141\""
   static readonly URL_GET_USER_INFO = "https://sso.chaoxing.com/apis/login/userLogin4Uname.do"
+  static readonly URL_GET_CAPTCHA_CONF = new BuildableUrl("https://captcha.chaoxing.com/captcha/get/conf?callback=cx_captcha_function")
+  static readonly CAPTCHA_ID='Qt9FIw9o4pwRjOyqM6yizZBh682qN2TU'
+  static readonly URL_GET_CAPTCHA_PHOTOS=new BuildableUrl("https://captcha.chaoxing.com/captcha/get/verification/image")
+  static readonly UA='5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0'
 }
 
 export class InternalPath {

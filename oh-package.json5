@@ -3,7 +3,8 @@
   "description": "Please describe the basic information.",
   "dependencies": {
     "@hadss/debug-db": "^1.0.0-rc.9",
-    "@ohos/crypto-js": "^2.0.5"
+    "@ohos/crypto-js": "^2.0.5",
+    "@ohos/imageknife": "^3.2.7"
   },
   "devDependencies": {
     "@ohos/hypium": "1.0.21",

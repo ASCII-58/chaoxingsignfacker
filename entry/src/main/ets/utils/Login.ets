@@ -4,7 +4,8 @@ import { ChaoxingUtils } from './utils';
 import { JSON, url } from '@kit.ArkTS';
 import { ChaoXingApi } from './PublicAPI';
 import { DatabaseManager } from './DataBase';
-import { StartupTask } from '@kit.AbilityKit';
+import { common, StartupTask } from '@kit.AbilityKit';
+import { request } from '@kit.BasicServicesKit';
 
 export interface UserInfo {
   msg: string,
@@ -163,9 +164,7 @@ export class loginFunction {
     try {
       const result = await httpRequest.request(url, {
         method: http.RequestMethod.GET,
-        header: {
-          "User-Agent": ChaoXingApi.UA
-        },
+        header: { 'User-Agent':ChaoXingApi.UA },
         readTimeout: 60000, // 读取超时时间（毫秒）
         connectTimeout: 60000 // 连接超时时间（毫秒）
       })

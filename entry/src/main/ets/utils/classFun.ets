@@ -20,8 +20,7 @@ export class CourseAndActivity {
       const result = await httpRequest.request(ChaoXingApi.URL_GET_COURSE_LIST, {
         method: http.RequestMethod.GET,
         header: {
-          "Cookie": cookies,
-          "User-Agent": ChaoXingApi.UA
+          "Cookie": cookies
         }
       })
       const CourseListResponse = JSON.parse(result.result.toString()) as CourseListResponse
@@ -78,8 +77,7 @@ export class CourseAndActivity {
         {
           method: http.RequestMethod.GET,
           header: {
-            "Cookie": cookies,
-            "User-Agent": ChaoXingApi.UA
+            "Cookie": cookies
           }
         })
       const ActivityMessage = JSON.parse(result.result.toString()) as object

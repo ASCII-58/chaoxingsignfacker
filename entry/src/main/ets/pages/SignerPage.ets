@@ -132,6 +132,9 @@ struct photoPicker {
 
   build() {
     Column() {
+      Row(){
+
+      }
       Button('选择图片')
         .onClick(async () => {
           const dbManager = DatabaseManager.getInstance()
@@ -260,7 +263,7 @@ struct photoPicker {
     task.on('headerReceive', (value) => {
       // body 是 JSON
       AlertDialog.show({
-        message: JSON.stringify(value)
+        message: (JSON.parse(value['body']) as object)['objectId'] as string
       })
       console.log('上传结果:', JSON.stringify(value), signIndex)
       this.objectidArray[signIndex] = (JSON.parse(value['body']) as object)['objectId'] as string
@@ -337,9 +340,6 @@ export struct SignPage {
     NavDestination() {
 
       if (this.activityInfo) {
-        Button().onClick(() => {
-          console.log('')
-        })
         Column() {
           Stack() {
             if (this.activityInfo?.signType === '0') {
@@ -389,7 +389,6 @@ export struct SignPage {
                       this.queryParams['address'] = data.name as string;
                       this.queryParams['longitude'] = LoginLocation.lon as number;
                       this.queryParams['latitude'] = LoginLocation.lat as number;
-                      this.queryParams['activeId'] = this.activityInfo?.ActivityId
                       this.canSign = true
 
                     })
@@ -417,7 +416,7 @@ export struct SignPage {
                 this.queryParams['objectId'] = this.objectidArr.pop()
               }
               const cookies = info.cookies
-              const result = await Sign.DoSignIn(cookies, this.queryParams)
+              const result = await Sign.DoSignIn(cookies, this.queryParams,true)
 
               for (let i = 0; i < this.signIdArray.length; i++) {
                 const dbManager = DatabaseManager.getInstance()
@@ -490,6 +489,7 @@ export struct SignPage {
       this.pathInfos = ctx.pathStack;
     })
     .onAppear(async () => {
+      this.queryParams['activeId'] = this.activityInfo?.ActivityId
       const dbManager = DatabaseManager.getInstance()
       const userCount = await dbManager.getTableCount('OtherUser')
       for (let i: number = 1; i <= userCount; i++) {

@@ -8,8 +8,9 @@ import { componentSnapshot, UIContext } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import promptAction from '@ohos.promptAction';
-import ImageScenario from '../Component/photoshear';
 import { loginByCommon, loginByURL } from '../Component/loginCom';
+import { common } from '@kit.AbilityKit';
+import { ImageKnifeComponent } from '@ohos/imageknife';
 
 @Reusable
 @Component
@@ -49,6 +50,7 @@ struct UI {
   @State LoginCommonIsShow: boolean = false
   @State LoginURLIsSHow: boolean = false
   @State clickTime: number = 0
+  @State otherUserList: UserDataAndId[] = []
   private controller: TabsController = new TabsController();
   private uiContext: UIContext = this.getUIContext();
 
@@ -138,11 +140,6 @@ struct UI {
         })
 
         Button()
-
-        ImageScenario({
-          fileName: 'share' + encodeURIComponent(this.hostName.toString()),
-          context: this.getUIContext().getHostContext() as Context
-        })
       } else {
         Column() {
           Text('未读取到用户信息')
@@ -248,7 +245,6 @@ struct UI {
                       }
                       this.hostName = $r('app.string.defaultUname')
                       this.hostPhone = $r('app.string.defaultPhone')
-                      this.HostImageData = $r('app.media.foreground')
                       this.uiContext.getRouter().replaceUrl({ url: 'pages/LoginPage' });
                     })
                     .margin({ right: 15 })
@@ -341,7 +337,9 @@ struct UI {
                 .bindSheet($$this.QRCodeIsShow, this.QRCodeDialog,
                   { height: '90%', backgroundColor: $r('app.color.dialog'), title: this.shareTitle })
               }.margin({ top: 15, left: '1.5%' }).justifyContent(FlexAlign.SpaceAround).width('97%')
-
+              if (this.otherUserList.length > 0) {
+                ForEach(this.otherUserList, (item:UserDataAndId) => {})
+              }
             }
             .height('100%')
           }.tabBar($r('app.string.user'))
@@ -384,7 +382,7 @@ struct UI {
           console.error('资源获取失败' + HostUser.msg)
           return
         }
-        const url = HostUser.pic
+        let url = HostUser.pic
         this.HostImageData = await loginFunction.GetPic(url) as image.PixelMap
         this.hostName = HostUser.uname
         this.hostPhone = (await dbManager.getUserByPosition(1, true) as UserDataAndId).phone
