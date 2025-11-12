@@ -11,7 +11,6 @@ const buildURL = ChaoxingUtils.buildUrl;
 // 定义日志标签（便于筛选）
 const TAG = 'UploadPhotoService';
 const DOMAIN = 0x0000; // 日志域（自定义即可）
-
 export interface UploadPhotoParam {
   '_token': string
 }
@@ -71,6 +70,24 @@ export class Sign {
       }
     })
     return result.result.toString()
+  }
+
+  static async GetLocationSignInfo(cookies: string, activeId: string): Promise<string> {
+    const httpRequest = http.createHttp()
+    const url = ChaoXingApi.URL_GET_LOCATION_SIGN_INFO.buildUrl({ 'activeId': activeId }).toString()
+    try {
+      const result = await httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        header: {"Cookie":cookies}
+      })
+      const body = JSON.parse(result.result as string) as object
+      return body?.['data']?.['locationText'] as string
+    }catch (e){
+      console.log(e)
+      return ''
+    }finally {
+      httpRequest.destroy()
+    }
   }
 
   static async ifPhoto(cookies: string, activeId: string): Promise<boolean> {

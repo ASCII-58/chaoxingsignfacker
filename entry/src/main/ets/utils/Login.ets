@@ -6,7 +6,7 @@ import { ChaoXingApi } from './PublicAPI';
 import { DatabaseManager } from './DataBase';
 import { common, StartupTask } from '@kit.AbilityKit';
 import { request } from '@kit.BasicServicesKit';
-
+import urlTools from './urlTools'
 export interface UserInfo {
   msg: string,
   uname: string,
@@ -127,10 +127,9 @@ export class loginFunction {
    */
   static async LoginByURL(stringURL: string): Promise<string> {
     try {
-      let urlObject = url.URL.parseURL(stringURL);
-      let urlParse: url.URLParams = urlObject.params
-      let phone = urlParse.getAll('phone')[0]
-      let pwd = urlParse.getAll('pwd')[0]
+      let urlParse = urlTools.parseUrlParams(stringURL)
+      let phone = urlParse['phone']
+      let pwd = urlParse['pwd']
       console.log(phone + '&&&&' + pwd)
       let AESPhone = ChaoxingUtils.encryptByAES(phone)
       let body = ChaoxingUtils.getLoginBody(AESPhone, pwd);

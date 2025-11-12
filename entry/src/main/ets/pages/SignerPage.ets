@@ -11,6 +11,7 @@ import request from '@ohos.request';
 import { ChaoxingUtils } from '../utils/utils';
 import { picker } from '@kit.CoreFileKit';
 import { Context } from '@kit.AbilityKit';
+import { pasteboard } from '@kit.BasicServicesKit';
 
 interface userMenu {
   uname: string
@@ -38,7 +39,7 @@ struct Icon {
           const url =
             (await loginFunction.getUserInfo((await dbManager.getUserByPosition(this.UserId,
               false) as UserDataAndId).cookies)).pic
-          console.log('fuck' + url)
+
           this.ImageData = await loginFunction.GetPic(url) as image.PixelMap
         })
     }
@@ -53,7 +54,7 @@ struct userItem {
   @Link @Watch('transformColor') signIdArray: number[]
 
   transformColor() {
-    console.log('fuck')
+
     if (this.signIdArray.includes(this.user.id) &&
       this.color !== $r('sys.color.hds_snackbar_button_background_color')) {
       animateTo({
@@ -62,7 +63,7 @@ struct userItem {
       }, () => {
         this.color = $r('sys.color.hds_snackbar_button_background_color')
       })
-      console.log('fuck11111111111111')
+
     }
     if (!this.signIdArray.includes(this.user.id) &&
       this.color !== $r('sys.color.button_background_color_transparent')) {
@@ -72,7 +73,7 @@ struct userItem {
       }, () => {
         this.color = $r('sys.color.button_background_color_transparent')
       })
-      console.log('fuck00000000000000000')
+
     }
   }
 
@@ -80,7 +81,10 @@ struct userItem {
     Row() {
       Row() {
         Icon({ UserId: this.user.id })
-        Text(this.user.uname).margin({ left: 30 }).width('20%')
+        Row() {
+          Text(this.user.uname).margin({ left: 30 }).width('20%')
+        }
+
         Blank()
         Text(this.user.SignPermission === 1 ? '' : this.user.SignPermission === 0 ? '你已经签过到了' : '你没有签到权限')
           .width('20%').margin({ right: 30 })
@@ -90,8 +94,8 @@ struct userItem {
       .borderRadius(40)
       .backgroundColor(this.color)
     }.justifyContent(FlexAlign.Center)
-    .onAppear(() => {
-      console.log('fuck')
+    .onAttach(() => {
+
       if (this.signIdArray.includes(this.user.id) &&
         this.color !== $r('sys.color.hds_snackbar_button_background_color')) {
         animateTo({
@@ -100,7 +104,7 @@ struct userItem {
         }, () => {
           this.color = $r('sys.color.hds_snackbar_button_background_color')
         })
-        console.log('fuck11111111111111')
+
       }
       if (!this.signIdArray.includes(this.user.id) &&
         this.color !== $r('sys.color.button_background_color_transparent')) {
@@ -110,7 +114,7 @@ struct userItem {
         }, () => {
           this.color = $r('sys.color.button_background_color_transparent')
         })
-        console.log('fuck00000000000000000')
+
       }
     })
   }
@@ -132,11 +136,28 @@ struct photoPicker {
 
   build() {
     Column() {
-      Row(){
 
-      }
+      Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
+        ForEach(this.signIdArray, (signId: number, index: number) => {
+          Column()
+            .width(4)
+            .height(4)
+            .borderRadius(3)
+            .backgroundColor(this.objectidArray[index] ? Color.Green : Color.Red)
+            .margin(10)
+        })
+        Column()
+          .width(4)
+          .height(4)
+          .borderRadius(3)
+          .backgroundColor(this.objectidArray[this.signIdArray.length] ? Color.Green : Color.Red)
+          .margin(10)
+      }.padding(10)
+      .width(100)
+
       Button('选择图片')
         .onClick(async () => {
+          this.objectidArray = []
           const dbManager = DatabaseManager.getInstance()
           const cookies = ((await dbManager.getUserByPosition(1, true)) as UserDataAndId).cookies
           const PUID = (await loginFunction.getUserInfo(cookies)).puid
@@ -227,6 +248,7 @@ struct photoPicker {
               console.log('fuck upload error' + JSON.stringify(error))
             }
           }
+          AlertDialog.show({ message: '全部图片已上传成功，可签到' })
         })
     }.onAttach(async () => {
       const dbManager = DatabaseManager.getInstance()
@@ -262,9 +284,9 @@ struct photoPicker {
     // 这里可以获取到响应的内容
     task.on('headerReceive', (value) => {
       // body 是 JSON
-      AlertDialog.show({
-        message: (JSON.parse(value['body']) as object)['objectId'] as string
-      })
+      // AlertDialog.show({
+      //   message: (JSON.parse(value['body']) as object)['objectId'] as string
+      // })
       console.log('上传结果:', JSON.stringify(value), signIndex)
       this.objectidArray[signIndex] = (JSON.parse(value['body']) as object)['objectId'] as string
       console.log('object内容', JSON.stringify(this.objectidArray));
@@ -280,22 +302,23 @@ export function initSignInfo(name: string, activityInfo: ActivityInfo) {
 
 @Component
 export struct SignPage {
+  @State canSign: boolean = true;
   @State activityInfo: null | ActivityInfo = null
-  @State @Watch('updateCanSign') queryParams: object = JSON.parse('{}') as object
+  @State queryParams: object = JSON.parse('{}') as object
   @State otherUser: Array<userMenu> = []
   @State signIdArray: Array<number> = []
   @State IsSignForHost: boolean = true
   @State ifPhoto: boolean = false
   @State otherUserDialogIsShow: boolean = false
-  @State @Watch('updateCanSign') objectidArr: string[] = []
-  @State canSign: boolean = false
+  @State objectidArr: string[] = []
+  @State DestinationLocationName: string = '获取中'
   pathInfos: NavPathStack = new NavPathStack();
 
-  // 初始化时计算一次初始值
-  aboutToAppear() {
-    this.updateCanSign();
-  }
-
+  private copyText(text: string) {
+  const pasteboardData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text)
+  const systemPasteboard = pasteboard.getSystemPasteboard()
+  systemPasteboard.setData(pasteboardData) // 将数据放入剪切板
+}
   @Builder
   NavigationMenu() {
     Column() {
@@ -319,7 +342,7 @@ export struct SignPage {
     List() {
       ForEach(this.otherUser, (user: userMenu) => {
         ListItem() {
-          userItem({ user: user, signIdArray: this.signIdArray })
+          userItem({ user, signIdArray: this.signIdArray })
         }.onClick(() => {
           console.log('fuck' + this.signIdArray.toString())
           if (this.signIdArray.includes(user.id)) {
@@ -345,10 +368,35 @@ export struct SignPage {
             if (this.activityInfo?.signType === '0') {
               if (this.ifPhoto) {
                 photoPicker({ signIdArray: this.signIdArray, objectidArray: this.objectidArr })
+              } else {
+                Text('这是点击签到').fontSize(20)
               }
             } else if (this.activityInfo?.signType === '2') {
             } else if (this.activityInfo?.signType === '4') {
               Column() {
+                Column(){
+                  Text('要求位置: ')
+                    .fontSize(20)
+                  Row(){
+                    Text(this.DestinationLocationName)
+                      .onAppear(async () => {
+                        const dbManager = DatabaseManager.getInstance()
+                        const userInfo = await dbManager.getUserByPosition(1, true)
+                        const cookies = (userInfo as UserDataAndId).cookies
+                        this.DestinationLocationName =
+                          await Sign.GetLocationSignInfo(cookies, this.activityInfo?.ActivityId as string)
+                      })
+                      .width(120)
+                    Button('复制')
+                      .onClick(() => {
+                        this.copyText(this.DestinationLocationName)
+                      })
+                      .height(20)
+                  }
+
+                }.borderRadius(10)
+                .borderColor($r('app.color.class_button'))
+                .borderWidth(2)
                 Text(this.queryParams?.['address'] ? this.queryParams?.['address'] : '请先点击下方按钮选择位置')
                   .textAlign(TextAlign.Center)
                 Text(this.queryParams?.['address'] ? '经度: ' + this.queryParams?.['longitude'] : '选择位置后显示')
@@ -389,19 +437,23 @@ export struct SignPage {
                       this.queryParams['address'] = data.name as string;
                       this.queryParams['longitude'] = LoginLocation.lon as number;
                       this.queryParams['latitude'] = LoginLocation.lat as number;
-                      this.canSign = true
 
                     })
                 })
               }
             }
           }.height('50%')
-          .width('60%')
+          .width('80%')
           .align(Alignment.Center)
 
           Button('签到')
             .enabled(this.canSign)
             .onClick(async () => {
+              if (this.signIdArray.length !== this.objectidArr.length - 1 && this.ifPhoto) {
+                AlertDialog.show({ message: '请等待图片上传完成' })
+                return
+              }
+              this.canSign = false
               const hashTable = new Map<string, string[]>();
               const dbManager = DatabaseManager.getInstance()
               const info = await dbManager.getUserByPosition(1, true) as UserDataAndId
@@ -413,10 +465,10 @@ export struct SignPage {
               this.queryParams['name'] = name
               this.queryParams['fid'] = fid
               if (this.ifPhoto) {
-                this.queryParams['objectId'] = this.objectidArr.pop()
+                this.queryParams['objectId'] = this.objectidArr[this.objectidArr.length - 1]
               }
               const cookies = info.cookies
-              const result = await Sign.DoSignIn(cookies, this.queryParams,true)
+              const result = await Sign.DoSignIn(cookies, this.queryParams, true)
 
               for (let i = 0; i < this.signIdArray.length; i++) {
                 const dbManager = DatabaseManager.getInstance()
@@ -431,8 +483,8 @@ export struct SignPage {
                 if (this.ifPhoto) {
                   this.queryParams['objectId'] = this.objectidArr[i]
                 }
-                const cookies = otherInfo.cookies
-                let result = await Sign.DoSignIn(cookies, this.queryParams)
+                const cookiesOther = otherInfo.cookies
+                let result = await Sign.DoSignIn(cookiesOther, this.queryParams)
                 if (result.includes('500 Internal Server Error')) {
                   result = '签到不合法：服务器返回错误 (500)'
                 }
@@ -468,6 +520,7 @@ export struct SignPage {
 
                 message += statsMessage;
               }
+              this.canSign = true
 
               // 统一弹窗提示
               AlertDialog.show({ message });
@@ -489,37 +542,37 @@ export struct SignPage {
       this.pathInfos = ctx.pathStack;
     })
     .onAppear(async () => {
-      this.queryParams['activeId'] = this.activityInfo?.ActivityId
+      const promises: PromiseLike<null>[] = []
+
       const dbManager = DatabaseManager.getInstance()
-      const userCount = await dbManager.getTableCount('OtherUser')
-      for (let i: number = 1; i <= userCount; i++) {
-        const userInfo = await dbManager.getUserByPosition(i)
-        if (userInfo) {
-          const cookies = userInfo.cookies
-          const userName = (await loginFunction.getUserInfo(cookies)).uname
-          const info = await loginFunction.getUserInfo(cookies)
-          const uid = info.uid
-          if (this.activityInfo) {
-            const SignPermission =
-              await Sign.PreSignIn(this.activityInfo.ActivityId, this.activityInfo.ClassId, this.activityInfo.CourseId,
-                uid, cookies as string)
-            this.otherUser.push({ 'uname': userName as string, 'id': i, SignPermission: SignPermission })
-          }
-        }
-      }
       const cookies = (await dbManager.getUserByPosition(1, true))?.cookies as string
       if (this.activityInfo) {
         this.ifPhoto = await Sign.ifPhoto(cookies, this.activityInfo.ActivityId)
       }
-      console.log(this.ifPhoto.toString())
+      this.queryParams['activeId'] = this.activityInfo?.ActivityId
+      const userCount = await dbManager.getTableCount('OtherUser')
+      for (let i: number = 1; i <= userCount; i++) {
+        promises.push(new Promise<null>(async () => {
+          const userInfo = await dbManager.getUserByPosition(i)
+          if (userInfo) {
+            const cookies = userInfo.cookies
+            const userName = (await loginFunction.getUserInfo(cookies)).uname
+            const info = await loginFunction.getUserInfo(cookies)
+            const uid = info.uid
+            if (this.activityInfo) {
+              const SignPermission =
+                await Sign.PreSignIn(this.activityInfo.ActivityId, this.activityInfo.ClassId,
+                  this.activityInfo.CourseId,
+                  uid, cookies as string)
+              this.otherUser.push({ 'uname': userName as string, 'id': i, SignPermission: SignPermission })
+            }
+          }
+        }))
+      }
+      Promise.all(promises)
+        .then(() => {
+          console.log(this.ifPhoto.toString())
+        })
     })
-  }
-
-  private updateCanSign() {
-    // 计算非空元素数量（处理稀疏数组）
-    const nonEmptyCount = this.objectidArr.filter(item => item !== undefined).length;
-    // 重新计算canSign的值
-    this.canSign = (this.ifPhoto && nonEmptyCount === this.signIdArray.length + 1)
-      || (this.queryParams['longitude'] !== undefined);
   }
 }

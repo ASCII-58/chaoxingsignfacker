@@ -81,6 +81,7 @@ export class ChaoXingApi {
   static readonly CAPTCHA_ID='Qt9FIw9o4pwRjOyqM6yizZBh682qN2TU'
   static readonly URL_GET_CAPTCHA_PHOTOS=new BuildableUrl("https://captcha.chaoxing.com/captcha/get/verification/image")
   static readonly UA='5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0'
+  static readonly URL_GET_LOCATION_SIGN_INFO=new BuildableUrl('https://mobilelearn.chaoxing.com/v2/apis/active/getPPTActiveInfo')
 }
 
 export class InternalPath {
