@@ -169,6 +169,16 @@ struct Login {
           const pwd = ChaoxingUtils.encryptByAES(this.password)
           const result = await (loginFunction.LoginChaoXing(ChaoxingUtils.getLoginBody(uname, pwd)))
           if (result) {
+            if (result === '傻逼服务器崩了') {
+              promptAction.showToast({
+                message: result, // 要显示的文本消息
+                duration: 1500, // 显示时长，单位是毫秒(ms)。默认值为1500ms。
+                bottom: '20%' // 弹窗距离屏幕底部的距离，可以是vp或百分比。可选参数。
+              });
+              this.username = '';
+              this.password = '';
+              return
+            }
             try {
               const cookies = result
               const info = await loginFunction.getUserInfo(cookies)

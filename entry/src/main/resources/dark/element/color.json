@@ -34,6 +34,22 @@
     {
       "name": "icon",
       "value": "#bbbbbb"
+    },
+    {
+      "name":"signed",
+      "value":"#4caf50"
+    },
+    {
+      "name":"selected",
+      "value":"#4da6ff"
+    },
+    {
+      "name":"unsignable",
+      "value":"#FFFF2626"
+    },
+    {
+      "name":"unselected",
+      "value":"#90a4ae"
     }
   ]
 }

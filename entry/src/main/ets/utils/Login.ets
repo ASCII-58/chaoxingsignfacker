@@ -5,7 +5,7 @@ import { JSON, url } from '@kit.ArkTS';
 import { ChaoXingApi } from './PublicAPI';
 import { DatabaseManager } from './DataBase';
 import { common, StartupTask } from '@kit.AbilityKit';
-import { request } from '@kit.BasicServicesKit';
+import { BusinessError, request } from '@kit.BasicServicesKit';
 import urlTools from './urlTools'
 export interface UserInfo {
   msg: string,
@@ -57,6 +57,9 @@ export class loginFunction {
       }
     } catch (error) {
       console.error(error)
+      if (error.message ==='Number of redirects hit maximum amount') {
+return "傻逼服务器崩了"
+      }
       return ""
     } finally {
       // 无论成功或失败，都必须销毁请求对象

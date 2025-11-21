@@ -37,6 +37,12 @@ export interface twoImg {
   'cutoutImage': string;
 }
 
+export interface UserQueryObject {
+  uid: string;
+  fid: string;
+  name: string;
+}
+
 export class Sign {
   static async DoPreSignIn(activePrimaryId: number, classId: number, courseId: number, cookies: string) {
     const httpRequest = http.createHttp()
@@ -59,6 +65,20 @@ export class Sign {
 
   static async DoSignIn(cookies: string, queryParams: object, NeedDeviceCode: boolean = false) {
     const url = ChaoXingApi.URL_SIGN.buildUrl(queryParams).buildUrl({
+      deviceCode: NeedDeviceCode ? ChaoxingUtils.generateUUIDv4() : ''
+    }).toString()
+    console.log('DoSignInURL: ', url, '\nCookies: ', cookies)
+    const httpRequest = http.createHttp()
+    const result = await httpRequest.request(url, {
+      method: http.RequestMethod.GET,
+      header: {
+        "Cookie": cookies
+      }
+    })
+    return result.result.toString()
+  }
+  static async DoSignInV2(cookies: string, CommonQueryParams: object, userQueryParams: UserQueryObject, NeedDeviceCode: boolean = false) {
+    const url = ChaoXingApi.URL_SIGN.buildUrl(CommonQueryParams).buildUrl(userQueryParams).buildUrl({
       deviceCode: NeedDeviceCode ? ChaoxingUtils.generateUUIDv4() : ''
     }).toString()
     console.log('DoSignInURL: ', url, '\nCookies: ', cookies)

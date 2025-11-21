@@ -4,7 +4,7 @@ import image from '@ohos.multimedia.image';
 import { ClassInfo, CourseAndActivity } from '../utils/classFun';
 import fs from '@ohos.file.fs';
 import { scanBarcode, scanCore } from '@kit.ScanKit';
-import { componentSnapshot, LengthMetrics, UIContext } from '@kit.ArkUI';
+import { componentSnapshot, curves, UIContext } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import promptAction from '@ohos.promptAction';
@@ -53,23 +53,33 @@ struct OtherUserItem {
         .margin(10)
       Column() {
         Text(this.userName)
-        .fontSize(20)
+          .fontSize(20)
           .textAlign(TextAlign.Center)
         Text(this.userData.phone)
-        .fontSize(10)
-      }.margin({left:10})
+          .fontSize(10)
+      }.margin({ left: 10 })
       .width(130)
+
       Blank()
       Button('删除')
         .backgroundColor($r('sys.color.warning'))
         .onClick(async () => {
           let result = await this.dbManger.deleteUser(this.userData.id)
-          if (result===1) {
-            this.otherUserList.splice(this.index,1)
+          if (result === 1) {
+            this.otherUserList.splice(this.index, 1)
           }
         })
+        .width(100)
+        .height('100%')
+        .borderRadius({
+          topLeft: 0,
+          topRight: 20,
+          bottomLeft: 0,
+          bottomRight: 20
+        })
 
-    }.onAppear(async () => {
+    }
+    .onAppear(async () => {
       let userInfo = await loginFunction.getUserInfo(this.userData.cookies)
       this.userName = userInfo.uname
       this.userImage = await loginFunction.GetPic(userInfo.pic)
@@ -84,6 +94,7 @@ struct OtherUserItem {
 @Entry
 @Component
 struct UI {
+  @State transitionEffect: TransitionEffect = TransitionEffect.IDENTITY;
   @State currentIndex: number = 0;
   @State HostImageData: image.PixelMap | Resource = $r('app.media.foreground'); // 用于存储下载的图片二进制数据
   @State hostName: Resource | string = $r('app.string.defaultUname')
@@ -202,21 +213,52 @@ struct UI {
 
   @Builder
   loginCommon() {
-    loginByCommon({ isShow: this.LoginCommonIsShow ,otherUserList:this.otherUserList}).margin({ top: 90 })
+    loginByCommon({ isShow: this.LoginCommonIsShow, otherUserList: this.otherUserList }).margin({ top: 90 })
   }
 
   @Builder
   loginURL() {
-    loginByURL({ isShow: this.LoginURLIsSHow ,otherUserList:this.otherUserList}).margin({ top: 90 })
+    loginByURL({ isShow: this.LoginURLIsSHow, otherUserList: this.otherUserList }).margin({ top: 90 })
   }
 
   build() {
-    Column() {
       Navigation(this.pathInfos) {
         Tabs({ controller: this.controller }) {
           TabContent() {
             Column() {
+
               List({ space: 12, initialIndex: 0 }) {
+                ListItemGroup() {
+                  ListItem() {
+                    Column().height(56)
+                  }
+
+                  ListItem() {
+                    Column({ space: 20 }) {
+                      // [Start Search_start]
+                      Search({ placeholder: 'Search' })
+                        .height(40)
+                        .width('100%')
+                        // set geometry transition
+                        .geometryTransition('SEARCH_ONE_SHOT_DEMO_TRANSITION_ID', { follow: true })
+                        .defaultFocus(false)
+                        .focusOnTouch(false)
+                        .focusable(false)
+                        // [End Search_start]
+                        .onTouch((event: TouchEvent) => {
+                          if (event.type === TouchType.Up) {
+                            // set search animation
+                            this.showSearchPage();
+                          }
+                        })
+                    }
+                    .size({
+                      width: '90%',
+                      height: '20%'
+                    })
+                  }
+                }
+
                 ForEach(this.classList, (classInfo: ClassInfo) => {
                   ListItem() {
                     Row() {
@@ -235,7 +277,7 @@ struct UI {
                     this.pathInfos.pushPath({ name: 'ActivityListPage', param: classInfo });
                   })
                 })
-              }.fadingEdge(true, { fadingEdgeLength: LengthMetrics.vp(80) })
+              }
               .height('100%')
               .width('100%')
             }.height('100%')
@@ -255,6 +297,7 @@ struct UI {
 
           TabContent() {
             Column() {
+              Column().height(56)
               Column() {
                 Row() {
                   Image(this.HostImageData)
@@ -363,7 +406,11 @@ struct UI {
                 }.onClick(() => {
                   this.LoginCommonIsShow = !this.LoginCommonIsShow
                 }).borderRadius(999)
-                .bindSheet($$this.LoginCommonIsShow, this.loginCommon, { height: '90%' })
+                .bindSheet($$this.LoginCommonIsShow, this.loginCommon, {
+                  height: '90%', onWillDismiss: () => {
+                    this.LoginCommonIsShow = false
+                  }
+                })
 
                 Button() {
                   Image($r('app.media.paperclip')).height(30)
@@ -371,9 +418,13 @@ struct UI {
                     .fillColor($r('app.color.icon'))
                     .margin(15)
                 }.onClick(() => {
-                  this.LoginURLIsSHow = !this.LoginURLIsSHow
+                  this.LoginURLIsSHow = true
                 }).borderRadius(999)
-                .bindSheet($$this.LoginURLIsSHow, this.loginURL(), { height: '90%' })
+                .bindSheet($$this.LoginURLIsSHow, this.loginURL(), {
+                  height: '90%', onWillDismiss: () => {
+                    this.LoginURLIsSHow = false
+                  }
+                })
 
                 Button() {
                   Column() {
@@ -385,18 +436,26 @@ struct UI {
                 })
                 .borderRadius(30)
                 .bindSheet($$this.QRCodeIsShow, this.QRCodeDialog,
-                  { height: '90%', backgroundColor: $r('app.color.dialog'), title: this.shareTitle })
-              }.margin({ top: 15, left: '1.5%' }).justifyContent(FlexAlign.SpaceAround).width('97%')
-              Column(){
-                List() {
-                  ForEach(this.otherUserList, (item: UserDataAndId,index) => {
-                    ListItem() {
-                      OtherUserItem({ userData: item ,otherUserList:this.otherUserList,index:index})
-                    }.width('100%')
-                    .margin({bottom:'2%'})
+                  {
+                    height: '90%',
+                    backgroundColor: $r('app.color.dialog'),
+                    title: this.shareTitle,
+                    onWillDismiss: () => {
+                      this.QRCodeIsShow = false
+                    }
                   })
-                }.fadingEdge(true, { fadingEdgeLength: LengthMetrics.vp(80) })
-                .margin({top:'2%'})
+              }.margin({ top: 15, left: '1.5%' }).justifyContent(FlexAlign.SpaceAround).width('97%')
+
+              Column() {
+                List() {
+                  ForEach(this.otherUserList, (item: UserDataAndId, index) => {
+                    ListItem() {
+                      OtherUserItem({ userData: item, otherUserList: this.otherUserList, index: index })
+                    }.width('100%')
+                    .margin({ bottom: '2%' })
+                  })
+                }
+                .margin({ top: '2%' })
                 .alignListItem(ListItemAlign.Center)
                 .width('96%')
                 .height(300)
@@ -427,13 +486,20 @@ struct UI {
         })
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
+      .transition(TransitionEffect.OPACITY)
       .mode(NavigationMode.Auto)
       .backgroundColor($r('sys.color.comp_background_secondary'))
-      .title(this.titleName, { backgroundBlurStyle: BlurStyle.BACKGROUND_THICK, backgroundColor: Color.Transparent })
+      .title(this.titleName, {
+        backgroundBlurStyle: BlurStyle.BACKGROUND_THICK, barStyle: BarStyle.STACK, backgroundBlurStyleOptions: {
+          colorMode: ThemeColorMode.LIGHT,
+          adaptiveColor: AdaptiveColor.AVERAGE,
+          blurOptions: { grayscale: [20, 20] },
+          scale: 1
+        },
+
+      })
       .titleMode(NavigationTitleMode.Mini)
       .hideBackButton(true)
-    }
-    .justifyContent(FlexAlign.Center)
     .backgroundImageSize({ width: '100%', height: '100%' })
     .borderRadius($r('sys.float.corner_radius_level8'))
     .height('100%')
@@ -463,6 +529,18 @@ struct UI {
       } catch (e) {
         console.error('fuck' + e)
       }
+    })
+
+
+  }
+
+  private showSearchPage(): void {
+    this.transitionEffect = TransitionEffect.OPACITY;
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 342, 38)
+    }, () => {
+      this.pathInfos.pushPath({ name: 'SearchCoursePage' }, false);
+
     })
   }
 }

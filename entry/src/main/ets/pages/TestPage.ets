@@ -1,9 +1,12 @@
+import { promptAction } from '@kit.ArkUI';
 import picker from '@ohos.file.picker';
 
 import fs from '@ohos.file.fs';
 
 import request from '@ohos.request';
 import http from '@ohos.net.http';
+import { Sign} from '../utils/sign'
+import { DatabaseManager, UserDataAndId } from '../utils/DataBase';
 
 // 定义类型
 interface UploadResponse {
@@ -123,9 +126,21 @@ export struct Page03_uploadImg {
                 }
               })
           })
+        Button('获取验证码请求')
+          .onClick(async () => {
+            const confNum = await Sign.getCaptchaConf()
+            console.log('confNum:', confNum)
+            promptAction.openToast({message:'confNum:'+confNum})
+            setTimeout(async () => {
+              const dbManager = DatabaseManager.getInstance()
+              const user = await dbManager.getUserByPosition(1,true) as UserDataAndId
+              const cookies = user.cookies
+              // const json = await Sign.getCaptchaPhotos({  },cookies)
+            })
+          })
       }
     }
-    .title('上传图片')
+    .title('测试页面')
     .height('100%')
     .width('100%')
     .onReady((ctx: NavDestinationContext) => {

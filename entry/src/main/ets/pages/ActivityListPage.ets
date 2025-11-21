@@ -11,9 +11,14 @@ export interface ActivityInfo {
   ActivityId: string;
   CourseId: string;
   ClassId: string;
-  signType: string
+  signType: SignType
 }
 
+export enum SignType {
+  NORMAL = '0',
+  QRCODE = '2',
+  LOCATION = '4'
+}
 @Reusable
 @Component
 struct signIcon {
@@ -112,7 +117,7 @@ export struct ActivityListPage {
                   ActivityId: Activity.id,
                   CourseId: this.courseId,
                   ClassId: this.classId,
-                  signType: Activity.otherId.toString()
+                  signType: Activity.otherId.toString() as SignType
                 }
                 this.pathInfos.pushPath({ name: 'SignerPage', param: activityInfo })
               })
