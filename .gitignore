@@ -1,7 +1,14 @@
+# Node modules
 /node_modules
 /oh_modules
-/local.properties
+
+# IDE
 /.idea
+*.iml
+.vscode/
+.DS_Store
+
+# Build artifacts
 **/build
 /.hvigor
 .cxx
@@ -10,3 +17,32 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
+/dist
+/out
+
+# Local configuration
+/local.properties
+*.log
+*.hap
+*.app
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# HarmonyOS specific
+.preview
+*.hvigor
+hvigorw
+hvigorw.bat
