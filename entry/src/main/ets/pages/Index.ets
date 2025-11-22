@@ -15,9 +15,9 @@ import { loginByCommon, loginByURL } from '../Component/loginCom';
 struct ClassListItem {
   @Prop classInfo: ClassInfo;
   @Prop index: number;
-  @State opacity: number = 0;
+  @State animOpacity: number = 0;
   @State translateY: number = 20;
-  @State scale: number = 1;
+  @State animScale: number = 1;
   @Consume('pathInfos') pathInfos: NavPathStack;
 
   build() {
@@ -42,21 +42,21 @@ struct ClassListItem {
     }
     .width('100%')
     .padding({ left: 5, right: 15 })
-    .opacity(this.opacity)
+    .opacity(this.animOpacity)
     .translate({ y: this.translateY })
-    .scale({ x: this.scale, y: this.scale })
+    .scale({ x: this.animScale, y: this.animScale })
     .animation({ duration: 200, curve: Curve.EaseInOut })
     .onAppear(() => {
       animateTo({ duration: 500, curve: Curve.EaseOut, delay: 400 + (this.index * 80) }, () => {
-        this.opacity = 1
+        this.animOpacity = 1
         this.translateY = 0
       })
     })
     .onTouch((event: TouchEvent) => {
       if (event.type === TouchType.Down) {
-        this.scale = 0.97
+        this.animScale = 0.97
       } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-        this.scale = 1
+        this.animScale = 1
       }
     })
   }
@@ -68,8 +68,8 @@ struct ClassIcon {
   @Prop imageurl: string;
   @State ImageData: image.PixelMap | null = null;
   @State isLoaded: boolean = false;
-  @State opacity: number = 0;
-  @State scale: number = 0.8;
+  @State animOpacity: number = 0;
+  @State animScale: number = 0.8;
 
   build() {
     Column() {
@@ -80,14 +80,14 @@ struct ClassIcon {
         .borderWidth(3)
         .borderRadius(15)
         .margin(10)
-        .opacity(this.opacity)
-        .scale({ x: this.scale, y: this.scale })
+        .opacity(this.animOpacity)
+        .scale({ x: this.animScale, y: this.animScale })
         .onAppear(async () => {
           this.ImageData = await loginFunction.GetPic(this.imageurl)
           this.isLoaded = true
           animateTo({ duration: 400, curve: Curve.EaseOut }, () => {
-            this.opacity = 1
-            this.scale = 1
+            this.animOpacity = 1
+            this.animScale = 1
           })
         })
     }
@@ -104,9 +104,9 @@ struct OtherUserItem {
   @State userName: string = ''
   @State isHovered: boolean = false;
   @State isLoaded: boolean = false;
-  @State opacity: number = 0;
+  @State animOpacity: number = 0;
   @State translateX: number = -20;
-  @State scale: number = 1;
+  @State animScale: number = 1;
   private dbManger: DatabaseManager = DatabaseManager.getInstance()
 
   build() {
@@ -158,7 +158,7 @@ struct OtherUserItem {
       this.isLoaded = true
       // Stagger animation based on index
       animateTo({ duration: 500, curve: Curve.EaseOut, delay: this.index * 100 }, () => {
-        this.opacity = 1
+        this.animOpacity = 1
         this.translateX = 0
       })
     })
@@ -172,15 +172,15 @@ struct OtherUserItem {
       offsetX: 0,
       offsetY: 3
     })
-    .opacity(this.opacity)
+    .opacity(this.animOpacity)
     .translate({ x: this.translateX })
-    .scale({ x: this.scale, y: this.scale })
+    .scale({ x: this.animScale, y: this.animScale })
     .animation({ duration: 200, curve: Curve.EaseInOut })
     .onTouch((event: TouchEvent) => {
       if (event.type === TouchType.Down) {
-        this.scale = 0.98
+        this.animScale = 0.98
       } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-        this.scale = 1
+        this.animScale = 1
       }
     })
   }
