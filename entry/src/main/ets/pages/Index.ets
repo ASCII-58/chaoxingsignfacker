@@ -110,7 +110,6 @@ struct OtherUserItem {
 @Entry
 @Component
 struct UI {
-  @State transitionEffect: TransitionEffect = TransitionEffect.IDENTITY;
   @State currentIndex: number = 0;
   @State HostImageData: image.PixelMap | Resource = $r('app.media.foreground'); // 用于存储下载的图片二进制数据
   @State hostName: Resource | string = $r('app.string.defaultUname')
@@ -136,13 +135,8 @@ struct UI {
         .fontWeight(this.currentIndex === targetIndex ? FontWeight.Bold : FontWeight.Regular)
         .fontSize(this.currentIndex === targetIndex ? $r('sys.float.Caption_L') : $r('sys.float.Caption_M'))
         .onClick(() => {
-          animateTo({
-            duration: 100,
-            curve: Curve.Ease
-          }, () => {
-            this.currentIndex = targetIndex;
-            this.controller.changeIndex(targetIndex);
-          });
+          this.currentIndex = targetIndex;
+          this.controller.changeIndex(targetIndex);
         })
 
       if (this.currentIndex === targetIndex) {
@@ -151,14 +145,6 @@ struct UI {
           .color($r('sys.color.icon_emphasize'))
           .width(20)
           .margin({ top: 4 })
-          .scale({ x: 1, y: 1 })
-          .animation({
-            duration: 100,
-            curve: Curve.Ease,
-            delay: 0,
-            iterations: 1,
-            playMode: PlayMode.Normal
-          })
       }
     }
     .width('25%')
@@ -276,11 +262,6 @@ struct UI {
                             this.showSearchPage();
                           }
                         })
-                        .scale({ x: 1, y: 1 })
-                        .animation({
-                          duration: 300,
-                          curve: curves.springMotion(0.6, 0.9)
-                        })
                     }
                     .size({
                       width: '90%',
@@ -323,31 +304,7 @@ struct UI {
                     offsetY: 3
                   })
                   .onClick(() => {
-                    animateTo({
-                      duration: 350,
-                      curve: curves.springMotion(0.6, 0.9)
-                    }, () => {
-                      this.pathInfos.pushPath({ name: 'ActivityListPage', param: classInfo });
-                    })
-                  })
-                  .transition(TransitionEffect.asymmetric(
-                    TransitionEffect.OPACITY
-                      .combine(TransitionEffect.translate({ y: 60 }))
-                      .combine(TransitionEffect.scale({ x: 0.9, y: 0.9 }))
-                      .animation({ duration: 400, delay: index * 60, curve: curves.springMotion(0.6, 0.9) }),
-                    TransitionEffect.OPACITY
-                      .combine(TransitionEffect.scale({ x: 0.95, y: 0.95 }))
-                      .animation({ duration: 250, curve: curves.springMotion(0.7, 1.0) })
-                  ))
-                  .onTouch((event: TouchEvent) => {
-                    if (event.type === TouchType.Down) {
-                      animateTo({
-                        duration: 100,
-                        curve: Curve.Sharp
-                      }, () => {
-                        // Tap feedback handled by scale
-                      })
-                    }
+                    this.pathInfos.pushPath({ name: 'ActivityListPage', param: classInfo });
                   })
                 })
               }
@@ -380,11 +337,6 @@ struct UI {
                     .objectFit(ImageFit.Cover)// 图片填充模式
                     .alt($r('app.media.foreground'))
                     .margin({ left: 7.5 })
-                    .scale({ x: 1, y: 1 })
-                    .animation({
-                      duration: 300,
-                      curve: curves.springMotion(0.6, 0.9)
-                    })
                     .onClick(() => {
                       if ((++this.clickTime) > 9) {
                         this.clickTime = 0
@@ -437,11 +389,6 @@ struct UI {
                   offsetX: 0,
                   offsetY: 4
                 })
-                .scale({ x: 1, y: 1 })
-                .animation({
-                  duration: 400,
-                  curve: curves.springMotion(0.6, 0.9)
-                })
               }.width('100%')
               .justifyContent(FlexAlign.Start)
 
@@ -460,11 +407,6 @@ struct UI {
                   color: '#00000020',
                   offsetX: 0,
                   offsetY: 3
-                })
-                .scale({ x: 1, y: 1 })
-                .animation({
-                  duration: 300,
-                  curve: curves.springMotion(0.6, 0.9)
                 })
                 .onClick(() => {
                   let options: scanBarcode.ScanOptions = {
@@ -519,11 +461,6 @@ struct UI {
                   offsetX: 0,
                   offsetY: 3
                 })
-                .scale({ x: 1, y: 1 })
-                .animation({
-                  duration: 300,
-                  curve: curves.springMotion(0.6, 0.9)
-                })
                 .bindSheet($$this.LoginCommonIsShow, this.loginCommon, {
                   height: '90%', onWillDismiss: () => {
                     this.LoginCommonIsShow = false
@@ -544,11 +481,6 @@ struct UI {
                   color: '#00000020',
                   offsetX: 0,
                   offsetY: 3
-                })
-                .scale({ x: 1, y: 1 })
-                .animation({
-                  duration: 300,
-                  curve: curves.springMotion(0.6, 0.9)
                 })
                 .bindSheet($$this.LoginURLIsSHow, this.loginURL(), {
                   height: '90%', onWillDismiss: () => {
@@ -572,11 +504,6 @@ struct UI {
                   offsetX: 0,
                   offsetY: 3
                 })
-                .scale({ x: 1, y: 1 })
-                .animation({
-                  duration: 300,
-                  curve: curves.springMotion(0.6, 0.9)
-                })
                 .bindSheet($$this.QRCodeIsShow, this.QRCodeDialog,
                   {
                     height: '90%',
@@ -595,14 +522,6 @@ struct UI {
                       OtherUserItem({ userData: item, otherUserList: this.otherUserList, index: index })
                     }.width('100%')
                     .margin({ bottom: '2%' })
-                    .transition(TransitionEffect.asymmetric(
-                      TransitionEffect.OPACITY
-                        .combine(TransitionEffect.translate({ x: -30 }))
-                        .animation({ duration: 350, delay: index * 60, curve: curves.springMotion(0.6, 0.9) }),
-                      TransitionEffect.OPACITY
-                        .combine(TransitionEffect.translate({ x: 30 }))
-                        .animation({ duration: 250, curve: curves.springMotion(0.7, 1.0) })
-                    ))
                   })
                 }
                 .margin({ top: '2%' })
@@ -614,12 +533,6 @@ struct UI {
               .borderRadius(25)
               .backgroundColor($r('sys.color.comp_background_secondary'))
               .width('98%')
-              .scale({ x: 1, y: 1 })
-              .animation({
-                duration: 400,
-                delay: 100,
-                curve: curves.springMotion(0.6, 0.9)
-              })
             }
             .height('100%')
           }.tabBar($r('app.string.user'))
@@ -633,7 +546,7 @@ struct UI {
         .backgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THIN)
         .fadingEdge(true)
         .barMode(BarMode.Fixed)
-        .animationDuration(300)
+        .animationDuration(0)
         .backgroundColor($r('sys.color.comp_background_secondary'))
         .divider({ strokeWidth: '1px', color: $r('sys.color.comp_divider') })
         .scrollable(false)
@@ -642,7 +555,6 @@ struct UI {
         })
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
-      .transition(TransitionEffect.OPACITY)
       .mode(NavigationMode.Auto)
       .backgroundColor($r('sys.color.comp_background_secondary'))
       .title(this.titleName, {
@@ -691,13 +603,6 @@ struct UI {
   }
 
   private showSearchPage(): void {
-    this.transitionEffect = TransitionEffect.OPACITY;
-    this.getUIContext().animateTo({
-      duration: 600,
-      curve: curves.interpolatingSpring(0, 1, 400, 38)
-    }, () => {
-      this.pathInfos.pushPath({ name: 'SearchCoursePage' }, false);
-
-    })
+    this.pathInfos.pushPath({ name: 'SearchCoursePage' }, false);
   }
 }
