@@ -674,6 +674,8 @@ export struct SignPage {
           .padding(12)
       } else {
         // 创建 Map 以优化查找性能 O(1)
+        // 注意：虽然在 build 方法中创建 Map 会在每次渲染时重新创建，
+        // 但由于用户列表变化不频繁且数量通常较小，这种开销是可接受的
         const userMap = new Map<number, userMenu>()
         this.otherUser.forEach(u => userMap.set(u.id, u))
         
