@@ -138,7 +138,7 @@ export struct ActivityListPage {
                 this.pathInfos.pushPath({ name: 'SignerPage', param: activityInfo })
               })
             }
-          })
+          }, (Activity: ActivityItem) => Activity.id)
         }.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
         .height('100%')
       }
