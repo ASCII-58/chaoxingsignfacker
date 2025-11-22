@@ -30,9 +30,12 @@ export class ChaoxingUtils {
 
   /**
    * 生成UUIDv4
-   * @returns {string}
+   * 按照 RFC 4122 规范生成版本4的UUID
+   * @returns {string} UUID字符串，格式为 xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+   * @example
+   * const uuid = ChaoxingUtils.generateUUIDv4();
+   * // 返回类似: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
    */
-
   static generateUUIDv4(): string {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = Math.random() * 16 | 0;
@@ -42,10 +45,13 @@ export class ChaoxingUtils {
   }
 
   /**
-   * 生成图片名，长度为12, 无后缀
-   * @returns {string}
+   * 生成图片名，长度为12，无后缀
+   * 用于生成随机的文件名标识
+   * @returns {string} 12位十六进制字符串
+   * @example
+   * const photoName = ChaoxingUtils.generatePhotoName();
+   * // 返回类似: "a1b2c3d4e5f6"
    */
-
   static generatePhotoName(): string {
     return 'xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = Math.random() * 16 | 0;
@@ -126,11 +132,18 @@ export class ChaoxingUtils {
   static readonly DEFAULT_KEY = 'u2oh6Vu^HWe4_AES';
 
   /**
-   * AES-CBC模式加密 - 确保与超星实现一致的方式
-   * @param {string} message 需要加密的消息
-   * @returns {string} 加密后的Base64字符串
+   * AES-CBC模式加密 - 与超星系统保持一致的加密方式
+   * 
+   * 使用超星默认密钥 'u2oh6Vu^HWe4_AES' 进行加密
+   * 加密模式：AES-CBC
+   * 填充方式：PKCS7
+   * 
+   * @param {string} message 需要加密的明文消息
+   * @returns {string} Base64编码的密文字符串
+   * @example
+   * const encrypted = ChaoxingUtils.encryptByAES("mypassword");
+   * // 返回类似: "U2FsdGVkX1+..."
    */
-
   static encryptByAES(message: string): string {
     // 超星的具体实现方式 - 从login.js和util.js中提取
     const key: string = ChaoxingUtils.DEFAULT_KEY
@@ -147,12 +160,19 @@ export class ChaoxingUtils {
   }
 
   /**
-   * 生成超星登录字符串
-   * @param {string} username 加密后的用户名
-   * @param {string} password 加密后的密码
-   * @returns {string} 格式化的登录字符串
+   * 生成超星登录请求体
+   * 
+   * 将加密后的用户名和密码格式化为超星登录API所需的表单格式
+   * 
+   * @param {string} username AES加密并Base64编码后的用户名
+   * @param {string} password AES加密并Base64编码后的密码
+   * @returns {string} URL编码的登录表单字符串
+   * @example
+   * const encrypted = ChaoxingUtils.encryptByAES("username");
+   * const pwd = ChaoxingUtils.encryptByAES("password");
+   * const body = ChaoxingUtils.getLoginBody(encrypted, pwd);
+   * // 返回: "fid=-1&uname=...&password=...&refer=..."
    */
-
   static getLoginBody(username: string, password: string): string {
 
     // URL编码加密后的用户名和密码
@@ -165,8 +185,16 @@ export class ChaoxingUtils {
 
   /**
    * 将 Set-Cookie 响应头列表处理成可用于请求的 Cookie 字符串
-   * @param setCookieHeaders - 服务器返回的 Set-Cookie 头部字符串数组
-   * @returns 处理后的 Cookie 字符串，格式为 "name1=value1; name2=value2"
+   * 
+   * 从服务器返回的 Set-Cookie 头部提取 name=value 对，
+   * 并格式化为标准的 Cookie 请求头格式
+   * 
+   * @param {string[]} setCookieHeaders 服务器返回的 Set-Cookie 头部字符串数组
+   * @returns {string} 处理后的 Cookie 字符串，格式为 "name1=value1; name2=value2"
+   * @example
+   * const setCookies = ["session=abc123; Path=/", "token=xyz789; HttpOnly"];
+   * const cookie = ChaoxingUtils.processSetCookieHeaders(setCookies);
+   * // 返回: "session=abc123; token=xyz789"
    */
   static processSetCookieHeaders(setCookieHeaders: string[]): string {
     if (!Array.isArray(setCookieHeaders) || setCookieHeaders.length === 0) {
@@ -179,13 +207,24 @@ export class ChaoxingUtils {
   }
   /**
    * 获取签到活动剩余时间（毫秒）
+   * 
+   * @param {number} endTime 活动结束时间戳（毫秒）
+   * @returns {number} 剩余时间（毫秒），最小为0
+   * @example
+   * const remaining = ChaoxingUtils.getRemainingTime(Date.now() + 3600000);
+   * // 返回: 3600000 (1小时)
    */
   static getRemainingTime(endTime: number): number {
     const currentTime = Date.now();
     return Math.max(0, endTime - currentTime);
   }
+
   /**
    * 检查签到活动是否正在进行中
+   * 
+   * @param {number} startTime 活动开始时间戳（毫秒）
+   * @param {number} endTime 活动结束时间戳（毫秒）
+   * @returns {boolean} 活动是否在进行中
    */
   static isSignActivityActive(startTime: number, endTime: number): boolean {
     const currentTime = Date.now();
@@ -194,6 +233,9 @@ export class ChaoxingUtils {
 
   /**
    * 检查签到活动是否已开始
+   * 
+   * @param {number} startTime 活动开始时间戳（毫秒）
+   * @returns {boolean} 活动是否已开始
    */
   static isSignActivityStarted(startTime: number): boolean {
     const currentTime = Date.now();
@@ -202,6 +244,9 @@ export class ChaoxingUtils {
 
   /**
    * 检查签到活动是否已结束
+   * 
+   * @param {number} endTime 活动结束时间戳（毫秒）
+   * @returns {boolean} 活动是否已结束
    */
   static isSignActivityEnded(endTime: number): boolean {
     const currentTime = Date.now();

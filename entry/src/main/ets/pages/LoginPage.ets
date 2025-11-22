@@ -133,7 +133,7 @@ struct Login {
           const pwd = ChaoxingUtils.encryptByAES(this.password)
           const result = await (loginFunction.LoginChaoXing(ChaoxingUtils.getLoginBody(uname, pwd)))
           if (result) {
-            if (result === '傻逼服务器崩了') {
+            if (result === '服务器错误，请稍后重试') {
               promptAction.showToast({
                 message: result, // 要显示的文本消息
                 duration: 1500, // 显示时长，单位是毫秒(ms)。默认值为1500ms。
@@ -153,7 +153,6 @@ struct Login {
                 cookies: cookies,
                 uid: info.uid
               };
-              console.log('fuck' + JSON.stringify(userData))
               await dbManager.insertUser(userData, true)
               this.username = ''
               this.password = ''

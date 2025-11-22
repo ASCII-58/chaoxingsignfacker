@@ -14,6 +14,9 @@ import { Context, common } from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { promptAction } from '@kit.ArkUI';
 
+const TAG = 'SignerPage';
+const DOMAIN = 0x0008;
+
 // 定义用户对象接口
 interface userMenu {
   uname: string
@@ -74,7 +77,7 @@ struct Icon {
           this.isLoaded = true;
         }
       } catch (e) {
-        console.error(`[Icon] Load failed for user ${this.UserId}:`, e);
+        hilog.error(DOMAIN, TAG, `[Icon] Load failed for user ${this.UserId}:`, e);
       }
     })
   }
@@ -287,13 +290,13 @@ struct photoPicker {
           // 不使用await，允许并行上传
           this.uploadPhoto(context, uploadConfig, index)
         } catch (error) {
-          console.error('File processing failed', JSON.stringify(error))
+          hilog.error(DOMAIN, TAG, 'File processing failed', JSON.stringify(error))
           promptAction.showToast({ message: `图片 ${index + 1} 处理失败`, duration: 2000 })
           this.uploadCompletedCount++
         }
       }
     } catch (error) {
-      console.error('Photo selection failed', JSON.stringify(error))
+      hilog.error(DOMAIN, TAG, 'Photo selection failed', JSON.stringify(error))
       this.uploadStatus = '图片选择失败'
       this.isUploading = false
       promptAction.showToast({ message: '图片选择失败', duration: 2000 })
@@ -305,7 +308,7 @@ struct photoPicker {
       const task = await request.uploadFile(context, uploadConfig)
       
       task.on("fail", (event) => {
-        console.error(`Upload failed for index ${signIndex}`, JSON.stringify(event))
+        hilog.error(DOMAIN, TAG, `Upload failed for index ${signIndex}`, JSON.stringify(event))
         promptAction.showToast({ message: `图片 ${signIndex + 1} 上传失败`, duration: 2000 })
         
         // 更新完成计数
@@ -350,12 +353,12 @@ struct photoPicker {
             
             console.info(`Photo ${signIndex + 1} uploaded successfully`)
           } catch (e) {
-            console.error('Failed to parse upload response', e)
+            hilog.error(DOMAIN, TAG, 'Failed to parse upload response', e)
           }
         }
       })
     } catch (e) {
-      console.error("Upload task creation failed", e)
+      hilog.error(DOMAIN, TAG, "Upload task creation failed", e)
       promptAction.showToast({ message: `图片 ${signIndex + 1} 上传失败`, duration: 2000 })
       
       // 更新完成计数
@@ -456,7 +459,7 @@ export struct SignPage {
         }
       }
     } catch (e) {
-      console.error('Failed to load main user', e)
+      hilog.error(DOMAIN, TAG, 'Failed to load main user', e)
     }
 
     // 然后加载其他用户（OtherUser表）
@@ -478,7 +481,7 @@ export struct SignPage {
           }
         }
       } catch (e) {
-        console.error(`Failed to load user ${i}`, e)
+        hilog.error(DOMAIN, TAG, `Failed to load user ${i}`, e)
       }
     }
     this.otherUser = newUserList;
@@ -558,7 +561,7 @@ export struct SignPage {
         
         await this.performSingleSign(userInfo, this.objectidArr[i], hashTable, isMainUser)
       } catch (e) {
-        console.error(`User ${this.signIdArray[i]} sign error`, e)
+        hilog.error(DOMAIN, TAG, `User ${this.signIdArray[i]} sign error`, e)
       }
     }
 

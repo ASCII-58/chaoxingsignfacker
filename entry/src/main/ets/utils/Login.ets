@@ -6,7 +6,16 @@ import { ChaoXingApi } from './PublicAPI';
 import { DatabaseManager } from './DataBase';
 import { common, StartupTask } from '@kit.AbilityKit';
 import { BusinessError, request } from '@kit.BasicServicesKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import urlTools from './urlTools'
+
+const TAG = 'LoginService';
+const DOMAIN = 0x0001;
+
+// 常量定义
+const HTTP_TIMEOUT_MS = 60000; // 60秒超时
+const ERROR_MAX_REDIRECTS = 'Number of redirects hit maximum amount';
+const HTTP_SUCCESS_CODE = 200;
 export interface UserInfo {
   msg: string,
   uname: string,
@@ -23,7 +32,7 @@ export class loginFunction {
    * @returns {Promise<string>} 求到的cookie,异常为空
    */
   static async LoginChaoXing(LoginString: string): Promise<string> {
-    console.log('fuck' + LoginString)
+    hilog.debug(DOMAIN, TAG, 'Attempting login');
     const httpRequest = http.createHttp();
     const url = ChaoXingApi.URL_LOGIN;
     const PostBody = LoginString;
@@ -35,30 +44,29 @@ export class loginFunction {
           'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
           'X-Requested-With': 'XMLHttpRequest'
         },
-        connectTimeout: 60000,
-        readTimeout: 60000,
+        connectTimeout: HTTP_TIMEOUT_MS,
+        readTimeout: HTTP_TIMEOUT_MS,
       });
       // 处理响应
-      if (result.responseCode === 200) {
+      if (result.responseCode === HTTP_SUCCESS_CODE) {
         const ResultBody = JSON.parse(result.result.toString()) as object;
-        console.log(ResultBody?.['status'] + 'fuck')
+        hilog.debug(DOMAIN, TAG, `Login response status: ${ResultBody?.['status']}`);
         if (ResultBody?.['status'] === true) {
           const set_cookies: string[] = result.header['set-cookie']
-          console.log('shit登录成功')
+          hilog.info(DOMAIN, TAG, 'Login successful');
           return ChaoxingUtils.processSetCookieHeaders(set_cookies);
         } else {
-          console.error('fuck' + JSON.stringify(result.result))
-          console.error('fuck用户名或密码错误')
+          hilog.error(DOMAIN, TAG, 'Login failed: Invalid username or password');
           return ""
         }
       } else {
-        console.error('fuck网络错误')
+        hilog.error(DOMAIN, TAG, `Login failed: Network error (${result.responseCode})`);
         return ""
       }
     } catch (error) {
-      console.error(error)
-      if (error.message ==='Number of redirects hit maximum amount') {
-return "傻逼服务器崩了"
+      hilog.error(DOMAIN, TAG, `Login exception: ${error.message}`);
+      if (error.message === ERROR_MAX_REDIRECTS) {
+        return "服务器错误，请稍后重试"
       }
       return ""
     } finally {
@@ -82,8 +90,8 @@ return "傻逼服务器崩了"
           "Cookie": cookies
         }
       })
-      if (result.responseCode >= 300 && result.responseCode < 200) {
-        console.error('fuck,服务器错误')
+      if (result.responseCode >= 300 || result.responseCode < 200) {
+        hilog.error(DOMAIN, TAG, `Get user info failed: Server error (${result.responseCode})`);
         return {
           'msg': 'service error',
           'uname': '',
@@ -98,8 +106,8 @@ return "傻逼服务器崩了"
         const uname: string = (Json as object)?.['name'] || ''
         const pic: string = (Json as object)?.['pic'] || ''
         const uid: number = (Json as object)?.['uid'] || 0
-        const fid: string = (Json as object)?.['fid'] || 0
-        const puid: string = (Json as object)?.['puid'] || 0
+        const fid: string = (Json as object)?.['fid'] || ''
+        const puid: string = (Json as object)?.['puid'] || ''
         return {
           'msg': (uname && pic) ? 'successful' : 'fetch error',
           'uname': uname,
@@ -110,7 +118,7 @@ return "傻逼服务器崩了"
         }
       }
     } catch (error) {
-      console.error('fuck,网络错误:', error);
+      hilog.error(DOMAIN, TAG, `Get user info failed: ${error.message}`);
       return {
         'msg': 'service error',
         'uname': '',
@@ -129,30 +137,57 @@ return "傻逼服务器崩了"
    * @param stringURL
    */
   static async LoginByURL(stringURL: string): Promise<string> {
+    // 输入验证
+    if (!stringURL || stringURL.trim().length === 0) {
+      hilog.error(DOMAIN, TAG, 'LoginByURL: Empty URL provided');
+      return '请提供有效的URL'
+    }
+    
     try {
       let urlParse = urlTools.parseUrlParams(stringURL)
       let phone = urlParse['phone']
       let pwd = urlParse['pwd']
-      console.log(phone + '&&&&' + pwd)
+      
+      // 验证必需参数
+      if (!phone || !pwd) {
+        hilog.error(DOMAIN, TAG, 'LoginByURL: Missing phone or password in URL');
+        return 'URL格式错误：缺少必需参数'
+      }
+      
+      hilog.debug(DOMAIN, TAG, `Parsing login URL for phone: ${phone?.substring(0, 3)}***`);
       let AESPhone = ChaoxingUtils.encryptByAES(phone)
       let body = ChaoxingUtils.getLoginBody(AESPhone, pwd);
       let cookie = await loginFunction.LoginChaoXing(body)
+      
+      if (!cookie) {
+        hilog.error(DOMAIN, TAG, 'LoginByURL: Failed to get cookie');
+        return '登录失败，请检查账号密码'
+      }
+      
       let userInfo = await loginFunction.getUserInfo(cookie)
+      
+      if (userInfo.msg !== 'successful') {
+        hilog.error(DOMAIN, TAG, 'LoginByURL: Failed to get user info');
+        return '获取用户信息失败'
+      }
+      
       const dbManager = DatabaseManager.getInstance()
-      if (await dbManager.insertUser({
-          phone: phone,
-          pwd: pwd,
-          uid: userInfo.uid,
-          cookies: cookie
-        }) === 1
-      ) {
+      const insertResult = await dbManager.insertUser({
+        phone: phone,
+        pwd: pwd,
+        uid: userInfo.uid,
+        cookies: cookie
+      })
+      
+      if (insertResult === 1) {
+        hilog.info(DOMAIN, TAG, 'User added successfully via URL');
         return '添加成功'
       } else {
-        console.error('fuck,密码错误或已经登录')
+        hilog.error(DOMAIN, TAG, 'Failed to add user: Invalid credentials or already logged in');
         return '链接的手机号或密码有误或已经登录'
       }
-    } catch {
-      console.error('请扫描正确的二维码')
+    } catch (error) {
+      hilog.error(DOMAIN, TAG, `Login by URL failed: ${error.message}`);
       return '请使用正确的url'
     }
   }
@@ -168,11 +203,11 @@ return "傻逼服务器崩了"
       const result = await httpRequest.request(url, {
         method: http.RequestMethod.GET,
         header: { 'User-Agent':ChaoXingApi.UA },
-        readTimeout: 60000, // 读取超时时间（毫秒）
-        connectTimeout: 60000 // 连接超时时间（毫秒）
+        readTimeout: HTTP_TIMEOUT_MS,
+        connectTimeout: HTTP_TIMEOUT_MS
       })
 
-      if (result.responseCode === 200) {
+      if (result.responseCode === HTTP_SUCCESS_CODE) {
         const RawData = result.result as ArrayBuffer
 
         // 创建图像源
@@ -181,11 +216,11 @@ return "傻逼服务器崩了"
         let pixelMap: image.PixelMap = await imageSource.createPixelMap();
         return pixelMap
       } else {
-        console.error('fuck获取失败')
+        hilog.error(DOMAIN, TAG, `Failed to fetch image: ${result.responseCode}`);
         return null
       }
     } catch (error) {
-      console.error('fuck' + error)
+      hilog.error(DOMAIN, TAG, `Error fetching image: ${error.message}`);
       return null
     }
     finally {

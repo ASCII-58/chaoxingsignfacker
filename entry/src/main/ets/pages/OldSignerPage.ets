@@ -13,6 +13,9 @@ import { picker } from '@kit.CoreFileKit';
 import { Context } from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 
+const TAG = 'OldSignerPage';
+const DOMAIN = 0x0006;
+
 interface userMenu {
   uname: string
   id: number
@@ -229,8 +232,7 @@ struct photoPicker {
             try { // 创建上传任务
               this.uploadPhoto(context, uploadConfig, index)
             } catch (error) {
-              hilog.info(0x0001, 'error', 'fuck' + JSON.stringify(error))
-              console.log('fuck upload error' + JSON.stringify(error))
+              hilog.error(DOMAIN, TAG, `Upload photo error: ${JSON.stringify(error)}`);
             }
           }
         })
@@ -249,9 +251,9 @@ struct photoPicker {
     })
     // 这里可以获取到响应的内容
     task.on('headerReceive', (value) => {
-      console.log('上传结果:', JSON.stringify(value), signIndex)
+      hilog.debug(DOMAIN, TAG, '上传结果:', JSON.stringify(value), signIndex)
       this.objectidArray[signIndex] = (JSON.parse(value['body']) as object)['objectId'] as string
-      console.log('object内容', JSON.stringify(this.objectidArray));
+      hilog.debug(DOMAIN, TAG, 'object内容', JSON.stringify(this.objectidArray));
 
     })
   }
@@ -306,12 +308,12 @@ export struct SignPage {
         ListItem() {
           userItem({ user, signIdArray: this.signIdArray })
         }.onClick(() => {
-          console.log('fuck' + this.signIdArray.toString())
+          hilog.debug(DOMAIN, TAG, `Sign ID array: ${this.signIdArray.toString()}`);
           if (this.signIdArray.includes(user.id)) {
-            console.log('fuck1')
+            hilog.debug(DOMAIN, TAG, 'Removing user from sign list');
             this.signIdArray = this.signIdArray.filter(num => num !== user.id)
           } else {
-            console.log('fuck0')
+            hilog.debug(DOMAIN, TAG, 'Adding user to sign list');
             this.signIdArray.push(user.id)
           }
         })
@@ -389,8 +391,7 @@ export struct SignPage {
                     .onChooseLocation((err, data) => {
                       if (err) {
                         // 错误日志处理。
-                        hilog.error(0x0000, "testTag", "error: %{public}d %{public}s", err.code, err.message);
-                        console.error('fuck+' + JSON.stringify(err))
+                        hilog.error(DOMAIN, TAG, `Location error: ${err.code} - ${err.message}`);
                         return;
                       }
                       // 成功日志处理。
@@ -506,7 +507,7 @@ export struct SignPage {
       this.pathInfos = ctx.pathStack;
     })
     .onAppear(async () => {
-      console.log('fuck'+this.activityInfo?.signType)
+      hilog.debug(DOMAIN, TAG, `Sign type: ${this.activityInfo?.signType}`);
       const promises: PromiseLike<null>[] = []
 
       const dbManager = DatabaseManager.getInstance()
