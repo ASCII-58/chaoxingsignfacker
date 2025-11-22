@@ -216,8 +216,6 @@ export struct loginByURL {
           } else {
             this.LoginURL = '';
             this.LoginEnable = false
-            this.urlTranslateY = 45
-            this.urlScale = 0.9
           }
         })
         .margin({ bottom: 20 })
