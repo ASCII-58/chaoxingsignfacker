@@ -34,8 +34,12 @@ export function init() {
 @Component
 struct CourseItem {
   @Prop course: ClassInfo
+  @Prop index: number
   @State courseImage: image.PixelMap | null = null
   @State isPressed: boolean = false
+  @State opacity: number = 0
+  @State translateY: number = 20
+  @State scale: number = 0.95
   onCourseClick?: (course: ClassInfo) => void
 
   build() {
@@ -85,12 +89,26 @@ struct CourseItem {
       offsetX: 0,
       offsetY: 2
     })
+    .opacity(this.opacity)
+    .translate({ y: this.translateY })
+    .scale({ x: this.scale, y: this.scale })
     .onClick(() => {
       if (this.onCourseClick) {
         this.onCourseClick(this.course)
       }
     })
     .onAppear(async () => {
+      // Staggered animation for list items - each item animates with a delay based on its index
+      animateTo({
+        duration: 400,
+        curve: curves.springMotion(0.6, 0.8),
+        delay: this.index * 50
+      }, () => {
+        this.opacity = 1
+        this.translateY = 0
+        this.scale = 1
+      })
+      
       if (this.course.imageurl) {
         try {
           this.courseImage = await loginFunction.GetPic(this.course.imageurl) as image.PixelMap
@@ -111,9 +129,33 @@ export default struct SearchLongTakeTransitionPageTwo {
   @State allCourses: ClassInfo[] = []
   @State filteredCourses: ClassInfo[] = []
   @State isLoading: boolean = false
+  @State pageOpacity: number = 0
+  @State contentTranslateY: number = 30
+  @State backButtonScale: number = 0.8
+  @State backButtonOpacity: number = 0
 
   async aboutToAppear() {
     await this.loadCourses()
+    
+    // Animate the page entrance
+    animateTo({
+      duration: 500,
+      curve: curves.springMotion(0.6, 0.9),
+      delay: 100
+    }, () => {
+      this.pageOpacity = 1
+      this.contentTranslateY = 0
+    })
+    
+    // Animate back button
+    animateTo({
+      duration: 400,
+      curve: curves.springMotion(0.6, 0.8),
+      delay: 150
+    }, () => {
+      this.backButtonScale = 1
+      this.backButtonOpacity = 1
+    })
   }
 
   async loadCourses() {
@@ -179,6 +221,8 @@ export default struct SearchLongTakeTransitionPageTwo {
               offsetX: 0,
               offsetY: 1
             })
+            .scale({ x: this.backButtonScale, y: this.backButtonScale })
+            .opacity(this.backButtonOpacity)
             .onClick(() => {
               this.onArrowClicked();
             })
@@ -219,6 +263,8 @@ export default struct SearchLongTakeTransitionPageTwo {
           .width('100%')
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
+          .opacity(this.pageOpacity)
+          .translate({ y: this.contentTranslateY })
         } else if (this.filteredCourses.length === 0) {
           Column() {
             Text(this.searchText ? '未找到匹配的课程' : '暂无课程')
@@ -228,6 +274,8 @@ export default struct SearchLongTakeTransitionPageTwo {
           .width('100%')
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
+          .opacity(this.pageOpacity)
+          .translate({ y: this.contentTranslateY })
         } else {
           Column() {
             Text(`找到 ${this.filteredCourses.length} 个课程`)
@@ -235,12 +283,14 @@ export default struct SearchLongTakeTransitionPageTwo {
               .fontColor($r('sys.color.ohos_id_color_text_secondary'))
               .width('100%')
               .padding({ left: 16, right: 16, bottom: 8 })
+              .opacity(this.pageOpacity)
 
             List({ space: 8 }) {
               ForEach(this.filteredCourses, (course: ClassInfo, index: number) => {
                 ListItem() {
                   CourseItem({ 
                     course: course,
+                    index: index,
                     onCourseClick: (c: ClassInfo) => this.handleCourseClick(c)
                   })
                 }
@@ -249,6 +299,8 @@ export default struct SearchLongTakeTransitionPageTwo {
             .width('100%')
             .layoutWeight(1)
             .padding({ left: 16, right: 16 })
+            .opacity(this.pageOpacity)
+            .translate({ y: this.contentTranslateY })
           }
           .width('100%')
           .layoutWeight(1)
@@ -260,7 +312,7 @@ export default struct SearchLongTakeTransitionPageTwo {
       })
       .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     }
-    .transition(TransitionEffect.OPACITY)
+    .transition(TransitionEffect.OPACITY.animation({ duration: 400, curve: curves.springMotion(0.6, 0.8) }))
     .hideTitleBar(true)
     .backgroundColor($r('sys.color.ohos_id_color_background'))
     .onReady((context: NavDestinationContext) => {

@@ -686,6 +686,7 @@ struct UI {
   }
 
   private showSearchPage(): void {
+    // Navigation is handled by the framework, page animations are in destination lifecycle
     this.pathInfos.pushPath({ name: 'SearchCoursePage' }, false);
   }
 }
