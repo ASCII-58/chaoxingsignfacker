@@ -144,6 +144,10 @@ struct photoPicker {
   @Link objectidArray: string[]
   @Link otherUserDialogIsShow: boolean // 添加控制用户选择对话框的链接
   @Prop otherUser: Array<userMenu> // 添加其他用户列表
+  @State uploadStatus: string = '' // 上传状态反馈
+  @State isUploading: boolean = false // 是否正在上传
+  @State uploadCompletedCount: number = 0 // 已完成上传的数量（成功或失败）
+  @State uploadTotalCount: number = 0 // 总上传数量
 
   build() {
     Column() {
@@ -158,12 +162,21 @@ struct photoPicker {
       .padding(10)
       .width('100%')
 
+      // 上传状态反馈文本
+      if (this.uploadStatus) {
+        Text(this.uploadStatus)
+          .fontSize(14)
+          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          .margin({ top: 8, bottom: 8 })
+      }
+
       Button('选择图片 / 拍照')
         .type(ButtonType.Capsule)
         .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
         .fontColor($r('sys.color.ohos_id_color_text_primary_activated'))
         .width('60%')
         .margin({ top: 12 })
+        .enabled(!this.isUploading)
         .onClick(async () => {
           this.showPhotoConfirmDialog()
         })
@@ -214,77 +227,148 @@ struct photoPicker {
   // 抽离图片处理逻辑，保持 build 干净
   private async handlePhotoSelect() {
     this.objectidArray = []
+    this.uploadCompletedCount = 0
+    this.uploadStatus = '正在准备上传...'
+    this.isUploading = true
     const dbManager = DatabaseManager.getInstance()
 
-    this.signerInfoArr = await Promise.all(
-      this.signIdArray.map(async userId => {
-        let info: CookiesTokenPUID = { cookies: '', Token: '', PUID: '' }
-        
-        if (userId === 0) {
-          // 主用户
-          info.cookies = ((await dbManager.getUserByPosition(1, true)) as UserDataAndId).cookies
-        } else {
-          // 其他用户
-          info.cookies = ((await dbManager.getUserByPosition(userId)) as UserDataAndId).cookies
+    try {
+      this.signerInfoArr = await Promise.all(
+        this.signIdArray.map(async userId => {
+          let info: CookiesTokenPUID = { cookies: '', Token: '', PUID: '' }
+          
+          if (userId === 0) {
+            // 主用户
+            info.cookies = ((await dbManager.getUserByPosition(1, true)) as UserDataAndId).cookies
+          } else {
+            // 其他用户
+            info.cookies = ((await dbManager.getUserByPosition(userId)) as UserDataAndId).cookies
+          }
+          
+          info.PUID = (await loginFunction.getUserInfo(info.cookies)).puid
+          info.Token = await Sign.GetToken(info.cookies)
+          return info
+        }))
+
+      const photoSelectOptions = new picker.PhotoSelectOptions();
+      photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
+      photoSelectOptions.maxSelectNumber = this.signIdArray.length;
+      const photoViewPicker = new picker.PhotoViewPicker();
+      const context = this.getUIContext().getHostContext() as Context
+
+      const res = await photoViewPicker.select(photoSelectOptions)
+      const uriArr = res.photoUris
+      const signerNum = this.signerInfoArr.length
+      this.uploadTotalCount = signerNum
+
+      this.uploadStatus = `正在上传图片 (0/${signerNum})`
+      promptAction.showToast({ message: '开始上传图片', duration: 1500 })
+
+      for (let index = 0; index < signerNum; index++) {
+        const uri = uriArr[index % uriArr.length]
+        const fileType = 'jpg'
+        const fileName = ChaoxingUtils.generatePhotoName() + '.' + fileType
+        const copyFilePath = context.cacheDir + '/' + fileName
+
+        try {
+          const file = fs.openSync(uri, fs.OpenMode.READ_ONLY)
+          fs.copyFileSync(file.fd, copyFilePath)
+
+          const uploadConfig: request.UploadConfig = {
+            url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${this.signerInfoArr[index].Token}`,
+            method: 'POST',
+            header: { "Content-Type": "multipart/form-data" },
+            files: [{
+              filename: fileName,
+              type: fileType,
+              name: 'file',
+              uri: `internal://cache/${fileName}`
+            }],
+            data: [{ name: 'puid', value: this.signerInfoArr[index].PUID.toString() }]
+          }
+          // 不使用await，允许并行上传
+          this.uploadPhoto(context, uploadConfig, index)
+        } catch (error) {
+          console.error('File processing failed', JSON.stringify(error))
+          promptAction.showToast({ message: `图片 ${index + 1} 处理失败`, duration: 2000 })
+          this.uploadCompletedCount++
         }
-        
-        info.PUID = (await loginFunction.getUserInfo(info.cookies)).puid
-        info.Token = await Sign.GetToken(info.cookies)
-        return info
-      }))
-
-    const photoSelectOptions = new picker.PhotoSelectOptions();
-    photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
-    photoSelectOptions.maxSelectNumber = this.signIdArray.length;
-    const photoViewPicker = new picker.PhotoViewPicker();
-    const context = this.getUIContext().getHostContext() as Context
-
-    const res = await photoViewPicker.select(photoSelectOptions)
-    const uriArr = res.photoUris
-    const signerNum = this.signerInfoArr.length
-
-    for (let index = 0; index < signerNum; index++) {
-      const uri = uriArr[index % uriArr.length]
-      const fileType = 'jpg'
-      const fileName = ChaoxingUtils.generatePhotoName() + '.' + fileType
-      const copyFilePath = context.cacheDir + '/' + fileName
-
-      try {
-        const file = fs.openSync(uri, fs.OpenMode.READ_ONLY)
-        fs.copyFileSync(file.fd, copyFilePath)
-
-        const uploadConfig: request.UploadConfig = {
-          url: `https://pan-yz.chaoxing.com/upload?_from=mobilelearn&_token=${this.signerInfoArr[index].Token}`,
-          method: 'POST',
-          header: { "Content-Type": "multipart/form-data" },
-          files: [{
-            filename: fileName,
-            type: fileType,
-            name: 'file',
-            uri: `internal://cache/${fileName}`
-          }],
-          data: [{ name: 'puid', value: this.signerInfoArr[index].PUID.toString() }]
-        }
-        this.uploadPhoto(context, uploadConfig, index)
-      } catch (error) {
-        console.error('File processing failed', JSON.stringify(error))
       }
+    } catch (error) {
+      console.error('Photo selection failed', JSON.stringify(error))
+      this.uploadStatus = '图片选择失败'
+      this.isUploading = false
+      promptAction.showToast({ message: '图片选择失败', duration: 2000 })
     }
   }
 
   private async uploadPhoto(context: Context, uploadConfig: request.UploadConfig, signIndex: number) {
     try {
       const task = await request.uploadFile(context, uploadConfig)
+      
       task.on("fail", (event) => {
-        promptAction.showToast({ message: '上传失败' })
+        console.error(`Upload failed for index ${signIndex}`, JSON.stringify(event))
+        promptAction.showToast({ message: `图片 ${signIndex + 1} 上传失败`, duration: 2000 })
+        
+        // 更新完成计数
+        this.uploadCompletedCount++
+        const uploadedCount = this.objectidArray.filter(id => id).length
+        this.uploadStatus = `上传失败 (${uploadedCount}/${this.uploadTotalCount})`
+        
+        // 检查是否所有上传都已完成
+        if (this.uploadCompletedCount >= this.uploadTotalCount) {
+          this.isUploading = false
+          if (uploadedCount === 0) {
+            this.uploadStatus = '所有图片上传失败'
+          }
+        }
       })
+      
+      task.on('complete', () => {
+        // 更新完成计数
+        this.uploadCompletedCount++
+        const uploadedCount = this.objectidArray.filter(id => id).length
+        this.uploadStatus = `已上传 ${uploadedCount}/${this.uploadTotalCount}`
+        
+        // 检查是否所有上传都已完成
+        if (this.uploadCompletedCount >= this.uploadTotalCount) {
+          this.isUploading = false
+          if (uploadedCount === this.uploadTotalCount) {
+            this.uploadStatus = '所有图片上传完成 ✓'
+            promptAction.showToast({ message: '所有图片上传成功', duration: 2000 })
+          }
+        }
+      })
+      
       task.on('headerReceive', (value) => {
         if (value && value['body']) {
-          this.objectidArray[signIndex] = (JSON.parse(value['body']) as object)['objectId'] as string
+          try {
+            const bodyObj = JSON.parse(value['body']) as object
+            this.objectidArray[signIndex] = bodyObj['objectId'] as string
+            
+            // 更新上传状态
+            const uploadedCount = this.objectidArray.filter(id => id).length
+            this.uploadStatus = `已上传 ${uploadedCount}/${this.uploadTotalCount}`
+            
+            console.info(`Photo ${signIndex + 1} uploaded successfully`)
+          } catch (e) {
+            console.error('Failed to parse upload response', e)
+          }
         }
       })
     } catch (e) {
-      console.error("Upload task creation failed", e);
+      console.error("Upload task creation failed", e)
+      promptAction.showToast({ message: `图片 ${signIndex + 1} 上传失败`, duration: 2000 })
+      
+      // 更新完成计数
+      this.uploadCompletedCount++
+      const uploadedCount = this.objectidArray.filter(id => id).length
+      this.uploadStatus = `上传失败 (${uploadedCount}/${this.uploadTotalCount})`
+      
+      // 检查是否所有上传都已完成
+      if (this.uploadCompletedCount >= this.uploadTotalCount) {
+        this.isUploading = false
+      }
     }
   }
 }
@@ -537,24 +621,6 @@ export struct SignPage {
 
   // 4. UI Builders
   @Builder
-  NavigationMenu() {
-    Row() {
-      Image($r('app.media.ic_contacts_addcontact')) // 建议换为 sys.symbol if API 11+
-        .height(24)
-        .width(24)
-        .fillColor($r('sys.color.ohos_id_color_text_primary'))
-        .onClick(() => {
-          this.otherUserDialogIsShow = true
-        })
-        .bindSheet($$this.otherUserDialogIsShow, this.otherUserMenu, {
-          title: { title: $r('app.string.other_user') },
-          backgroundColor: $r('sys.color.ohos_id_color_dialog_bg')
-        })
-    }
-    .margin({ right: 16 })
-  }
-
-  @Builder
   otherUserMenu() {
     List() {
       ForEach(this.otherUser, (user: userMenu) => {
@@ -573,6 +639,69 @@ export struct SignPage {
     .width('100%')
     .height('100%')
     .padding(16)
+  }
+
+  @Builder
+  UserSelectionCard() {
+    Column() {
+      Row() {
+        Text('已选用户')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.ohos_id_color_text_primary'))
+          .layoutWeight(1)
+
+        Button('选择用户')
+          .fontSize(14)
+          .height(32)
+          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+          .fontColor($r('sys.color.ohos_id_color_text_primary'))
+          .onClick(() => {
+            this.otherUserDialogIsShow = true
+          })
+          .bindSheet($$this.otherUserDialogIsShow, this.otherUserMenu, {
+            title: { title: $r('app.string.other_user') },
+            backgroundColor: $r('sys.color.ohos_id_color_dialog_bg')
+          })
+      }
+      .width('100%')
+      .margin({ bottom: 12 })
+
+      if (this.signIdArray.length === 0) {
+        Text('未选择用户，请点击上方按钮选择')
+          .fontSize(14)
+          .fontColor($r('sys.color.ohos_id_color_warning'))
+          .padding(12)
+      } else {
+        // 创建 Map 以优化查找性能 O(1)
+        // 注意：虽然在 build 方法中创建 Map 会在每次渲染时重新创建，
+        // 但由于用户列表变化不频繁且数量通常较小，这种开销是可接受的
+        const userMap = new Map<number, userMenu>()
+        this.otherUser.forEach(u => userMap.set(u.id, u))
+        
+        Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap }) {
+          ForEach(this.signIdArray, (userId: number) => {
+            const user = userMap.get(userId)
+            if (user) {
+              Row() {
+                Text(user.uname)
+                  .fontSize(14)
+                  .fontColor($r('sys.color.ohos_id_color_text_primary'))
+              }
+              .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+              .backgroundColor($r('sys.color.ohos_id_color_emphasize', 0.1))
+              .borderRadius(16)
+              .margin({ right: 8, bottom: 8 })
+            }
+          })
+        }
+      }
+    }
+    .padding(16)
+    .width('100%')
+    .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+    .borderRadius(12)
+    .margin({ left: 16, right: 16, bottom: 16 })
   }
 
   @Builder
@@ -681,6 +810,9 @@ export struct SignPage {
                 .width('100%')
                 .margin({ top: 20, bottom: 20, left: 16 })
 
+              // 用户选择卡片
+              this.UserSelectionCard()
+
               // 根据类型渲染不同内容
               if (this.activityInfo?.signType === SignType.NORMAL) {
                 if (this.ifPhoto) {
@@ -741,7 +873,6 @@ export struct SignPage {
       backgroundColor: $r('sys.color.ohos_id_color_background'),
       mainTitleCss: { color: $r('sys.color.ohos_id_color_text_primary') }
     })
-    .menus(this.NavigationMenu())
     .onReady((ctx: NavDestinationContext) => {
       this.pathInfos = ctx.pathStack;
     })
