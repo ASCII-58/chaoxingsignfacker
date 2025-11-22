@@ -686,6 +686,12 @@ struct UI {
   }
 
   private showSearchPage(): void {
-    this.pathInfos.pushPath({ name: 'SearchCoursePage' }, false);
+    // Use animateTo for smooth transition
+    animateTo({
+      duration: 400,
+      curve: curves.springMotion(0.6, 0.9)
+    }, () => {
+      this.pathInfos.pushPath({ name: 'SearchCoursePage' }, false);
+    })
   }
 }
