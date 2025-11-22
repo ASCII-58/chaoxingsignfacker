@@ -329,7 +329,7 @@ struct UI {
                     }
                     .size({
                       width: '90%',
-                      height: '20%'
+                      height: 40
                     })
                   }
                 }
