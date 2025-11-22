@@ -76,26 +76,14 @@ struct CourseItem {
     .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
     .borderRadius(12)
     .shadow({
-      radius: this.isPressed ? 12 : 8,
+      radius: 8,
       color: '#00000018',
       offsetX: 0,
-      offsetY: this.isPressed ? 4 : 2
-    })
-    .scale({ x: this.isPressed ? 0.98 : 1, y: this.isPressed ? 0.98 : 1 })
-    .animation({
-      duration: 200,
-      curve: Curve.FastOutSlowIn
+      offsetY: 2
     })
     .onClick(() => {
       if (this.onCourseClick) {
         this.onCourseClick(this.course)
-      }
-    })
-    .onTouch((event: TouchEvent) => {
-      if (event.type === TouchType.Down) {
-        this.isPressed = true
-      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-        this.isPressed = false
       }
     })
     .onAppear(async () => {
@@ -190,12 +178,6 @@ export default struct SearchLongTakeTransitionPageTwo {
             .onClick(() => {
               this.onArrowClicked();
             })
-            .transition(TransitionEffect.asymmetric(
-              TransitionEffect.OPACITY
-                .animation({ duration: 200, delay: 150, curve: curves.cubicBezierCurve(0.33, 0, 0.67, 1) }),
-              TransitionEffect.OPACITY
-                .animation({ duration: 200, curve: curves.cubicBezierCurve(0.33, 0, 0.67, 1) })
-            ))
 
           Search({ placeholder: '搜索课程名称或教师', value: $$this.searchText })
             .height(40)
@@ -233,7 +215,6 @@ export default struct SearchLongTakeTransitionPageTwo {
           .width('100%')
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
-          .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
         } else if (this.filteredCourses.length === 0) {
           Column() {
             Text(this.searchText ? '未找到匹配的课程' : '暂无课程')
@@ -243,9 +224,6 @@ export default struct SearchLongTakeTransitionPageTwo {
           .width('100%')
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
-          .transition(TransitionEffect.OPACITY
-            .combine(TransitionEffect.scale({ x: 0.9, y: 0.9 }))
-            .animation({ duration: 300, curve: Curve.FastOutSlowIn }))
         } else {
           Column() {
             Text(`找到 ${this.filteredCourses.length} 个课程`)
@@ -253,7 +231,6 @@ export default struct SearchLongTakeTransitionPageTwo {
               .fontColor($r('sys.color.ohos_id_color_text_secondary'))
               .width('100%')
               .padding({ left: 16, right: 16, bottom: 8 })
-              .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
 
             List({ space: 8 }) {
               ForEach(this.filteredCourses, (course: ClassInfo, index: number) => {
@@ -263,13 +240,6 @@ export default struct SearchLongTakeTransitionPageTwo {
                     onCourseClick: (c: ClassInfo) => this.handleCourseClick(c)
                   })
                 }
-                .transition(TransitionEffect.asymmetric(
-                  TransitionEffect.OPACITY
-                    .combine(TransitionEffect.translate({ x: 50 }))
-                    .animation({ duration: 300, delay: index * 30, curve: Curve.FastOutSlowIn }),
-                  TransitionEffect.OPACITY
-                    .animation({ duration: 200 })
-                ))
               })
             }
             .width('100%')
@@ -293,11 +263,7 @@ export default struct SearchLongTakeTransitionPageTwo {
       this.pageInfos = context.pathStack;
     })
     .onBackPressed(() => {
-      this.getUIContext().animateTo({
-        curve: curves.interpolatingSpring(0, 1, 342, 38),
-      }, () => {
-        this.pageInfos.pop(false);
-      })
+      this.pageInfos.pop(false);
       return true;
     })
   }

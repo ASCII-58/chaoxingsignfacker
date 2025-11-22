@@ -93,10 +93,8 @@ struct userItem {
 
   onSelectionChange() {
     const isSelected = this.signIdArray.includes(this.user.id);
-    animateTo({ duration: 250, curve: Curve.FastOutSlowIn }, () => {
-      // 选中时稍微改变背景色以示强调（可选），这里主要靠 Checkbox
-      // this.bgColor = isSelected ? $r('sys.color.ohos_id_color_emphasize', 0.1) : $r('sys.color.ohos_id_color_card_bg');
-    })
+    // 选中时稍微改变背景色以示强调（可选），这里主要靠 Checkbox
+    // this.bgColor = isSelected ? $r('sys.color.ohos_id_color_emphasize', 0.1) : $r('sys.color.ohos_id_color_card_bg');
   }
 
   build() {

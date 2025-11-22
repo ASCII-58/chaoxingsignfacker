@@ -10,10 +10,6 @@ export struct loginByCommon {
   @State username: string = '';
   @State password: string = '';
   @State LoginEnable: boolean = false
-  @State UsernameTranslateY: number = 45
-  @State PasswordTranslateY: number = 45
-  @State UsernameScale: number = 0.9
-  @State PasswordScale: number = 0.9
   @Link isShow: boolean
 
   build() {
@@ -23,43 +19,12 @@ export struct loginByCommon {
         .height(40)
         .width('90%')
         .textAlign(TextAlign.Start)
-        .translate({ y: this.UsernameTranslateY })
-        .scale({ x: this.UsernameScale, y: this.UsernameScale })
       TextInput({ placeholder: '', text: this.username })
         .type(InputType.PhoneNumber)
         .onChange((value: string) => {
           this.username = value;
-          if (this.username) {
-            animateTo({
-              duration: 300,
-              curve: 'smooth'
-            }, () => {
-              this.UsernameTranslateY = 0
-              this.UsernameScale = 1
-            })
-          }
           if (this.username && this.password) {
             this.LoginEnable = true
-          }
-        })
-        .onFocus(() => {
-          animateTo({
-            duration: 300,
-            curve: 'smooth'
-          }, () => {
-            this.UsernameTranslateY = 0
-            this.UsernameScale = 1
-          })
-        })
-        .onBlur(() => {
-          if (!this.username) {
-            animateTo({
-              duration: 300,
-              curve: 'smooth'
-            }, () => {
-              this.UsernameTranslateY = 45
-              this.UsernameScale = 0.9
-            })
           }
         })
         .placeholderFont({ size: 16 })
@@ -92,43 +57,12 @@ export struct loginByCommon {
         .height(40)
         .width('90%')
         .textAlign(TextAlign.Start)
-        .translate({ y: this.PasswordTranslateY })
-        .scale({ x: this.PasswordScale, y: this.PasswordScale })
       TextInput({ placeholder: '', text: this.password })
         .type(InputType.Password)// 设置为密码类型
         .onChange((value: string) => {
           this.password = value;
-          if (this.password) {
-            animateTo({
-              duration: 300,
-              curve: 'smooth'
-            }, () => {
-              this.PasswordTranslateY = 0
-              this.PasswordScale = 1
-            })
-          }
           if (this.username && this.password) {
             this.LoginEnable = true
-          }
-        })
-        .onFocus(() => {
-          animateTo({
-            duration: 300,
-            curve: 'smooth'
-          }, () => {
-            this.PasswordTranslateY = 0
-            this.PasswordScale = 1
-          })
-        })
-        .onBlur(() => {
-          if (!this.password) {
-            animateTo({
-              duration: 300,
-              curve: 'smooth'
-            }, () => {
-              this.PasswordTranslateY = 45
-              this.PasswordScale = 0.9
-            })
           }
         })
         .placeholderFont({ size: 16 })
@@ -226,8 +160,6 @@ export struct loginByURL {
   @Link otherUserList: UserDataAndId[];
   @State LoginURL: string = '';
   @State LoginEnable: boolean = false
-  @State urlTranslateY: number = 45
-  @State urlScale: number = 0.9
   @Link isShow: boolean
 
   build() {
@@ -237,43 +169,12 @@ export struct loginByURL {
         .height(40)
         .width('90%')
         .textAlign(TextAlign.Start)
-        .translate({ y: this.urlTranslateY })
-        .scale({ x: this.urlScale, y: this.urlScale })
       TextInput({ placeholder: '', text: this.LoginURL })
         .type(InputType.Normal)
         .onChange((value: string) => {
           this.LoginURL = value;
           if (this.LoginURL) {
-            animateTo({
-              duration: 300,
-              curve: 'smooth'
-            }, () => {
-              this.urlTranslateY = 0
-              this.urlScale = 1
-            })
-          }
-          if (this.LoginURL) {
             this.LoginEnable = true
-          }
-        })
-        .onFocus(() => {
-          animateTo({
-            duration: 300,
-            curve: 'smooth'
-          }, () => {
-            this.urlTranslateY = 0
-            this.urlScale = 1
-          })
-        })
-        .onBlur(() => {
-          if (!this.LoginURL) {
-            animateTo({
-              duration: 300,
-              curve: 'smooth'
-            }, () => {
-              this.urlTranslateY = 45
-              this.urlScale = 0.9
-            })
           }
         })
         .placeholderFont({ size: 16 })
