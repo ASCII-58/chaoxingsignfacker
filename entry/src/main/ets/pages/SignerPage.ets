@@ -133,6 +133,8 @@ struct photoPicker {
   @Link signIdArray: Array<number>
   @State signerInfoArr: CookiesTokenPUID[] = []
   @Link objectidArray: string[]
+  @Link otherUserDialogIsShow: boolean // 添加控制用户选择对话框的链接
+  @Prop otherUser: Array<userMenu> // 添加其他用户列表
 
   build() {
     Column() {
@@ -157,14 +159,40 @@ struct photoPicker {
         .width('60%')
         .margin({ top: 12 })
         .onClick(async () => {
-          // ... (保留原有的图片选择和上传逻辑，未修改核心业务逻辑)
-          this.handlePhotoSelect()
+          this.showPhotoConfirmDialog()
         })
     }
     .width('100%')
     .padding(16)
     .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
     .borderRadius(16)
+  }
+
+  // 显示图片选择确认对话框
+  private showPhotoConfirmDialog() {
+    const selectedUsers = this.otherUser.filter(u => this.signIdArray.includes(u.id));
+    const userNames = selectedUsers.map(u => u.uname).join('、');
+    
+    const message = selectedUsers.length > 0 
+      ? `将为以下用户上传图片：\n主用户 + ${userNames}\n\n是否继续？`
+      : '将为主用户上传图片，是否继续？';
+
+    AlertDialog.show({
+      title: '确认上传图片',
+      message: message,
+      primaryButton: {
+        value: '修改用户',
+        action: () => {
+          this.otherUserDialogIsShow = true
+        }
+      },
+      secondaryButton: {
+        value: '确认上传',
+        action: () => {
+          this.handlePhotoSelect()
+        }
+      }
+    })
   }
 
   // 抽离图片处理逻辑，保持 build 干净
@@ -308,6 +336,7 @@ export struct SignPage {
   private async loadOtherUsers(dbManager: DatabaseManager, actInfo: ActivityInfo) {
     const userCount = await dbManager.getTableCount('OtherUser')
     const newUserList: userMenu[] = []
+    const autoSelectIds: number[] = [] // 自动选择未签到的用户
 
     // 建议：实际开发中尽量避免循环 await，这里仅做重构保留逻辑
     for (let i: number = 1; i <= userCount; i++) {
@@ -321,15 +350,48 @@ export struct SignPage {
             id: i,
             SignPermission: permission
           })
+          // 如果用户可以签到（SignPermission === 1），自动添加到选中列表
+          if (permission === 1) {
+            autoSelectIds.push(i)
+          }
         }
       } catch (e) {
         console.error(`Failed to load user ${i}`, e)
       }
     }
     this.otherUser = newUserList;
+    // 默认选中所有未签到的用户
+    this.signIdArray = autoSelectIds;
   }
 
-  // 3. 逻辑方法：处理签到动作
+  // 3. 逻辑方法：显示签到确认对话框
+  private showSignConfirmDialog() {
+    const selectedUsers = this.otherUser.filter(u => this.signIdArray.includes(u.id));
+    const userNames = selectedUsers.map(u => u.uname).join('、');
+    
+    const message = selectedUsers.length > 0 
+      ? `即将为以下用户签到：\n主用户 + ${userNames}\n\n是否继续？`
+      : '即将为主用户签到，是否继续？';
+
+    AlertDialog.show({
+      title: '确认签到',
+      message: message,
+      primaryButton: {
+        value: '修改用户',
+        action: () => {
+          this.otherUserDialogIsShow = true
+        }
+      },
+      secondaryButton: {
+        value: '确认签到',
+        action: () => {
+          this.handleSignAction()
+        }
+      }
+    })
+  }
+
+  // 4. 逻辑方法：处理签到动作
   private async handleSignAction() {
     if (this.signIdArray.length !== this.objectidArr.length - 1 && this.ifPhoto) {
       promptAction.showToast({ message: '请等待图片上传完成' })
@@ -561,7 +623,12 @@ export struct SignPage {
               // 根据类型渲染不同内容
               if (this.activityInfo?.signType === SignType.NORMAL) {
                 if (this.ifPhoto) {
-                  photoPicker({ signIdArray: this.signIdArray, objectidArray: this.objectidArr })
+                  photoPicker({ 
+                    signIdArray: this.signIdArray, 
+                    objectidArray: this.objectidArr,
+                    otherUserDialogIsShow: this.otherUserDialogIsShow,
+                    otherUser: this.otherUser
+                  })
                     .margin({ left: 16, right: 16 })
                 } else {
                   Column() {
@@ -593,7 +660,7 @@ export struct SignPage {
               .backgroundColor($r('sys.color.ohos_id_color_emphasize'))
               .enabled(this.canSign)
               .onClick(() => {
-                this.handleSignAction()
+                this.showSignConfirmDialog()
               })
           }
           .width('100%')
