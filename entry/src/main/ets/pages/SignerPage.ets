@@ -58,7 +58,16 @@ struct Icon {
     .onAppear(async () => {
       try {
         const dbManager = DatabaseManager.getInstance()
-        const userData = await dbManager.getUserByPosition(this.UserId, false) as UserDataAndId;
+        let userData: UserDataAndId | null = null
+        
+        if (this.UserId === 0) {
+          // ID=0 表示主用户，从 HostUser 表获取
+          userData = await dbManager.getUserByPosition(1, true) as UserDataAndId;
+        } else {
+          // 其他用户从 OtherUser 表获取
+          userData = await dbManager.getUserByPosition(this.UserId, false) as UserDataAndId;
+        }
+        
         if (userData) {
           const url = (await loginFunction.getUserInfo(userData.cookies)).pic
           this.ImageData = await loginFunction.GetPic(url) as image.PixelMap
@@ -133,6 +142,8 @@ struct photoPicker {
   @Link signIdArray: Array<number>
   @State signerInfoArr: CookiesTokenPUID[] = []
   @Link objectidArray: string[]
+  @Link otherUserDialogIsShow: boolean // 添加控制用户选择对话框的链接
+  @Prop otherUser: Array<userMenu> // 添加其他用户列表
 
   build() {
     Column() {
@@ -143,9 +154,6 @@ struct photoPicker {
             .fill(this.objectidArray[index] ? $r('sys.color.ohos_id_color_success') : $r('sys.color.ohos_id_color_warning'))
             .margin(4)
         })
-        Circle({ width: 8, height: 8 })
-          .fill(this.objectidArray[this.signIdArray.length] ? $r('sys.color.ohos_id_color_success') : $r('sys.color.ohos_id_color_warning'))
-          .margin(4)
       }
       .padding(10)
       .width('100%')
@@ -157,8 +165,7 @@ struct photoPicker {
         .width('60%')
         .margin({ top: 12 })
         .onClick(async () => {
-          // ... (保留原有的图片选择和上传逻辑，未修改核心业务逻辑)
-          this.handlePhotoSelect()
+          this.showPhotoConfirmDialog()
         })
     }
     .width('100%')
@@ -167,27 +174,68 @@ struct photoPicker {
     .borderRadius(16)
   }
 
+  // 显示图片选择确认对话框
+  private showPhotoConfirmDialog() {
+    if (this.signIdArray.length === 0) {
+      AlertDialog.show({
+        title: '提示',
+        message: '请先选择至少一个用户',
+        confirm: {
+          value: '知道了',
+          action: () => {
+            this.otherUserDialogIsShow = true
+          }
+        }
+      })
+      return
+    }
+    
+    const selectedUsers = this.otherUser.filter(u => this.signIdArray.includes(u.id));
+    const userNames = selectedUsers.map(u => u.uname).join('、');
+
+    AlertDialog.show({
+      title: '确认上传图片',
+      message: `将为以下用户上传图片：\n${userNames}\n\n是否继续？`,
+      primaryButton: {
+        value: '修改用户',
+        action: () => {
+          this.otherUserDialogIsShow = true
+        }
+      },
+      secondaryButton: {
+        value: '确认上传',
+        action: () => {
+          this.handlePhotoSelect()
+        }
+      }
+    })
+  }
+
   // 抽离图片处理逻辑，保持 build 干净
   private async handlePhotoSelect() {
     this.objectidArray = []
     const dbManager = DatabaseManager.getInstance()
-    const cookies = ((await dbManager.getUserByPosition(1, true)) as UserDataAndId).cookies
-    const PUID = (await loginFunction.getUserInfo(cookies)).puid
-    const Token = await Sign.GetToken(cookies)
 
     this.signerInfoArr = await Promise.all(
-      this.signIdArray.map(async num => {
+      this.signIdArray.map(async userId => {
         let info: CookiesTokenPUID = { cookies: '', Token: '', PUID: '' }
-        info.cookies = ((await dbManager.getUserByPosition(num)) as UserDataAndId).cookies
+        
+        if (userId === 0) {
+          // 主用户
+          info.cookies = ((await dbManager.getUserByPosition(1, true)) as UserDataAndId).cookies
+        } else {
+          // 其他用户
+          info.cookies = ((await dbManager.getUserByPosition(userId)) as UserDataAndId).cookies
+        }
+        
         info.PUID = (await loginFunction.getUserInfo(info.cookies)).puid
         info.Token = await Sign.GetToken(info.cookies)
         return info
       }))
-    this.signerInfoArr.push({ cookies: cookies, PUID: PUID, Token: Token })
 
     const photoSelectOptions = new picker.PhotoSelectOptions();
     photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
-    photoSelectOptions.maxSelectNumber = this.signIdArray.length + 1;
+    photoSelectOptions.maxSelectNumber = this.signIdArray.length;
     const photoViewPicker = new picker.PhotoViewPicker();
     const context = this.getUIContext().getHostContext() as Context
 
@@ -196,7 +244,7 @@ struct photoPicker {
     const signerNum = this.signerInfoArr.length
 
     for (let index = 0; index < signerNum; index++) {
-      const uri = uriArr[signerNum % uriArr.length] // 逻辑维持原样
+      const uri = uriArr[index % uriArr.length]
       const fileType = 'jpg'
       const fileName = ChaoxingUtils.generatePhotoName() + '.' + fileType
       const copyFilePath = context.cacheDir + '/' + fileName
@@ -306,10 +354,31 @@ export struct SignPage {
   }
 
   private async loadOtherUsers(dbManager: DatabaseManager, actInfo: ActivityInfo) {
-    const userCount = await dbManager.getTableCount('OtherUser')
     const newUserList: userMenu[] = []
+    const autoSelectIds: number[] = [] // 自动选择未签到的用户
 
-    // 建议：实际开发中尽量避免循环 await，这里仅做重构保留逻辑
+    // 首先加载主用户（HostUser表，position 1）
+    try {
+      const mainUserInfo = await dbManager.getUserByPosition(1, true)
+      if (mainUserInfo) {
+        const loginInfo = await loginFunction.getUserInfo(mainUserInfo.cookies)
+        const permission = await Sign.PreSignIn(actInfo.ActivityId, actInfo.ClassId, actInfo.CourseId, loginInfo.uid, mainUserInfo.cookies)
+        newUserList.push({
+          uname: loginInfo.uname + ' (主用户)',
+          id: 0, // 用 0 表示主用户
+          SignPermission: permission
+        })
+        // 如果主用户可以签到（SignPermission === 1），自动添加到选中列表
+        if (permission === 1) {
+          autoSelectIds.push(0)
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load main user', e)
+    }
+
+    // 然后加载其他用户（OtherUser表）
+    const userCount = await dbManager.getTableCount('OtherUser')
     for (let i: number = 1; i <= userCount; i++) {
       try {
         const userInfo = await dbManager.getUserByPosition(i)
@@ -321,39 +390,93 @@ export struct SignPage {
             id: i,
             SignPermission: permission
           })
+          // 如果用户可以签到（SignPermission === 1），自动添加到选中列表
+          if (permission === 1) {
+            autoSelectIds.push(i)
+          }
         }
       } catch (e) {
         console.error(`Failed to load user ${i}`, e)
       }
     }
     this.otherUser = newUserList;
+    // 默认选中所有未签到的用户
+    this.signIdArray = autoSelectIds;
   }
 
-  // 3. 逻辑方法：处理签到动作
+  // 3. 逻辑方法：显示签到确认对话框
+  private showSignConfirmDialog() {
+    if (this.signIdArray.length === 0) {
+      AlertDialog.show({
+        title: '提示',
+        message: '请先选择至少一个用户',
+        confirm: {
+          value: '知道了',
+          action: () => {
+            this.otherUserDialogIsShow = true
+          }
+        }
+      })
+      return
+    }
+    
+    const selectedUsers = this.otherUser.filter(u => this.signIdArray.includes(u.id));
+    const userNames = selectedUsers.map(u => u.uname).join('、');
+
+    AlertDialog.show({
+      title: '确认签到',
+      message: `即将为以下用户签到：\n${userNames}\n\n是否继续？`,
+      primaryButton: {
+        value: '修改用户',
+        action: () => {
+          this.otherUserDialogIsShow = true
+        }
+      },
+      secondaryButton: {
+        value: '确认签到',
+        action: () => {
+          this.handleSignAction()
+        }
+      }
+    })
+  }
+
+  // 4. 逻辑方法：处理签到动作
   private async handleSignAction() {
-    if (this.signIdArray.length !== this.objectidArr.length - 1 && this.ifPhoto) {
+    if (this.signIdArray.length !== this.objectidArr.length && this.ifPhoto) {
       promptAction.showToast({ message: '请等待图片上传完成' })
       return
     }
+    
+    if (this.signIdArray.length === 0) {
+      promptAction.showToast({ message: '请选择至少一个用户' })
+      return
+    }
+    
     this.canSign = false
     const hashTable = new Map<string, string[]>();
     const dbManager = DatabaseManager.getInstance()
 
-    // 主用户签到
-    try {
-      const info = await dbManager.getUserByPosition(1, true) as UserDataAndId
-      await this.performSingleSign(info, this.objectidArr.length > 0 ? this.objectidArr[this.objectidArr.length - 1] : undefined, hashTable)
-    } catch (e) {
-      console.error('Main user sign error', e)
-    }
-
-    // 其他用户签到
+    // 遍历所有选中的用户进行签到
     for (let i = 0; i < this.signIdArray.length; i++) {
       try {
-        const otherInfo = await dbManager.getUserByPosition(this.signIdArray[i]) as UserDataAndId
-        await this.performSingleSign(otherInfo, this.objectidArr[i], hashTable)
+        const userId = this.signIdArray[i]
+        let userInfo: UserDataAndId
+        let isMainUser = false
+        
+        if (userId === 0) {
+          // id 为 0 表示主用户
+          userInfo = await dbManager.getUserByPosition(1, true) as UserDataAndId
+          isMainUser = true
+        } else {
+          // 其他用户
+          userInfo = await dbManager.getUserByPosition(userId) as UserDataAndId
+          isMainUser = false
+        }
+        
+        await this.performSingleSign(userInfo, this.objectidArr[i], hashTable, isMainUser)
       } catch (e) {
-        console.error(`Other user ${i} sign error`, e)
+        console.error(`User ${this.signIdArray[i]} sign error`, e)
       }
     }
 
@@ -361,7 +484,7 @@ export struct SignPage {
     this.canSign = true
   }
 
-  private async performSingleSign(userInfo: UserDataAndId, photoObjId: string | undefined, map: Map<string, string[]>) {
+  private async performSingleSign(userInfo: UserDataAndId, photoObjId: string | undefined, map: Map<string, string[]>, isMainUser: boolean) {
     const loginInfo = await loginFunction.getUserInfo(userInfo.cookies)
 
     this.queryParams['uid'] = userInfo.uid
@@ -371,7 +494,7 @@ export struct SignPage {
       this.queryParams['objectId'] = photoObjId
     }
 
-    let result = await Sign.DoSignIn(userInfo.cookies, this.queryParams, userInfo.pos === 1) // pos=1 is main user logic?
+    let result = await Sign.DoSignIn(userInfo.cookies, this.queryParams, isMainUser)
 
     if (typeof result === 'string' && (result.includes('<html') || result.includes('500 Internal Server Error'))) {
       result = '服务端错误 (500)';
@@ -561,7 +684,12 @@ export struct SignPage {
               // 根据类型渲染不同内容
               if (this.activityInfo?.signType === SignType.NORMAL) {
                 if (this.ifPhoto) {
-                  photoPicker({ signIdArray: this.signIdArray, objectidArray: this.objectidArr })
+                  photoPicker({ 
+                    signIdArray: this.signIdArray, 
+                    objectidArray: this.objectidArr,
+                    otherUserDialogIsShow: this.otherUserDialogIsShow,
+                    otherUser: this.otherUser
+                  })
                     .margin({ left: 16, right: 16 })
                 } else {
                   Column() {
@@ -593,7 +721,7 @@ export struct SignPage {
               .backgroundColor($r('sys.color.ohos_id_color_emphasize'))
               .enabled(this.canSign)
               .onClick(() => {
-                this.handleSignAction()
+                this.showSignConfirmDialog()
               })
           }
           .width('100%')
