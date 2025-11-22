@@ -174,8 +174,8 @@ struct photoPicker {
     const userNames = selectedUsers.map(u => u.uname).join('、');
     
     const message = selectedUsers.length > 0 
-      ? `将为以下用户上传图片：\n主用户 + ${userNames}\n\n是否继续？`
-      : '将为主用户上传图片，是否继续？';
+      ? `将为以下用户上传图片：\n${userNames}\n\n是否继续？`
+      : '未选择任何用户，是否继续？';
 
     AlertDialog.show({
       title: '确认上传图片',
@@ -199,23 +199,27 @@ struct photoPicker {
   private async handlePhotoSelect() {
     this.objectidArray = []
     const dbManager = DatabaseManager.getInstance()
-    const cookies = ((await dbManager.getUserByPosition(1, true)) as UserDataAndId).cookies
-    const PUID = (await loginFunction.getUserInfo(cookies)).puid
-    const Token = await Sign.GetToken(cookies)
 
     this.signerInfoArr = await Promise.all(
-      this.signIdArray.map(async num => {
+      this.signIdArray.map(async userId => {
         let info: CookiesTokenPUID = { cookies: '', Token: '', PUID: '' }
-        info.cookies = ((await dbManager.getUserByPosition(num)) as UserDataAndId).cookies
+        
+        if (userId === 0) {
+          // 主用户
+          info.cookies = ((await dbManager.getUserByPosition(1, true)) as UserDataAndId).cookies
+        } else {
+          // 其他用户
+          info.cookies = ((await dbManager.getUserByPosition(userId)) as UserDataAndId).cookies
+        }
+        
         info.PUID = (await loginFunction.getUserInfo(info.cookies)).puid
         info.Token = await Sign.GetToken(info.cookies)
         return info
       }))
-    this.signerInfoArr.push({ cookies: cookies, PUID: PUID, Token: Token })
 
     const photoSelectOptions = new picker.PhotoSelectOptions();
     photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
-    photoSelectOptions.maxSelectNumber = this.signIdArray.length + 1;
+    photoSelectOptions.maxSelectNumber = this.signIdArray.length;
     const photoViewPicker = new picker.PhotoViewPicker();
     const context = this.getUIContext().getHostContext() as Context
 
@@ -224,7 +228,7 @@ struct photoPicker {
     const signerNum = this.signerInfoArr.length
 
     for (let index = 0; index < signerNum; index++) {
-      const uri = uriArr[signerNum % uriArr.length] // 逻辑维持原样
+      const uri = uriArr[index % uriArr.length]
       const fileType = 'jpg'
       const fileName = ChaoxingUtils.generatePhotoName() + '.' + fileType
       const copyFilePath = context.cacheDir + '/' + fileName
@@ -334,11 +338,31 @@ export struct SignPage {
   }
 
   private async loadOtherUsers(dbManager: DatabaseManager, actInfo: ActivityInfo) {
-    const userCount = await dbManager.getTableCount('OtherUser')
     const newUserList: userMenu[] = []
     const autoSelectIds: number[] = [] // 自动选择未签到的用户
 
-    // 建议：实际开发中尽量避免循环 await，这里仅做重构保留逻辑
+    // 首先加载主用户（HostUser表，position 1）
+    try {
+      const mainUserInfo = await dbManager.getUserByPosition(1, true)
+      if (mainUserInfo) {
+        const loginInfo = await loginFunction.getUserInfo(mainUserInfo.cookies)
+        const permission = await Sign.PreSignIn(actInfo.ActivityId, actInfo.ClassId, actInfo.CourseId, loginInfo.uid, mainUserInfo.cookies)
+        newUserList.push({
+          uname: loginInfo.uname + ' (主用户)',
+          id: 0, // 用 0 表示主用户
+          SignPermission: permission
+        })
+        // 如果主用户可以签到（SignPermission === 1），自动添加到选中列表
+        if (permission === 1) {
+          autoSelectIds.push(0)
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load main user', e)
+    }
+
+    // 然后加载其他用户（OtherUser表）
+    const userCount = await dbManager.getTableCount('OtherUser')
     for (let i: number = 1; i <= userCount; i++) {
       try {
         const userInfo = await dbManager.getUserByPosition(i)
@@ -370,8 +394,8 @@ export struct SignPage {
     const userNames = selectedUsers.map(u => u.uname).join('、');
     
     const message = selectedUsers.length > 0 
-      ? `即将为以下用户签到：\n主用户 + ${userNames}\n\n是否继续？`
-      : '即将为主用户签到，是否继续？';
+      ? `即将为以下用户签到：\n${userNames}\n\n是否继续？`
+      : '未选择任何用户，是否继续？';
 
     AlertDialog.show({
       title: '确认签到',
@@ -393,29 +417,40 @@ export struct SignPage {
 
   // 4. 逻辑方法：处理签到动作
   private async handleSignAction() {
-    if (this.signIdArray.length !== this.objectidArr.length - 1 && this.ifPhoto) {
+    if (this.signIdArray.length !== this.objectidArr.length && this.ifPhoto) {
       promptAction.showToast({ message: '请等待图片上传完成' })
       return
     }
+    
+    if (this.signIdArray.length === 0) {
+      promptAction.showToast({ message: '请选择至少一个用户' })
+      return
+    }
+    
     this.canSign = false
     const hashTable = new Map<string, string[]>();
     const dbManager = DatabaseManager.getInstance()
 
-    // 主用户签到
-    try {
-      const info = await dbManager.getUserByPosition(1, true) as UserDataAndId
-      await this.performSingleSign(info, this.objectidArr.length > 0 ? this.objectidArr[this.objectidArr.length - 1] : undefined, hashTable, true)
-    } catch (e) {
-      console.error('Main user sign error', e)
-    }
-
-    // 其他用户签到
+    // 遍历所有选中的用户进行签到
     for (let i = 0; i < this.signIdArray.length; i++) {
       try {
-        const otherInfo = await dbManager.getUserByPosition(this.signIdArray[i]) as UserDataAndId
-        await this.performSingleSign(otherInfo, this.objectidArr[i], hashTable, false)
+        const userId = this.signIdArray[i]
+        let userInfo: UserDataAndId
+        let isMainUser = false
+        
+        if (userId === 0) {
+          // id 为 0 表示主用户
+          userInfo = await dbManager.getUserByPosition(1, true) as UserDataAndId
+          isMainUser = true
+        } else {
+          // 其他用户
+          userInfo = await dbManager.getUserByPosition(userId) as UserDataAndId
+          isMainUser = false
+        }
+        
+        await this.performSingleSign(userInfo, this.objectidArr[i], hashTable, isMainUser)
       } catch (e) {
-        console.error(`Other user ${i} sign error`, e)
+        console.error(`User ${this.signIdArray[i]} sign error`, e)
       }
     }
 
