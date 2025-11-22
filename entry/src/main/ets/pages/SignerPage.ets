@@ -573,8 +573,8 @@ export struct SignPage {
       const currentUser = await dbManager.getUserByPosition(1, true) as UserDataAndId;
 
       if (!this.activityInfo || !currentUser) {
-        this.canSign = true
-        return
+        this.canSign = true;
+        return;
       }
 
       const cookies = currentUser.cookies;
@@ -628,31 +628,33 @@ export struct SignPage {
 
                 this.showSignResult(hashTable);
               } catch (error) {
-                hilog.error(DOMAIN, TAG, `Failed to process scan result: ${error.message}`);
-                promptAction.showToast({ message: '处理扫码结果失败' })
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                hilog.error(DOMAIN, TAG, `Failed to process scan result: ${errorMsg}`);
+                promptAction.showToast({ message: '处理扫码结果失败' });
               } finally {
-                this.canSign = true
+                this.canSign = true;
               }
             })
             .catch((error: BusinessError) => {
               hilog.error(DOMAIN, TAG,
                 `Failed to get ScanResult. Code:${error.code}, message: ${error.message}`);
-              promptAction.showToast({ message: '扫码失败或已取消' })
-              this.canSign = true
+              promptAction.showToast({ message: '扫码失败或已取消' });
+              this.canSign = true;
             });
           // 扫码签到需要等待扫码结果，直接返回
-          return
+          return;
         } else {
-          promptAction.showToast({ message: '不支持扫码功能' })
-          this.canSign = true
-          return
+          promptAction.showToast({ message: '不支持扫码功能' });
+          this.canSign = true;
+          return;
         }
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
         hilog.error(DOMAIN, TAG,
-          `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
-        promptAction.showToast({ message: '启动扫码失败' })
-        this.canSign = true
-        return
+          `Failed to start the scanning service: ${errorMsg}`);
+        promptAction.showToast({ message: '启动扫码失败' });
+        this.canSign = true;
+        return;
       }
     }
     
