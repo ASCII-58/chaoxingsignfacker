@@ -12,10 +12,64 @@ import { loginByCommon, loginByURL } from '../Component/loginCom';
 
 @Reusable
 @Component
+struct ClassListItem {
+  @Prop classInfo: ClassInfo;
+  @Prop index: number;
+  @State opacity: number = 0;
+  @State translateY: number = 20;
+  @State scale: number = 1;
+  @Provide('pathInfos') pathInfos: NavPathStack = new NavPathStack();
+
+  build() {
+    Row() {
+      ClassIcon({ imageurl: this.classInfo.imageurl })
+      Column() {
+        Text(this.classInfo.name)
+          .fontSize(16)
+          .width('100%')
+          .fontWeight(FontWeight.Medium)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(this.classInfo.teacherfactor)
+          .fontSize(12)
+          .textAlign(TextAlign.Start)
+          .width('100%')
+          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }.width(200)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .padding({ left: 5, right: 15 })
+    .opacity(this.opacity)
+    .translate({ y: this.translateY })
+    .scale({ x: this.scale, y: this.scale })
+    .animation({ duration: 200, curve: Curve.EaseInOut })
+    .onAppear(() => {
+      animateTo({ duration: 500, curve: Curve.EaseOut, delay: 400 + (this.index * 80) }, () => {
+        this.opacity = 1
+        this.translateY = 0
+      })
+    })
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        this.scale = 0.97
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        this.scale = 1
+      }
+    })
+  }
+}
+
+@Reusable
+@Component
 struct ClassIcon {
   @Prop imageurl: string;
   @State ImageData: image.PixelMap | null = null;
   @State isLoaded: boolean = false;
+  @State opacity: number = 0;
+  @State scale: number = 0.8;
 
   build() {
     Column() {
@@ -26,9 +80,15 @@ struct ClassIcon {
         .borderWidth(3)
         .borderRadius(15)
         .margin(10)
+        .opacity(this.opacity)
+        .scale({ x: this.scale, y: this.scale })
         .onAppear(async () => {
           this.ImageData = await loginFunction.GetPic(this.imageurl)
           this.isLoaded = true
+          animateTo({ duration: 400, curve: Curve.EaseOut }, () => {
+            this.opacity = 1
+            this.scale = 1
+          })
         })
     }
   }
@@ -44,6 +104,9 @@ struct OtherUserItem {
   @State userName: string = ''
   @State isHovered: boolean = false;
   @State isLoaded: boolean = false;
+  @State opacity: number = 0;
+  @State translateX: number = -20;
+  @State scale: number = 1;
   private dbManger: DatabaseManager = DatabaseManager.getInstance()
 
   build() {
@@ -93,6 +156,11 @@ struct OtherUserItem {
       this.userName = userInfo.uname
       this.userImage = await loginFunction.GetPic(userInfo.pic)
       this.isLoaded = true
+      // Stagger animation based on index
+      animateTo({ duration: 500, curve: Curve.EaseOut, delay: this.index * 100 }, () => {
+        this.opacity = 1
+        this.translateX = 0
+      })
     })
     .height(80)
     .width('100%')
@@ -103,6 +171,17 @@ struct OtherUserItem {
       color: '#00000020',
       offsetX: 0,
       offsetY: 3
+    })
+    .opacity(this.opacity)
+    .translate({ x: this.translateX })
+    .scale({ x: this.scale, y: this.scale })
+    .animation({ duration: 200, curve: Curve.EaseInOut })
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        this.scale = 0.98
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        this.scale = 1
+      }
     })
   }
 }
@@ -124,6 +203,14 @@ struct UI {
   @State LoginURLIsSHow: boolean = false
   @State clickTime: number = 0
   @State otherUserList: UserDataAndId[] = []
+  @State searchOpacity: number = 0
+  @State searchScale: number = 0.9
+  @State headerOpacity: number = 0
+  @State headerTranslateY: number = -20
+  @State qrButtonScale: number = 1
+  @State selectorButtonScale: number = 1
+  @State urlButtonScale: number = 1
+  @State shareButtonScale: number = 1
   private controller: TabsController = new TabsController();
   private uiContext: UIContext = this.getUIContext();
 
@@ -255,12 +342,20 @@ struct UI {
                           offsetX: 0,
                           offsetY: 2
                         })
+                        .opacity(this.searchOpacity)
+                        .scale({ x: this.searchScale, y: this.searchScale })
                         // [End Search_start]
                         .onTouch((event: TouchEvent) => {
                           if (event.type === TouchType.Up) {
                             // set search animation
                             this.showSearchPage();
                           }
+                        })
+                        .onAppear(() => {
+                          animateTo({ duration: 500, curve: Curve.EaseOut, delay: 200 }, () => {
+                            this.searchOpacity = 1
+                            this.searchScale = 1
+                          })
                         })
                     }
                     .size({
@@ -272,26 +367,7 @@ struct UI {
 
                 ForEach(this.classList, (classInfo: ClassInfo, index: number) => {
                   ListItem() {
-                    Row() {
-                      ClassIcon({ imageurl: classInfo.imageurl })
-                      Column() {
-                        Text(classInfo.name)
-                          .fontSize(16)
-                          .width('100%')
-                          .fontWeight(FontWeight.Medium)
-                          .maxLines(1)
-                          .textOverflow({ overflow: TextOverflow.Ellipsis })
-                        Text(classInfo.teacherfactor)
-                          .fontSize(12)
-                          .textAlign(TextAlign.Start)
-                          .width('100%')
-                          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-                          .maxLines(1)
-                          .textOverflow({ overflow: TextOverflow.Ellipsis })
-                      }.width(200)
-                      .alignItems(HorizontalAlign.Start)
-                    }.width('100%')
-                    .padding({ left: 5, right: 15 })
+                    ClassListItem({ classInfo: classInfo, index: index, pathInfos: this.pathInfos })
                   }
                   .width('100%')
                   .backgroundColor($r('app.color.class_button'))
@@ -389,6 +465,14 @@ struct UI {
                   offsetX: 0,
                   offsetY: 4
                 })
+                .opacity(this.headerOpacity)
+                .translate({ y: this.headerTranslateY })
+                .onAppear(() => {
+                  animateTo({ duration: 600, curve: Curve.EaseOut, delay: 200 }, () => {
+                    this.headerOpacity = 1
+                    this.headerTranslateY = 0
+                  })
+                })
               }.width('100%')
               .justifyContent(FlexAlign.Start)
 
@@ -407,6 +491,15 @@ struct UI {
                   color: '#00000020',
                   offsetX: 0,
                   offsetY: 3
+                })
+                .scale({ x: this.qrButtonScale, y: this.qrButtonScale })
+                .animation({ duration: 200, curve: Curve.EaseInOut })
+                .onTouch((event: TouchEvent) => {
+                  if (event.type === TouchType.Down) {
+                    this.qrButtonScale = 0.92
+                  } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                    this.qrButtonScale = 1
+                  }
                 })
                 .onClick(() => {
                   let options: scanBarcode.ScanOptions = {
@@ -451,15 +544,26 @@ struct UI {
                     .width(30)
                     .fillColor($r('app.color.icon'))
                     .margin(15)
-                }.onClick(() => {
+                }
+                .onClick(() => {
                   this.LoginCommonIsShow = !this.LoginCommonIsShow
-                }).borderRadius(999)
+                })
+                .borderRadius(999)
                 .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
                 .shadow({
                   radius: 8,
                   color: '#00000020',
                   offsetX: 0,
                   offsetY: 3
+                })
+                .scale({ x: this.selectorButtonScale, y: this.selectorButtonScale })
+                .animation({ duration: 200, curve: Curve.EaseInOut })
+                .onTouch((event: TouchEvent) => {
+                  if (event.type === TouchType.Down) {
+                    this.selectorButtonScale = 0.92
+                  } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                    this.selectorButtonScale = 1
+                  }
                 })
                 .bindSheet($$this.LoginCommonIsShow, this.loginCommon, {
                   height: '90%', onWillDismiss: () => {
@@ -472,15 +576,26 @@ struct UI {
                     .width(30)
                     .fillColor($r('app.color.icon'))
                     .margin(15)
-                }.onClick(() => {
+                }
+                .onClick(() => {
                   this.LoginURLIsSHow = true
-                }).borderRadius(999)
+                })
+                .borderRadius(999)
                 .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
                 .shadow({
                   radius: 8,
                   color: '#00000020',
                   offsetX: 0,
                   offsetY: 3
+                })
+                .scale({ x: this.urlButtonScale, y: this.urlButtonScale })
+                .animation({ duration: 200, curve: Curve.EaseInOut })
+                .onTouch((event: TouchEvent) => {
+                  if (event.type === TouchType.Down) {
+                    this.urlButtonScale = 0.92
+                  } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                    this.urlButtonScale = 1
+                  }
                 })
                 .bindSheet($$this.LoginURLIsSHow, this.loginURL(), {
                   height: '90%', onWillDismiss: () => {
@@ -493,7 +608,8 @@ struct UI {
                     Image($r('app.media.share'))
                       .height(30).width(30).fillColor($r('app.color.icon'))
                   }.height(60).width(60).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
-                }.onClick(() => {
+                }
+                .onClick(() => {
                   this.QRCodeIsShow = true
                 })
                 .borderRadius(30)
@@ -503,6 +619,15 @@ struct UI {
                   color: '#00000020',
                   offsetX: 0,
                   offsetY: 3
+                })
+                .scale({ x: this.shareButtonScale, y: this.shareButtonScale })
+                .animation({ duration: 200, curve: Curve.EaseInOut })
+                .onTouch((event: TouchEvent) => {
+                  if (event.type === TouchType.Down) {
+                    this.shareButtonScale = 0.92
+                  } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                    this.shareButtonScale = 1
+                  }
                 })
                 .bindSheet($$this.QRCodeIsShow, this.QRCodeDialog,
                   {
