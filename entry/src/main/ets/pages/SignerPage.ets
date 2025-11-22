@@ -595,6 +595,13 @@ export struct SignPage {
               try {
                 let url = result.originalValue
                 let parse = UrlTools.parseUrlParams(url)
+                
+                if (!parse || !parse['enc']) {
+                  promptAction.showToast({ message: '二维码格式错误' });
+                  this.canSign = true;
+                  return;
+                }
+                
                 this.queryParams['enc'] = parse['enc']
                 
                 hilog.info(DOMAIN, TAG,
