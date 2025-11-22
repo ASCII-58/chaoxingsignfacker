@@ -232,8 +232,7 @@ struct photoPicker {
             try { // 创建上传任务
               this.uploadPhoto(context, uploadConfig, index)
             } catch (error) {
-              hilog.error(DOMAIN, TAG, ' + JSON.stringify(error))
-              hilog.debug(DOMAIN, TAG, 'fuck upload error' + JSON.stringify(error))
+              hilog.error(DOMAIN, TAG, `Upload photo error: ${JSON.stringify(error)}`);
             }
           }
         })
@@ -309,12 +308,12 @@ export struct SignPage {
         ListItem() {
           userItem({ user, signIdArray: this.signIdArray })
         }.onClick(() => {
-          hilog.debug(DOMAIN, TAG, ' + this.signIdArray.toString())
+          hilog.debug(DOMAIN, TAG, `Sign ID array: ${this.signIdArray.toString()}`);
           if (this.signIdArray.includes(user.id)) {
-            hilog.debug(DOMAIN, TAG, 'fuck1')
+            hilog.debug(DOMAIN, TAG, 'Removing user from sign list');
             this.signIdArray = this.signIdArray.filter(num => num !== user.id)
           } else {
-            hilog.debug(DOMAIN, TAG, 'fuck0')
+            hilog.debug(DOMAIN, TAG, 'Adding user to sign list');
             this.signIdArray.push(user.id)
           }
         })
@@ -392,8 +391,7 @@ export struct SignPage {
                     .onChooseLocation((err, data) => {
                       if (err) {
                         // 错误日志处理。
-                        hilog.error(0x0000, "testTag", "error: %{public}d %{public}s", err.code, err.message);
-                        hilog.error(DOMAIN, TAG, ' + JSON.stringify(err))
+                        hilog.error(DOMAIN, TAG, `Location error: ${err.code} - ${err.message}`);
                         return;
                       }
                       // 成功日志处理。
@@ -509,7 +507,7 @@ export struct SignPage {
       this.pathInfos = ctx.pathStack;
     })
     .onAppear(async () => {
-      hilog.debug(DOMAIN, TAG, '+this.activityInfo?.signType)
+      hilog.debug(DOMAIN, TAG, `Sign type: ${this.activityInfo?.signType}`);
       const promises: PromiseLike<null>[] = []
 
       const dbManager = DatabaseManager.getInstance()

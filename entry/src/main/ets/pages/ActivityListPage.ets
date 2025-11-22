@@ -154,22 +154,21 @@ export struct ActivityListPage {
       try {
         if (this.classInfo) {
           this.courseId = this.classInfo.id; // 课程id
-          hilog.debug(0x0005, 'ActivityListPage', ', this.courseId)
+          hilog.debug(DOMAIN, TAG, `Course ID: ${this.courseId}`);
           this.teacherfactor = this.classInfo?.teacherfactor as string;
-          hilog.debug(0x0005, 'ActivityListPage', ', this.teacherfactor)
+          hilog.debug(DOMAIN, TAG, `Teacher: ${this.teacherfactor}`);
           this.classId = this.classInfo.classId; // 班级id
           this.name = this.classInfo?.name as string
-          hilog.debug(0x0005, 'ActivityListPage', ', this.name)
+          hilog.debug(DOMAIN, TAG, `Class name: ${this.name}`);
           const dbManager = DatabaseManager.getInstance()
           const cookies = (await dbManager.getUserByPosition(1, true))?.cookies
           if (cookies) {
-            hilog.debug(0x0005, 'ActivityListPage', ', cookies)
-            hilog.error(0x0005, 'ActivityListPage', ', 'true', 'false')
+            hilog.debug(DOMAIN, TAG, 'Loading activity list');
             this.ActivityList = await CourseAndActivity.getActivityList(cookies, this.classId, this.courseId);
-            hilog.error(0x0005, 'ActivityListPage', ' + this.ActivityList ? 'true' : 'false')
+            hilog.debug(DOMAIN, TAG, `Activity list loaded: ${this.ActivityList ? 'success' : 'failed'}`);
             if (this.ActivityList) {
               this.ActivityList.forEach(element => {
-                hilog.debug(0x0005, 'ActivityListPage', ' + JSON.stringify(element))
+                hilog.debug(DOMAIN, TAG, `Activity: ${JSON.stringify(element)}`);
               });
             } else {
               throw new Error('签到列表获取为空')
@@ -181,7 +180,7 @@ export struct ActivityListPage {
           throw new Error('未获取到课程信息')
         }
       } catch (e) {
-        hilog.error(0x0005, 'ActivityListPage', ' + e)
+        hilog.error(DOMAIN, TAG, `Error in onAppear: ${e.message}`);
       }
     })
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
