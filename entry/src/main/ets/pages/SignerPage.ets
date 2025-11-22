@@ -146,6 +146,8 @@ struct photoPicker {
   @Prop otherUser: Array<userMenu> // 添加其他用户列表
   @State uploadStatus: string = '' // 上传状态反馈
   @State isUploading: boolean = false // 是否正在上传
+  @State uploadCompletedCount: number = 0 // 已完成上传的数量（成功或失败）
+  @State uploadTotalCount: number = 0 // 总上传数量
 
   build() {
     Column() {
@@ -225,6 +227,7 @@ struct photoPicker {
   // 抽离图片处理逻辑，保持 build 干净
   private async handlePhotoSelect() {
     this.objectidArray = []
+    this.uploadCompletedCount = 0
     this.uploadStatus = '正在准备上传...'
     this.isUploading = true
     const dbManager = DatabaseManager.getInstance()
@@ -256,6 +259,7 @@ struct photoPicker {
       const res = await photoViewPicker.select(photoSelectOptions)
       const uriArr = res.photoUris
       const signerNum = this.signerInfoArr.length
+      this.uploadTotalCount = signerNum
 
       this.uploadStatus = `正在上传图片 (0/${signerNum})`
       promptAction.showToast({ message: '开始上传图片', duration: 1500 })
@@ -282,10 +286,12 @@ struct photoPicker {
             }],
             data: [{ name: 'puid', value: this.signerInfoArr[index].PUID.toString() }]
           }
-          await this.uploadPhoto(context, uploadConfig, index, signerNum)
+          // 不使用await，允许并行上传
+          this.uploadPhoto(context, uploadConfig, index)
         } catch (error) {
           console.error('File processing failed', JSON.stringify(error))
           promptAction.showToast({ message: `图片 ${index + 1} 处理失败`, duration: 2000 })
+          this.uploadCompletedCount++
         }
       }
     } catch (error) {
@@ -296,7 +302,7 @@ struct photoPicker {
     }
   }
 
-  private async uploadPhoto(context: Context, uploadConfig: request.UploadConfig, signIndex: number, totalCount: number) {
+  private async uploadPhoto(context: Context, uploadConfig: request.UploadConfig, signIndex: number) {
     try {
       const task = await request.uploadFile(context, uploadConfig)
       
@@ -304,12 +310,13 @@ struct photoPicker {
         console.error(`Upload failed for index ${signIndex}`, JSON.stringify(event))
         promptAction.showToast({ message: `图片 ${signIndex + 1} 上传失败`, duration: 2000 })
         
-        // 更新上传状态
+        // 更新完成计数
+        this.uploadCompletedCount++
         const uploadedCount = this.objectidArray.filter(id => id).length
-        this.uploadStatus = `上传失败 (${uploadedCount}/${totalCount})`
+        this.uploadStatus = `上传失败 (${uploadedCount}/${this.uploadTotalCount})`
         
-        // 检查是否所有上传都已完成（成功或失败）
-        if (uploadedCount + 1 >= totalCount) {
+        // 检查是否所有上传都已完成
+        if (this.uploadCompletedCount >= this.uploadTotalCount) {
           this.isUploading = false
           if (uploadedCount === 0) {
             this.uploadStatus = '所有图片上传失败'
@@ -318,13 +325,18 @@ struct photoPicker {
       })
       
       task.on('complete', () => {
+        // 更新完成计数
+        this.uploadCompletedCount++
         const uploadedCount = this.objectidArray.filter(id => id).length
-        this.uploadStatus = `已上传 ${uploadedCount}/${totalCount}`
+        this.uploadStatus = `已上传 ${uploadedCount}/${this.uploadTotalCount}`
         
-        if (uploadedCount === totalCount) {
+        // 检查是否所有上传都已完成
+        if (this.uploadCompletedCount >= this.uploadTotalCount) {
           this.isUploading = false
-          this.uploadStatus = '所有图片上传完成 ✓'
-          promptAction.showToast({ message: '所有图片上传成功', duration: 2000 })
+          if (uploadedCount === this.uploadTotalCount) {
+            this.uploadStatus = '所有图片上传完成 ✓'
+            promptAction.showToast({ message: '所有图片上传成功', duration: 2000 })
+          }
         }
       })
       
@@ -336,7 +348,7 @@ struct photoPicker {
             
             // 更新上传状态
             const uploadedCount = this.objectidArray.filter(id => id).length
-            this.uploadStatus = `已上传 ${uploadedCount}/${totalCount}`
+            this.uploadStatus = `已上传 ${uploadedCount}/${this.uploadTotalCount}`
             
             console.info(`Photo ${signIndex + 1} uploaded successfully`)
           } catch (e) {
@@ -348,11 +360,13 @@ struct photoPicker {
       console.error("Upload task creation failed", e)
       promptAction.showToast({ message: `图片 ${signIndex + 1} 上传失败`, duration: 2000 })
       
-      // 更新上传状态
+      // 更新完成计数
+      this.uploadCompletedCount++
       const uploadedCount = this.objectidArray.filter(id => id).length
-      this.uploadStatus = `上传失败 (${uploadedCount}/${totalCount})`
+      this.uploadStatus = `上传失败 (${uploadedCount}/${this.uploadTotalCount})`
       
-      if (uploadedCount + 1 >= totalCount) {
+      // 检查是否所有上传都已完成
+      if (this.uploadCompletedCount >= this.uploadTotalCount) {
         this.isUploading = false
       }
     }
@@ -659,9 +673,13 @@ export struct SignPage {
           .fontColor($r('sys.color.ohos_id_color_warning'))
           .padding(12)
       } else {
+        // 创建 Map 以优化查找性能 O(1)
+        const userMap = new Map<number, userMenu>()
+        this.otherUser.forEach(u => userMap.set(u.id, u))
+        
         Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap }) {
           ForEach(this.signIdArray, (userId: number) => {
-            const user = this.otherUser.find(u => u.id === userId)
+            const user = userMap.get(userId)
             if (user) {
               Row() {
                 Text(user.uname)
