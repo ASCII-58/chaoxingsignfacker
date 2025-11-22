@@ -342,7 +342,7 @@ export struct SignPage {
     // 主用户签到
     try {
       const info = await dbManager.getUserByPosition(1, true) as UserDataAndId
-      await this.performSingleSign(info, this.objectidArr.length > 0 ? this.objectidArr[this.objectidArr.length - 1] : undefined, hashTable)
+      await this.performSingleSign(info, this.objectidArr.length > 0 ? this.objectidArr[this.objectidArr.length - 1] : undefined, hashTable, true)
     } catch (e) {
       console.error('Main user sign error', e)
     }
@@ -351,7 +351,7 @@ export struct SignPage {
     for (let i = 0; i < this.signIdArray.length; i++) {
       try {
         const otherInfo = await dbManager.getUserByPosition(this.signIdArray[i]) as UserDataAndId
-        await this.performSingleSign(otherInfo, this.objectidArr[i], hashTable)
+        await this.performSingleSign(otherInfo, this.objectidArr[i], hashTable, false)
       } catch (e) {
         console.error(`Other user ${i} sign error`, e)
       }
@@ -361,7 +361,7 @@ export struct SignPage {
     this.canSign = true
   }
 
-  private async performSingleSign(userInfo: UserDataAndId, photoObjId: string | undefined, map: Map<string, string[]>) {
+  private async performSingleSign(userInfo: UserDataAndId, photoObjId: string | undefined, map: Map<string, string[]>, isMainUser: boolean = false) {
     const loginInfo = await loginFunction.getUserInfo(userInfo.cookies)
 
     this.queryParams['uid'] = userInfo.uid
@@ -371,7 +371,7 @@ export struct SignPage {
       this.queryParams['objectId'] = photoObjId
     }
 
-    let result = await Sign.DoSignIn(userInfo.cookies, this.queryParams, userInfo.pos === 1) // pos=1 is main user logic?
+    let result = await Sign.DoSignIn(userInfo.cookies, this.queryParams, isMainUser)
 
     if (typeof result === 'string' && (result.includes('<html') || result.includes('500 Internal Server Error'))) {
       result = '服务端错误 (500)';
