@@ -11,6 +11,13 @@ const buildURL = ChaoxingUtils.buildUrl;
 // 定义日志标签（便于筛选）
 const TAG = 'SignService';
 const DOMAIN = 0x0002; // 日志域（自定义即可）
+
+// 常量定义
+const SIGN_TIME_MARKER = '<p class="signtime">';
+const CAPTCHA_CALLBACK = 'cx_captcha_function';
+const CAPTCHA_TYPE = 'slide';
+const CAPTCHA_VERSION = '1.1.20';
+const TOKEN_EXPIRY_MS = 300000; // 5分钟
 export interface UploadPhotoParam {
   '_token': string
 }
@@ -46,21 +53,25 @@ export interface UserQueryObject {
 export class Sign {
   static async DoPreSignIn(activePrimaryId: number, classId: number, courseId: number, cookies: string) {
     const httpRequest = http.createHttp()
-    const URL = ChaoXingApi.URL_PRE_SIGN
-      .buildUrl({
-        'activePrimaryId': activePrimaryId,
-        'classId': classId,
-        'courseId': courseId
+    try {
+      const URL = ChaoXingApi.URL_PRE_SIGN
+        .buildUrl({
+          'activePrimaryId': activePrimaryId,
+          'classId': classId,
+          'courseId': courseId
+        })
+        .toString()
+      const result = await httpRequest.request(URL, {
+        method: http.RequestMethod.GET,
+        header: {
+          "Cookie": cookies
+        }
       })
-      .toString()
-    const result = await httpRequest.request(URL, {
-      method: http.RequestMethod.GET,
-      header: {
-        "Cookie": cookies
-      }
-    })
-    const isSign: boolean = (result.result as string).includes('<p class="signtime">')
-    return isSign
+      const isSign: boolean = (result.result as string).includes(SIGN_TIME_MARKER)
+      return isSign
+    } finally {
+      httpRequest.destroy()
+    }
   }
 
   static async DoSignIn(cookies: string, queryParams: object, NeedDeviceCode: boolean = false) {
@@ -170,54 +181,62 @@ export class Sign {
   static async PreSignIn(activePrimaryId: string, classId: string, courseId: string, uid: number,
     cookies: string): Promise<number> {
     const httpRequest = http.createHttp()
-    const result = await httpRequest.request(ChaoXingApi.URL_PRE_SIGN.buildUrl({
-      activePrimaryId: activePrimaryId,
-      classId: classId,
-      courseId: courseId,
-      uid: uid
-    }).toString(), {
-      method: http.RequestMethod.GET,
-      header: {
-        "Cookie": cookies
+    try {
+      const result = await httpRequest.request(ChaoXingApi.URL_PRE_SIGN.buildUrl({
+        activePrimaryId: activePrimaryId,
+        classId: classId,
+        courseId: courseId,
+        uid: uid
+      }).toString(), {
+        method: http.RequestMethod.GET,
+        header: {
+          "Cookie": cookies
+        }
+      })
+      hilog.debug(DOMAIN, TAG, 'PreSignIn request sent');
+      if (result.responseCode === 302 || (result.result as string).includes("校验失败，未查询到活动数据")) {
+        return -1
       }
-    })
-    hilog.debug(DOMAIN, TAG, 'PreSignIn request sent');
-    if (result.responseCode === 302 || (result.result as string).includes("校验失败，未查询到活动数据")) {
-      return -1
+      if ((result.result as string).includes(SIGN_TIME_MARKER)) {
+        return 0
+      }
+      return 1
+    } finally {
+      httpRequest.destroy()
     }
-    if ((result.result as string).includes('<p class="signtime">')) {
-      return 0
-    }
-    return 1
   }
 
   static async getCaptchaConf(): Promise<number> {
     const httpRequest = http.createHttp()
-    const result = await httpRequest.request(ChaoXingApi.URL_GET_CAPTCHA_CONF.buildUrl({
-      'captchaId': ChaoXingApi.CAPTCHA_ID
-    }).toString(), {
-      method: http.RequestMethod.GET,
-      header: undefined
-    })
-    const config =
-      JSON.parse(result.result.toString().replace("cx_captcha_function(", "").replace(")", "")) as CaptchaConf
-    return config.t as number
+    try {
+      const result = await httpRequest.request(ChaoXingApi.URL_GET_CAPTCHA_CONF.buildUrl({
+        'captchaId': ChaoXingApi.CAPTCHA_ID
+      }).toString(), {
+        method: http.RequestMethod.GET,
+        header: undefined
+      })
+      const config =
+        JSON.parse(result.result.toString().replace(`${CAPTCHA_CALLBACK}(`, "").replace(")", "")) as CaptchaConf
+      return config.t as number
+    } finally {
+      httpRequest.destroy()
+    }
   }
 
   static async getCaptchaPhotos(Param: CaptchaPhotosParam, cookies: string): Promise<CaptchaPhotosResult> {
     const t = await Sign.getCaptchaConf()
-    const type = 'slide'
+    const type = CAPTCHA_TYPE
     const captchaKey = CryptoJS.MD5(t.toString() + ChaoxingUtils.generateUUIDv4()).toString()
     const iv =
       CryptoJS.MD5(ChaoXingApi.CAPTCHA_ID + type + systemDateTime.getTime() + ChaoxingUtils.generateUUIDv4()).toString()
-    const token = CryptoJS.MD5(t.toString() + ChaoXingApi.CAPTCHA_ID + type + captchaKey) + `:${t + 300000}`
+    const token = CryptoJS.MD5(t.toString() + ChaoXingApi.CAPTCHA_ID + type + captchaKey) + `:${t + TOKEN_EXPIRY_MS}`
 
     const referer = ChaoXingApi.URL_PRE_SIGN.buildUrl(Param).toString()
     let url = ChaoXingApi.URL_GET_CAPTCHA_PHOTOS.buildUrl({
-      "callback": "cx_captcha_function",
+      "callback": CAPTCHA_CALLBACK,
       "captchaId": ChaoXingApi.CAPTCHA_ID,
       "type": type,
-      "version": "1.1.20",
+      "version": CAPTCHA_VERSION,
       "captchaKey": captchaKey,
       "token": token,
       "iv": iv,
@@ -225,15 +244,19 @@ export class Sign {
       "referer": referer
     }).toString()
     const httpRequest = http.createHttp()
-    const result = await httpRequest.request(url, {
-      method: http.RequestMethod.GET,
-      header: {
-        "referer": referer,
-        cookie: cookies
-      }
-    })
-    const jsonRes =
-      JSON.parse(result.result.toString().replace("cx_captcha_function(", "").replace(")", "")) as CaptchaPhotosResult
-    return jsonRes
+    try {
+      const result = await httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        header: {
+          "referer": referer,
+          cookie: cookies
+        }
+      })
+      const jsonRes =
+        JSON.parse(result.result.toString().replace(`${CAPTCHA_CALLBACK}(`, "").replace(")", "")) as CaptchaPhotosResult
+      return jsonRes
+    } finally {
+      httpRequest.destroy()
+    }
   }
 }

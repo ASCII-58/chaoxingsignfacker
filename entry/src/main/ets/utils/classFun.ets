@@ -47,9 +47,11 @@ export class CourseAndActivity {
           }
         });
 
+        hilog.info(DOMAIN, TAG, `Successfully fetched ${result.length} classes`);
         return { msg: true, classList: result };
       }
-    } catch {
+    } catch (error) {
+      hilog.error(DOMAIN, TAG, `Failed to get class list: ${error.message}`);
     } finally {
       httpRequest.destroy()
     }
