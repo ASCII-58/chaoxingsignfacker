@@ -108,7 +108,7 @@ struct CourseItem {
         this.translateY = 0
         this.itemScale = 1
       })
-      
+
       if (this.course.imageurl) {
         try {
           this.courseImage = await loginFunction.GetPic(this.course.imageurl) as image.PixelMap
@@ -136,7 +136,7 @@ export default struct SearchLongTakeTransitionPageTwo {
 
   async aboutToAppear() {
     await this.loadCourses()
-    
+
     // Animate the page entrance
     animateTo({
       duration: 500,
@@ -146,7 +146,7 @@ export default struct SearchLongTakeTransitionPageTwo {
       this.pageOpacity = 1
       this.contentTranslateY = 0
     })
-    
+
     // Animate back button
     animateTo({
       duration: 400,
@@ -163,7 +163,7 @@ export default struct SearchLongTakeTransitionPageTwo {
     try {
       const dbManager = DatabaseManager.getInstance()
       const userData = await dbManager.getUserByPosition(1, true)
-      
+
       if (userData) {
         const result = await CourseAndActivity.getClassList(userData.cookies)
         if (result.msg) {
@@ -187,8 +187,8 @@ export default struct SearchLongTakeTransitionPageTwo {
       this.filteredCourses = this.allCourses
     } else {
       const searchLower = value.toLowerCase()
-      this.filteredCourses = this.allCourses.filter(course => 
-        course.name.toLowerCase().includes(searchLower) || 
+      this.filteredCourses = this.allCourses.filter(course =>
+        course.name.toLowerCase().includes(searchLower) ||
         (course.teacherfactor && course.teacherfactor.toLowerCase().includes(searchLower))
       )
     }
@@ -196,12 +196,9 @@ export default struct SearchLongTakeTransitionPageTwo {
 
   handleCourseClick(course: ClassInfo): void {
     // 返回上一页并传递选中的课程信息
-    promptAction.showToast({ 
-      message: `已选择: ${course.name}`, 
-      duration: 1500 
-    })
+
     // 这里可以添加导航到课程详情或签到页面的逻辑
-    // this.pageInfos.pushPath({ name: 'ActivityListPage', param: course })
+    this.pageInfos.pushPath({ name: 'ActivityListPage', param: course })
   }
 
   build() {
@@ -288,7 +285,7 @@ export default struct SearchLongTakeTransitionPageTwo {
             List({ space: 8 }) {
               ForEach(this.filteredCourses, (course: ClassInfo, index: number) => {
                 ListItem() {
-                  CourseItem({ 
+                  CourseItem({
                     course: course,
                     index: index,
                     onCourseClick: (c: ClassInfo) => this.handleCourseClick(c)
