@@ -37,9 +37,9 @@ struct CourseItem {
   @Prop index: number
   @State courseImage: image.PixelMap | null = null
   @State isPressed: boolean = false
-  @State opacity: number = 0
+  @State itemOpacity: number = 0
   @State translateY: number = 20
-  @State scale: number = 0.95
+  @State itemScale: number = 0.95
   onCourseClick?: (course: ClassInfo) => void
 
   build() {
@@ -89,9 +89,9 @@ struct CourseItem {
       offsetX: 0,
       offsetY: 2
     })
-    .opacity(this.opacity)
+    .opacity(this.itemOpacity)
     .translate({ y: this.translateY })
-    .scale({ x: this.scale, y: this.scale })
+    .scale({ x: this.itemScale, y: this.itemScale })
     .onClick(() => {
       if (this.onCourseClick) {
         this.onCourseClick(this.course)
@@ -104,9 +104,9 @@ struct CourseItem {
         curve: curves.springMotion(0.6, 0.8),
         delay: this.index * 50
       }, () => {
-        this.opacity = 1
+        this.itemOpacity = 1
         this.translateY = 0
-        this.scale = 1
+        this.itemScale = 1
       })
       
       if (this.course.imageurl) {
