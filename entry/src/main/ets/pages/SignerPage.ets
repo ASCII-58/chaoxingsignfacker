@@ -572,7 +572,10 @@ export struct SignPage {
       // 获取当前用户信息
       const currentUser = await dbManager.getUserByPosition(1, true) as UserDataAndId;
 
-      if (!this.activityInfo || !currentUser) return;
+      if (!this.activityInfo || !currentUser) {
+        this.canSign = true;
+        return;
+      }
 
       const cookies = currentUser.cookies;
       let loc = await Sign.GetLocationSignInfo(cookies, this.activityInfo.ActivityId)
@@ -589,60 +592,80 @@ export struct SignPage {
         if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
           scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
             .then(async (result: scanBarcode.ScanResult) => {
-              if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
+              try {
+                let url = result.originalValue
+                let parse = UrlTools.parseUrlParams(url)
+                
+                if (!parse || !parse['enc']) {
+                  promptAction.showToast({ message: '二维码格式错误' });
+                  this.canSign = true;
+                  return;
+                }
+                
+                this.queryParams['enc'] = parse['enc']
+                
+                hilog.info(DOMAIN, TAG,
+                  `Scan successful, enc: ${this.queryParams['enc']}`);
 
-              } else {
-                promptAction.openToast({ message: '权限错误' })
-                return
+                // 扫码成功后，执行签到
+                const hashTable = new Map<string, string[]>();
+
+                // 遍历所有选中的用户进行签到
+                for (let i = 0; i < this.signIdArray.length; i++) {
+                  try {
+                    const userId = this.signIdArray[i]
+                    let userInfo: UserDataAndId
+                    let isMainUser = false
+
+                    if (userId === 0) {
+                      // id 为 0 表示主用户
+                      userInfo = await dbManager.getUserByPosition(1, true) as UserDataAndId
+                      isMainUser = true
+                    } else {
+                      // 其他用户
+                      userInfo = await dbManager.getUserByPosition(userId) as UserDataAndId
+                      isMainUser = false
+                    }
+
+                    await this.performSingleSign(userInfo, this.objectidArr[i], hashTable, isMainUser)
+                  } catch (e) {
+                    hilog.error(DOMAIN, TAG, `User ${this.signIdArray[i]} sign error`, e)
+                  }
+                }
+
+                this.showSignResult(hashTable);
+              } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                hilog.error(DOMAIN, TAG, `Failed to process scan result: ${errorMsg}`);
+                promptAction.showToast({ message: '处理扫码结果失败' });
+              } finally {
+                this.canSign = true;
               }
-              let url = result.originalValue
-              let parse = UrlTools.parseUrlParams(url)
-              this.queryParams['enc'] = parse['enc']
-              // 解析码值结果跳转应用服务页
-              hilog.info(0x0001, '[Scan CPSample]',
-                `Succeeded in getting ScanResult by promise with options, result is ${JSON.stringify(result)}`);
             })
             .catch((error: BusinessError) => {
-              hilog.error(0x0001, '[Scan CPSample]',
-                `Failed to get ScanResult by promise with options. Code:${error.code}, message: ${error.message}`);
+              hilog.error(DOMAIN, TAG,
+                `Failed to get ScanResult. Code:${error.code}, message: ${error.message}`);
+              promptAction.showToast({ message: '扫码失败或已取消' });
+              this.canSign = true;
             });
-          const hashTable = new Map<string, string[]>();
-          const dbManager = DatabaseManager.getInstance()
-
-          // 遍历所有选中的用户进行签到
-          for (let i = 0; i < this.signIdArray.length; i++) {
-            try {
-              const userId = this.signIdArray[i]
-              let userInfo: UserDataAndId
-              let isMainUser = false
-
-              if (userId === 0) {
-                // id 为 0 表示主用户
-                userInfo = await dbManager.getUserByPosition(1, true) as UserDataAndId
-                isMainUser = true
-              } else {
-                // 其他用户
-                userInfo = await dbManager.getUserByPosition(userId) as UserDataAndId
-                isMainUser = false
-              }
-
-              await this.performSingleSign(userInfo, this.objectidArr[i], hashTable, isMainUser)
-            } catch (e) {
-              hilog.error(DOMAIN, TAG, `User ${this.signIdArray[i]} sign error`, e)
-            }
-          }
-
-          this.showSignResult(hashTable);
-          this.canSign = true
-          return
+          // 扫码签到需要等待扫码结果，直接返回
+          return;
         } else {
-          // Fallback for unsupported SystemCapability
+          promptAction.showToast({ message: '不支持扫码功能' });
+          this.canSign = true;
+          return;
         }
       } catch (error) {
-        hilog.error(0x0001, '[Scan CPSample]',
-          `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        hilog.error(DOMAIN, TAG,
+          `Failed to start the scanning service: ${errorMsg}`);
+        promptAction.showToast({ message: '启动扫码失败' });
+        this.canSign = true;
+        return;
       }
     }
+    
+    // 非扫码签到的正常流程
     const hashTable = new Map<string, string[]>();
     const dbManager = DatabaseManager.getInstance()
 
