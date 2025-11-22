@@ -312,7 +312,7 @@ export default struct SearchLongTakeTransitionPageTwo {
       })
       .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     }
-    .transition(TransitionEffect.OPACITY.animation({ duration: 400, curve: curves.springMotion() }))
+    .transition(TransitionEffect.OPACITY.animation({ duration: 400, curve: curves.springMotion(0.6, 0.8) }))
     .hideTitleBar(true)
     .backgroundColor($r('sys.color.ohos_id_color_background'))
     .onReady((context: NavDestinationContext) => {
