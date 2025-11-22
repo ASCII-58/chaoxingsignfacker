@@ -82,6 +82,18 @@ export class ChaoXingApi {
   static readonly URL_GET_CAPTCHA_PHOTOS=new BuildableUrl("https://captcha.chaoxing.com/captcha/get/verification/image")
   static readonly UA='5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0'
   static readonly URL_GET_LOCATION_SIGN_INFO=new BuildableUrl('https://mobilelearn.chaoxing.com/v2/apis/active/getPPTActiveInfo')
+  /**
+   * 获取签到详细信息（包含签退信息）
+   */
+  static readonly URL_GET_SIGN_INFO = new BuildableUrl('https://mobilelearn.chaoxing.com/newsign/signDetail')
+  /**
+   * 检查手势/签到码
+   */
+  static readonly URL_CHECK_SIGN_CODE = new BuildableUrl('https://mobilelearn.chaoxing.com/widget/sign/pcStuSignController/checkSignCode')
+  /**
+   * 签退
+   */
+  static readonly URL_SIGN_OUT = new BuildableUrl('https://mobilelearn.chaoxing.com/newsign/signOut')
 }
 
 export class InternalPath {

@@ -13,6 +13,8 @@ import { picker } from '@kit.CoreFileKit';
 import { Context, common } from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { promptAction } from '@kit.ArkUI';
+import { GestureSignComponent } from '../Component/GestureSignComponent';
+import { PasswordSignComponent } from '../Component/PasswordSignComponent';
 
 const TAG = 'SignerPage';
 const DOMAIN = 0x0008;
@@ -789,6 +791,52 @@ export struct SignPage {
     .width('100%')
   }
 
+  @Builder
+  GestureSignCard() {
+    Column() {
+      if (this.hostUser) {
+        GestureSignComponent({
+          activityId: this.activityInfo?.ActivityId || '',
+          courseId: this.activityInfo?.CourseId || '',
+          classId: this.activityInfo?.ClassId || '',
+          cookies: this.hostUser.cookies,
+          uid: this.hostUser.uid,
+          uname: this.hostUser.uname,
+          fid: this.hostUser.fid
+        })
+      } else {
+        Text('加载用户信息中...')
+          .fontSize(14)
+          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          .margin(20)
+      }
+    }
+    .width('100%')
+  }
+
+  @Builder
+  PasswordSignCard() {
+    Column() {
+      if (this.hostUser) {
+        PasswordSignComponent({
+          activityId: this.activityInfo?.ActivityId || '',
+          courseId: this.activityInfo?.CourseId || '',
+          classId: this.activityInfo?.ClassId || '',
+          cookies: this.hostUser.cookies,
+          uid: this.hostUser.uid,
+          uname: this.hostUser.uname,
+          fid: this.hostUser.fid
+        })
+      } else {
+        Text('加载用户信息中...')
+          .fontSize(14)
+          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          .margin(20)
+      }
+    }
+    .width('100%')
+  }
+
   build() {
     NavDestination() {
       if (this.activityInfo) {
@@ -826,6 +874,12 @@ export struct SignPage {
                 }
               } else if (this.activityInfo?.signType === SignType.LOCATION) {
                 this.LocationCard()
+              } else if (this.activityInfo?.signType === SignType.GESTURE) {
+                // 手势签到 - 只允许单用户签到
+                this.GestureSignCard()
+              } else if (this.activityInfo?.signType === SignType.PASSWORD) {
+                // 签到码签到 - 只允许单用户签到
+                this.PasswordSignCard()
               } else {
                 Text('未支持的签到类型')
                   .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
@@ -837,22 +891,25 @@ export struct SignPage {
           .width('100%')
           .align(Alignment.Top)
 
-          // 2. 底部按钮区 (固定)
-          Column() {
-            Button('立即签到')
-              .width('90%')
-              .height(48)
-              .fontSize(18)
-              .fontWeight(FontWeight.Medium)
-              .backgroundColor($r('sys.color.ohos_id_color_emphasize'))
-              .enabled(this.canSign)
-              .onClick(() => {
-                this.showSignConfirmDialog()
-              })
+          // 2. 底部按钮区 (固定) - 手势签到和密码签到不显示底部按钮
+          if (this.activityInfo?.signType !== SignType.GESTURE && 
+              this.activityInfo?.signType !== SignType.PASSWORD) {
+            Column() {
+              Button('立即签到')
+                .width('90%')
+                .height(48)
+                .fontSize(18)
+                .fontWeight(FontWeight.Medium)
+                .backgroundColor($r('sys.color.ohos_id_color_emphasize'))
+                .enabled(this.canSign)
+                .onClick(() => {
+                  this.showSignConfirmDialog()
+                })
+            }
+            .width('100%')
+            .padding({ top: 12, bottom: 24 }) // 底部留白
+            .backgroundColor($r('sys.color.ohos_id_color_background')) // 避免内容穿透
           }
-          .width('100%')
-          .padding({ top: 12, bottom: 24 }) // 底部留白
-          .backgroundColor($r('sys.color.ohos_id_color_background')) // 避免内容穿透
         }
         .height('100%')
         .backgroundColor($r('sys.color.ohos_id_color_sub_background')) // 页面底色

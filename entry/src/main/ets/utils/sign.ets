@@ -259,4 +259,125 @@ export class Sign {
       httpRequest.destroy()
     }
   }
+
+  /**
+   * 获取签到详细信息（包含签退信息）
+   * @param cookies 用户 Cookie
+   * @param activeId 活动 ID
+   * @returns 签到信息对象
+   */
+  static async GetSignInfo(cookies: string, activeId: string): Promise<SignInfoResult> {
+    const httpRequest = http.createHttp()
+    const url = ChaoXingApi.URL_GET_SIGN_INFO.buildUrl({ 'activeId': activeId }).toString()
+    try {
+      const result = await httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        header: { "Cookie": cookies }
+      })
+      const jsonResult = JSON.parse(result.result as string) as object
+      return {
+        signInId: jsonResult?.['signInId'] as number || 0,
+        signOutId: jsonResult?.['signOutId'] as number || 0,
+        signOutPublishTimeStamp: jsonResult?.['signOutPublishTimeStamp'] as number || -1,
+        numberCount: jsonResult?.['numberCount'] as number || 0
+      } as SignInfoResult
+    } catch (e) {
+      hilog.error(DOMAIN, TAG, `Get sign info failed: ${e.message}`);
+      throw e
+    } finally {
+      httpRequest.destroy()
+    }
+  }
+
+  /**
+   * 检查手势/签到码是否正确
+   * @param cookies 用户 Cookie
+   * @param activeId 活动 ID
+   * @param signCode 签到码或手势码
+   * @returns 是否正确
+   */
+  static async CheckSignCode(cookies: string, activeId: string, signCode: string): Promise<boolean> {
+    const httpRequest = http.createHttp()
+    const url = ChaoXingApi.URL_CHECK_SIGN_CODE.buildUrl({
+      'activeId': activeId,
+      'signCode': signCode
+    }).toString()
+    try {
+      const result = await httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        header: { "Cookie": cookies }
+      })
+      const jsonResult = JSON.parse(result.result as string) as object
+      return (jsonResult?.['result'] as number) === 1
+    } catch (e) {
+      hilog.error(DOMAIN, TAG, `Check sign code failed: ${e.message}`);
+      return false
+    } finally {
+      httpRequest.destroy()
+    }
+  }
+
+  /**
+   * 手势签到或签到码签到
+   * @param cookies 用户 Cookie
+   * @param queryParams 查询参数
+   * @param signCode 签到码或手势顺序码
+   * @returns 签到结果
+   */
+  static async DoSignWithCode(cookies: string, queryParams: object, signCode: string): Promise<string> {
+    const url = ChaoXingApi.URL_SIGN.buildUrl(queryParams).buildUrl({
+      deviceCode: ChaoxingUtils.generateUUIDv4(),
+      signCode: signCode
+    }).toString()
+    hilog.debug(DOMAIN, TAG, 'Executing sign with code request');
+    const httpRequest = http.createHttp()
+    try {
+      const result = await httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        header: {
+          "Cookie": cookies
+        }
+      })
+      return result.result.toString()
+    } finally {
+      httpRequest.destroy()
+    }
+  }
+
+  /**
+   * 签退操作
+   * @param cookies 用户 Cookie
+   * @param signInId 签到 ID
+   * @param signOutId 签退 ID
+   * @returns 签退结果
+   */
+  static async DoSignOut(cookies: string, signInId: number, signOutId: number): Promise<string> {
+    const url = ChaoXingApi.URL_SIGN_OUT.buildUrl({
+      'signInId': signInId,
+      'signOutId': signOutId
+    }).toString()
+    hilog.debug(DOMAIN, TAG, 'Executing sign out request');
+    const httpRequest = http.createHttp()
+    try {
+      const result = await httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        header: {
+          "Cookie": cookies
+        }
+      })
+      return result.result.toString()
+    } catch (e) {
+      hilog.error(DOMAIN, TAG, `Sign out failed: ${e.message}`);
+      throw e
+    } finally {
+      httpRequest.destroy()
+    }
+  }
+}
+
+export interface SignInfoResult {
+  signInId: number;
+  signOutId: number;
+  signOutPublishTimeStamp: number;
+  numberCount: number;
 }

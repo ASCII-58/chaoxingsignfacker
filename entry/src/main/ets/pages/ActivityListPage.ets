@@ -9,7 +9,7 @@ const TAG = 'ActivityListPage';
 const DOMAIN = 0x0005;
 
 /**
- * @param signType '0' 普通/拍照签到 | '2' 扫码签到 | '4' 位置签到
+ * @param signType '0' 普通/拍照签到 | '2' 扫码签到 | '3' 手势签到 | '4' 位置签到 | '5' 签到码签到
  */
 export interface ActivityInfo {
   ActivityId: string;
@@ -21,7 +21,9 @@ export interface ActivityInfo {
 export enum SignType {
   NORMAL = '0',
   QRCODE = '2',
-  LOCATION = '4'
+  GESTURE = '3',
+  LOCATION = '4',
+  PASSWORD = '5'
 }
 @Reusable
 @Component
@@ -30,9 +32,9 @@ struct signIcon {
   @State icon: ResourceStr = $r('app.media.foreground')
   @State isLoaded: boolean = false
 
-  // 位置签到、二维码签到、普通签到、签到
+  // 位置签到、二维码签到、手势签到、普通签到、签到码签到
   build() {
-    Row() { // 0"=普通签到, "2"=二维码签到, "4"=位置签到
+    Row() { // "0"=普通签到, "2"=二维码签到, "3"=手势签到, "4"=位置签到, "5"=签到码签到
       Image(this.icon)
         .width(50)
         .height(50)
@@ -42,14 +44,16 @@ struct signIcon {
         .margin(10)
         .backgroundColor($r('sys.color.ohos_id_color_component_normal'))
         .onAppear(() => {
-          if (this.signType === '4') {
-            this.icon = $r('app.media.map_badge_local')
-          }
-          if (this.signType === '2') {
-            this.icon = $r('app.media.qrcode')
-          }
           if (this.signType === '0') {
             this.icon = $r('app.media.hand_tap')
+          } else if (this.signType === '2') {
+            this.icon = $r('app.media.qrcode')
+          } else if (this.signType === '3') {
+            this.icon = $r('app.media.gesture')
+          } else if (this.signType === '4') {
+            this.icon = $r('app.media.map_badge_local')
+          } else if (this.signType === '5') {
+            this.icon = $r('app.media.password')
           }
           this.isLoaded = true
         })
@@ -135,6 +139,7 @@ export struct ActivityListPage {
                   ClassId: this.classId,
                   signType: Activity.otherId.toString() as SignType
                 }
+                // 所有签到类型都跳转到SignerPage
                 this.pathInfos.pushPath({ name: 'SignerPage', param: activityInfo })
               })
             }
