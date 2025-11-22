@@ -341,17 +341,6 @@ struct UI {
                     TransitionEffect.OPACITY
                       .animation({ duration: 200 })
                   ))
-                  .scale({ x: 1, y: 1 })
-                  .onTouch((event: TouchEvent) => {
-                    if (event.type === TouchType.Down) {
-                      animateTo({
-                        duration: 100,
-                        curve: Curve.Sharp
-                      }, () => {
-                        // Scale effect is handled by click animation
-                      })
-                    }
-                  })
                 })
               }
               .height('100%')

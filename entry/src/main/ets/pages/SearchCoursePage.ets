@@ -88,12 +88,7 @@ struct CourseItem {
     })
     .onClick(() => {
       if (this.onCourseClick) {
-        animateTo({
-          duration: 250,
-          curve: curves.springMotion()
-        }, () => {
-          this.onCourseClick(this.course)
-        })
+        this.onCourseClick(this.course)
       }
     })
     .onTouch((event: TouchEvent) => {

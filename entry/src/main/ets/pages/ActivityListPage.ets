@@ -36,7 +36,7 @@ struct signIcon {
         .borderWidth(3)
         .borderRadius(10)
         .margin(10)
-        .backgroundColor('#aaaaaa')
+        .backgroundColor($r('sys.color.ohos_id_color_component_normal'))
         .opacity(this.isLoaded ? 1 : 0)
         .scale({ x: this.isLoaded ? 1 : 0.8, y: this.isLoaded ? 1 : 0.8 })
         .animation({
