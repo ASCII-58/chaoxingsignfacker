@@ -10,6 +10,24 @@ struct Login {
   @State username: string = '';
   @State password: string = '';
   @State LoginEnable: boolean = false
+  @State titleOpacity: number = 0
+  @State titleTranslateY: number = -50
+  @State formOpacity: number = 0
+  @State formTranslateY: number = 30
+  @State buttonScale: number = 1
+
+  aboutToAppear() {
+    // Entrance animation for title
+    animateTo({ duration: 600, curve: Curve.EaseOut, delay: 100 }, () => {
+      this.titleOpacity = 1
+      this.titleTranslateY = 0
+    })
+    // Entrance animation for form
+    animateTo({ duration: 600, curve: Curve.EaseOut, delay: 300 }, () => {
+      this.formOpacity = 1
+      this.formTranslateY = 0
+    })
+  }
 
   build() {
     Column() {
@@ -17,87 +35,99 @@ struct Login {
         .margin({ top: 10, bottom: 10 })
         .fontSize(40)
         .textAlign(TextAlign.Center)
-      Text('用户名')
-        .fontSize(26)
-        .height(40)
-        .width('90%')
-        .textAlign(TextAlign.Start)
-      TextInput({ placeholder: '', text: this.username })
-        .type(InputType.PhoneNumber)
-        .onChange((value: string) => {
-          this.username = value;
-          if (this.username && this.password) {
-            this.LoginEnable = true
-          }
-        })
-        .placeholderFont({ size: 16 })
-        .height(50)
-        .width('90%')
-        .backgroundColor(Color.Transparent)// 透明背景
-        .border({
-          // 设置边框
-          width: {
-            // 分别设置四个方向的边框宽度
-            top: 0,
-            right: 0,
-            bottom: 2, // 只有底部有边框
-            left: 0
-          },
-          color: {
-            // 设置边框颜色
-            top: Color.Transparent,
-            right: Color.Transparent,
-            bottom: Color.Blue, // 底部边框颜色
-            left: Color.Transparent
-          },
-          style: BorderStyle.Solid // 边框样式
-        ,
-          radius: 0
-        })
-        .margin({ bottom: 20 })
-      Text('密码')
-        .fontSize(26)
-        .height(40)
-        .width('90%')
-        .textAlign(TextAlign.Start)
-      TextInput({ placeholder: '', text: this.password })
-        .type(InputType.Password)// 设置为密码类型
-        .onChange((value: string) => {
-          this.password = value;
-          if (this.username && this.password) {
-            this.LoginEnable = true
-          }
-        })
-        .placeholderFont({ size: 16 })
-        .height(50)
-        .width('90%')
-        .backgroundColor(Color.Transparent)// 透明背景
-        .border({
-          // 设置边框
-          width: {
-            // 分别设置四个方向的边框宽度
-            top: 0,
-            right: 0,
-            bottom: 2, // 只有底部有边框
-            left: 0
-          },
-          color: {
-            // 设置边框颜色
-            top: Color.Transparent,
-            right: Color.Transparent,
-            bottom: Color.Blue, // 底部边框颜色
-            left: Color.Transparent
-          },
-          style: BorderStyle.Solid // 边框样式
-        ,
-          radius: 0
-        })
-        .margin({ bottom: 40 })
-      Button('登录')
-        .enabled(this.LoginEnable)
-        .width('60%')
-        .height(50)
-        .onClick(async () => {
+        .opacity(this.titleOpacity)
+        .translate({ y: this.titleTranslateY })
+      Column() {
+        Text('用户名')
+          .fontSize(26)
+          .height(40)
+          .width('90%')
+          .textAlign(TextAlign.Start)
+        TextInput({ placeholder: '', text: this.username })
+          .type(InputType.PhoneNumber)
+          .onChange((value: string) => {
+            this.username = value;
+            if (this.username && this.password) {
+              this.LoginEnable = true
+            }
+          })
+          .placeholderFont({ size: 16 })
+          .height(50)
+          .width('90%')
+          .backgroundColor(Color.Transparent)// 透明背景
+          .border({
+            // 设置边框
+            width: {
+              // 分别设置四个方向的边框宽度
+              top: 0,
+              right: 0,
+              bottom: 2, // 只有底部有边框
+              left: 0
+            },
+            color: {
+              // 设置边框颜色
+              top: Color.Transparent,
+              right: Color.Transparent,
+              bottom: Color.Blue, // 底部边框颜色
+              left: Color.Transparent
+            },
+            style: BorderStyle.Solid // 边框样式
+          ,
+            radius: 0
+          })
+          .margin({ bottom: 20 })
+        Text('密码')
+          .fontSize(26)
+          .height(40)
+          .width('90%')
+          .textAlign(TextAlign.Start)
+        TextInput({ placeholder: '', text: this.password })
+          .type(InputType.Password)// 设置为密码类型
+          .onChange((value: string) => {
+            this.password = value;
+            if (this.username && this.password) {
+              this.LoginEnable = true
+            }
+          })
+          .placeholderFont({ size: 16 })
+          .height(50)
+          .width('90%')
+          .backgroundColor(Color.Transparent)// 透明背景
+          .border({
+            // 设置边框
+            width: {
+              // 分别设置四个方向的边框宽度
+              top: 0,
+              right: 0,
+              bottom: 2, // 只有底部有边框
+              left: 0
+            },
+            color: {
+              // 设置边框颜色
+              top: Color.Transparent,
+              right: Color.Transparent,
+              bottom: Color.Blue, // 底部边框颜色
+              left: Color.Transparent
+            },
+            style: BorderStyle.Solid // 边框样式
+          ,
+            radius: 0
+          })
+          .margin({ bottom: 40 })
+        Button('登录')
+          .enabled(this.LoginEnable)
+          .width('60%')
+          .height(50)
+          .scale({ x: this.buttonScale, y: this.buttonScale })
+          .animation({ duration: 200, curve: Curve.EaseInOut })
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              this.buttonScale = 0.95
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              this.buttonScale = 1
+            }
+          })
+          .onClick(async () => {
           this.LoginEnable = false
           const uname = ChaoxingUtils.encryptByAES(this.username)
           const pwd = ChaoxingUtils.encryptByAES(this.password)
@@ -158,6 +188,9 @@ struct Login {
           }
         })
         .margin({ bottom: 20 })
+      }
+      .opacity(this.formOpacity)
+      .translate({ y: this.formTranslateY })
     }
     .width('100%')
     .height('100%')
