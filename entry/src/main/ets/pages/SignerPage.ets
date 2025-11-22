@@ -581,6 +581,13 @@ export struct SignPage {
   // 5. 逻辑方法：处理二维码签到
   private async handleQRCodeSign() {
     try {
+      // 首先检查设备是否支持扫码功能
+      if (!canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
+        promptAction.showToast({ message: '设备不支持扫码功能' })
+        this.canSign = true
+        return
+      }
+
       const dbManager = DatabaseManager.getInstance()
       const currentUser = await dbManager.getUserByPosition(1, true) as UserDataAndId;
 
@@ -601,18 +608,20 @@ export struct SignPage {
         enableAlbum: true
       };
 
-      if (!canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
-        promptAction.showToast({ message: '设备不支持扫码功能' })
-        this.canSign = true
-        return
-      }
-
       try {
         const result = await scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
         
         // 解析二维码结果
         let url = result.originalValue
         let parse = UrlTools.parseUrlParams(url)
+        
+        // 验证 enc 参数是否存在
+        if (!parse['enc']) {
+          promptAction.showToast({ message: '二维码格式错误，缺少必要参数' })
+          this.canSign = true
+          return
+        }
+        
         this.queryParams['enc'] = parse['enc']
         
         hilog.info(DOMAIN, TAG, `QR code scanned successfully: ${JSON.stringify(result)}`)
@@ -622,7 +631,7 @@ export struct SignPage {
         
       } catch (error) {
         const err = error as BusinessError
-        hilog.error(DOMAIN, TAG, `Failed to scan QR code. Code:${err.code}, message: ${err.message}`)
+        hilog.error(DOMAIN, TAG, `Failed to scan QR code. Code:${err.code ?? 'unknown'}, message: ${err.message ?? 'unknown'}`)
         promptAction.showToast({ message: '扫码失败或已取消' })
         this.canSign = true
       }
