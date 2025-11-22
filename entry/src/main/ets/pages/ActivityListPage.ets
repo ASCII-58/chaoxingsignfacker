@@ -3,6 +3,10 @@ import { ChaoxingUtils } from '../utils/utils';
 import { promptAction } from '@kit.ArkUI';
 import { DatabaseManager } from '../utils/DataBase';
 import { JSON } from '@kit.ArkTS';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+
+const TAG = 'ActivityListPage';
+const DOMAIN = 0x0005;
 
 /**
  * @param signType '0' 普通/拍照签到 | '2' 扫码签到 | '4' 位置签到
@@ -150,22 +154,22 @@ export struct ActivityListPage {
       try {
         if (this.classInfo) {
           this.courseId = this.classInfo.id; // 课程id
-          console.log('fuck', this.courseId)
+          hilog.debug(0x0005, 'ActivityListPage', ', this.courseId)
           this.teacherfactor = this.classInfo?.teacherfactor as string;
-          console.log('fuck', this.teacherfactor)
+          hilog.debug(0x0005, 'ActivityListPage', ', this.teacherfactor)
           this.classId = this.classInfo.classId; // 班级id
           this.name = this.classInfo?.name as string
-          console.log('fuck', this.name)
+          hilog.debug(0x0005, 'ActivityListPage', ', this.name)
           const dbManager = DatabaseManager.getInstance()
           const cookies = (await dbManager.getUserByPosition(1, true))?.cookies
           if (cookies) {
-            console.log('fuck', cookies)
-            console.error('fuck', 'true', 'false')
+            hilog.debug(0x0005, 'ActivityListPage', ', cookies)
+            hilog.error(0x0005, 'ActivityListPage', ', 'true', 'false')
             this.ActivityList = await CourseAndActivity.getActivityList(cookies, this.classId, this.courseId);
-            console.error('fuck' + this.ActivityList ? 'true' : 'false')
+            hilog.error(0x0005, 'ActivityListPage', ' + this.ActivityList ? 'true' : 'false')
             if (this.ActivityList) {
               this.ActivityList.forEach(element => {
-                console.log('fuck' + JSON.stringify(element))
+                hilog.debug(0x0005, 'ActivityListPage', ' + JSON.stringify(element))
               });
             } else {
               throw new Error('签到列表获取为空')
@@ -177,7 +181,7 @@ export struct ActivityListPage {
           throw new Error('未获取到课程信息')
         }
       } catch (e) {
-        console.error('fuck' + e)
+        hilog.error(0x0005, 'ActivityListPage', ' + e)
       }
     })
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])

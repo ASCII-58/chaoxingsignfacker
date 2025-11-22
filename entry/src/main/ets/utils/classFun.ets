@@ -2,6 +2,10 @@ import { http } from '@kit.NetworkKit';
 import { ChaoXingApi} from './PublicAPI'
 import { DatabaseManager } from './DataBase';
 import { ChaoxingUtils } from './utils';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+
+const TAG = 'CourseActivityService';
+const DOMAIN = 0x0003;
 export interface ActivityInfo {
   ActivityId: number;
   CourseId: number;
@@ -71,7 +75,7 @@ export class CourseAndActivity {
         'classId': classId,
         'courseId': courseId
       })
-    console.error(url)
+    hilog.debug(DOMAIN, TAG, 'Fetching activity list');
     try {
       const result = await httpRequest.request(url,
         {
@@ -84,7 +88,7 @@ export class CourseAndActivity {
       const ActivityList = ActivityMessage?.['data']?.['activeList'] as ActivityItem[]
       return ActivityList
     } catch (error) {
-      console.error('fuck+'+error)
+      hilog.error(DOMAIN, TAG, `Failed to get activity list: ${error.message}`);
       return null
     }finally {
       httpRequest.destroy()

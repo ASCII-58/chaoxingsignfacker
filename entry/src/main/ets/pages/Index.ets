@@ -10,6 +10,9 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import promptAction from '@ohos.promptAction';
 import { loginByCommon, loginByURL } from '../Component/loginCom';
 
+const TAG = 'IndexPage';
+const DOMAIN = 0x0004;
+
 @Reusable
 @Component
 struct ClassListItem {
@@ -282,7 +285,7 @@ struct UI {
             await fs.write(file.fd, buffer);
             fs.closeSync(file);
           } catch (error) {
-            console.error('fuck,图片获取失败')
+            hilog.error(DOMAIN, TAG, `Failed to save image: ${error.message}`);
           }
         })
 
@@ -394,11 +397,8 @@ struct UI {
             // 加载课程列表
             const dbManager = DatabaseManager.getInstance()
             const cookies = (await dbManager.getUserByPosition(1, true) as UserDataAndId).cookies
-            console.log('fuck' + cookies)
+            hilog.debug(DOMAIN, TAG, 'Loading class list');
             this.classList = (await CourseAndActivity.getClassList(cookies)).classList
-            this.classList.forEach(element => {
-              console.log('fuck' + JSON.stringify(element))
-            });
           })
 
           TabContent() {
@@ -443,7 +443,7 @@ struct UI {
                       try {
                         await dbManager.clearHostUserTable()
                       } catch (error) {
-                        console.error('fuck')
+                        hilog.error(DOMAIN, TAG, `Failed to clear host user: ${error.message}`);
                       }
                       this.hostName = $r('app.string.defaultUname')
                       this.hostPhone = $r('app.string.defaultPhone')
@@ -703,12 +703,12 @@ struct UI {
         const HostUser =
           await loginFunction.getUserInfo((await dbManager.getUserByPosition(1, true) as UserDataAndId).cookies)
         if (HostUser.msg !== 'successful') {
-          console.error('资源获取失败' + HostUser.msg)
+          hilog.error(DOMAIN, TAG, `Failed to fetch host user info: ${HostUser.msg}`);
           this.uiContext.getRouter().replaceUrl({ url: 'pages/Login' });
           return
         }
         this.otherUserList = await dbManager.getAllUsers()
-        console.log(this.otherUserList.length.toString())
+        hilog.debug(DOMAIN, TAG, `Loaded ${this.otherUserList.length} other users`);
         let url = HostUser.pic
         this.HostImageData = await loginFunction.GetPic(url) as image.PixelMap
         this.hostName = HostUser.uname
@@ -720,7 +720,7 @@ struct UI {
           this.uiContext.getRouter().pushUrl({ url: 'pages/Login' });
         }
       } catch (e) {
-        console.error('fuck' + e)
+        hilog.error(DOMAIN, TAG, `Error in onAppear: ${e.message}`);
       }
     })
 

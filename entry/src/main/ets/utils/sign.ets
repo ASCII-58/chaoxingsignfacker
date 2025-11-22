@@ -9,8 +9,8 @@ import { systemDateTime } from '@kit.BasicServicesKit';
 const buildURL = ChaoxingUtils.buildUrl;
 
 // 定义日志标签（便于筛选）
-const TAG = 'UploadPhotoService';
-const DOMAIN = 0x0000; // 日志域（自定义即可）
+const TAG = 'SignService';
+const DOMAIN = 0x0002; // 日志域（自定义即可）
 export interface UploadPhotoParam {
   '_token': string
 }
@@ -67,29 +67,37 @@ export class Sign {
     const url = ChaoXingApi.URL_SIGN.buildUrl(queryParams).buildUrl({
       deviceCode: NeedDeviceCode ? ChaoxingUtils.generateUUIDv4() : ''
     }).toString()
-    console.log('DoSignInURL: ', url, '\nCookies: ', cookies)
+    hilog.debug(DOMAIN, TAG, 'Executing sign-in request');
     const httpRequest = http.createHttp()
-    const result = await httpRequest.request(url, {
-      method: http.RequestMethod.GET,
-      header: {
-        "Cookie": cookies
-      }
-    })
-    return result.result.toString()
+    try {
+      const result = await httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        header: {
+          "Cookie": cookies
+        }
+      })
+      return result.result.toString()
+    } finally {
+      httpRequest.destroy()
+    }
   }
   static async DoSignInV2(cookies: string, CommonQueryParams: object, userQueryParams: UserQueryObject, NeedDeviceCode: boolean = false) {
     const url = ChaoXingApi.URL_SIGN.buildUrl(CommonQueryParams).buildUrl(userQueryParams).buildUrl({
       deviceCode: NeedDeviceCode ? ChaoxingUtils.generateUUIDv4() : ''
     }).toString()
-    console.log('DoSignInURL: ', url, '\nCookies: ', cookies)
+    hilog.debug(DOMAIN, TAG, 'Executing sign-in V2 request');
     const httpRequest = http.createHttp()
-    const result = await httpRequest.request(url, {
-      method: http.RequestMethod.GET,
-      header: {
-        "Cookie": cookies
-      }
-    })
-    return result.result.toString()
+    try {
+      const result = await httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        header: {
+          "Cookie": cookies
+        }
+      })
+      return result.result.toString()
+    } finally {
+      httpRequest.destroy()
+    }
   }
 
   static async GetLocationSignInfo(cookies: string, activeId: string): Promise<string> {
@@ -103,7 +111,7 @@ export class Sign {
       const body = JSON.parse(result.result as string) as object
       return body?.['data']?.['locationText'] as string
     }catch (e){
-      console.log(e)
+      hilog.error(DOMAIN, TAG, `Get location sign info failed: ${e.message}`);
       return ''
     }finally {
       httpRequest.destroy()
@@ -137,7 +145,7 @@ export class Sign {
         }
       })
       const tokenobj: string = result.result.toString()
-      console.log('ffffff' + tokenobj)
+      hilog.debug(DOMAIN, TAG, 'Token response received');
       const token: string = (JSON.parse(tokenobj) as object)?.['_token'] as string
       hilog.info(DOMAIN, TAG, `token obtained: ${token ? 'success' : 'failed'}`);
       return token
@@ -173,12 +181,7 @@ export class Sign {
         "Cookie": cookies
       }
     })
-    console.log('fuck999' + ChaoXingApi.URL_PRE_SIGN.buildUrl({
-      activePrimaryId: activePrimaryId,
-      classId: classId,
-      courseId: courseId,
-      uid: uid
-    }).toString())
+    hilog.debug(DOMAIN, TAG, 'PreSignIn request sent');
     if (result.responseCode === 302 || (result.result as string).includes("校验失败，未查询到活动数据")) {
       return -1
     }

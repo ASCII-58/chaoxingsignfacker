@@ -19,6 +19,10 @@ import { CourseAndActivity, ClassInfo } from '../utils/classFun';
 import { DatabaseManager } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
 import { image } from '@kit.ImageKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+
+const TAG = 'SearchCoursePage';
+const DOMAIN = 0x0007;
 
 @Builder
 export function init() {
@@ -91,7 +95,7 @@ struct CourseItem {
         try {
           this.courseImage = await loginFunction.GetPic(this.course.imageurl) as image.PixelMap
         } catch (e) {
-          console.error('Failed to load course image', e)
+          hilog.error(DOMAIN, TAG, 'Failed to load course image', e)
         }
       }
     })
@@ -128,7 +132,7 @@ export default struct SearchLongTakeTransitionPageTwo {
         }
       }
     } catch (e) {
-      console.error('Failed to load courses', e)
+      hilog.error(DOMAIN, TAG, 'Failed to load courses', e)
       promptAction.showToast({ message: '加载课程失败', duration: 2000 })
     } finally {
       this.isLoading = false

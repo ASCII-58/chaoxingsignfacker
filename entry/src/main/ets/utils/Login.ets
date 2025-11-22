@@ -6,7 +6,11 @@ import { ChaoXingApi } from './PublicAPI';
 import { DatabaseManager } from './DataBase';
 import { common, StartupTask } from '@kit.AbilityKit';
 import { BusinessError, request } from '@kit.BasicServicesKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import urlTools from './urlTools'
+
+const TAG = 'LoginService';
+const DOMAIN = 0x0001;
 export interface UserInfo {
   msg: string,
   uname: string,
@@ -23,7 +27,7 @@ export class loginFunction {
    * @returns {Promise<string>} 求到的cookie,异常为空
    */
   static async LoginChaoXing(LoginString: string): Promise<string> {
-    console.log('fuck' + LoginString)
+    hilog.debug(DOMAIN, TAG, 'Attempting login');
     const httpRequest = http.createHttp();
     const url = ChaoXingApi.URL_LOGIN;
     const PostBody = LoginString;
@@ -41,24 +45,23 @@ export class loginFunction {
       // 处理响应
       if (result.responseCode === 200) {
         const ResultBody = JSON.parse(result.result.toString()) as object;
-        console.log(ResultBody?.['status'] + 'fuck')
+        hilog.debug(DOMAIN, TAG, `Login response status: ${ResultBody?.['status']}`);
         if (ResultBody?.['status'] === true) {
           const set_cookies: string[] = result.header['set-cookie']
-          console.log('shit登录成功')
+          hilog.info(DOMAIN, TAG, 'Login successful');
           return ChaoxingUtils.processSetCookieHeaders(set_cookies);
         } else {
-          console.error('fuck' + JSON.stringify(result.result))
-          console.error('fuck用户名或密码错误')
+          hilog.error(DOMAIN, TAG, 'Login failed: Invalid username or password');
           return ""
         }
       } else {
-        console.error('fuck网络错误')
+        hilog.error(DOMAIN, TAG, `Login failed: Network error (${result.responseCode})`);
         return ""
       }
     } catch (error) {
-      console.error(error)
-      if (error.message ==='Number of redirects hit maximum amount') {
-return "傻逼服务器崩了"
+      hilog.error(DOMAIN, TAG, `Login exception: ${error.message}`);
+      if (error.message === 'Number of redirects hit maximum amount') {
+        return "服务器错误，请稍后重试"
       }
       return ""
     } finally {
@@ -82,8 +85,8 @@ return "傻逼服务器崩了"
           "Cookie": cookies
         }
       })
-      if (result.responseCode >= 300 && result.responseCode < 200) {
-        console.error('fuck,服务器错误')
+      if (result.responseCode >= 300 || result.responseCode < 200) {
+        hilog.error(DOMAIN, TAG, `Get user info failed: Server error (${result.responseCode})`);
         return {
           'msg': 'service error',
           'uname': '',
@@ -110,7 +113,7 @@ return "傻逼服务器崩了"
         }
       }
     } catch (error) {
-      console.error('fuck,网络错误:', error);
+      hilog.error(DOMAIN, TAG, `Get user info failed: ${error.message}`);
       return {
         'msg': 'service error',
         'uname': '',
@@ -133,7 +136,7 @@ return "傻逼服务器崩了"
       let urlParse = urlTools.parseUrlParams(stringURL)
       let phone = urlParse['phone']
       let pwd = urlParse['pwd']
-      console.log(phone + '&&&&' + pwd)
+      hilog.debug(DOMAIN, TAG, `Parsing login URL for phone: ${phone?.substring(0, 3)}***`);
       let AESPhone = ChaoxingUtils.encryptByAES(phone)
       let body = ChaoxingUtils.getLoginBody(AESPhone, pwd);
       let cookie = await loginFunction.LoginChaoXing(body)
@@ -146,13 +149,14 @@ return "傻逼服务器崩了"
           cookies: cookie
         }) === 1
       ) {
+        hilog.info(DOMAIN, TAG, 'User added successfully via URL');
         return '添加成功'
       } else {
-        console.error('fuck,密码错误或已经登录')
+        hilog.error(DOMAIN, TAG, 'Failed to add user: Invalid credentials or already logged in');
         return '链接的手机号或密码有误或已经登录'
       }
-    } catch {
-      console.error('请扫描正确的二维码')
+    } catch (error) {
+      hilog.error(DOMAIN, TAG, `Login by URL failed: ${error.message}`);
       return '请使用正确的url'
     }
   }
@@ -181,11 +185,11 @@ return "傻逼服务器崩了"
         let pixelMap: image.PixelMap = await imageSource.createPixelMap();
         return pixelMap
       } else {
-        console.error('fuck获取失败')
+        hilog.error(DOMAIN, TAG, `Failed to fetch image: ${result.responseCode}`);
         return null
       }
     } catch (error) {
-      console.error('fuck' + error)
+      hilog.error(DOMAIN, TAG, `Error fetching image: ${error.message}`);
       return null
     }
     finally {
