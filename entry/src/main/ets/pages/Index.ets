@@ -18,7 +18,7 @@ struct ClassListItem {
   @State opacity: number = 0;
   @State translateY: number = 20;
   @State scale: number = 1;
-  @Provide('pathInfos') pathInfos: NavPathStack = new NavPathStack();
+  @Consume('pathInfos') pathInfos: NavPathStack;
 
   build() {
     Row() {
@@ -367,7 +367,7 @@ struct UI {
 
                 ForEach(this.classList, (classInfo: ClassInfo, index: number) => {
                   ListItem() {
-                    ClassListItem({ classInfo: classInfo, index: index, pathInfos: this.pathInfos })
+                    ClassListItem({ classInfo: classInfo, index: index })
                   }
                   .width('100%')
                   .backgroundColor($r('app.color.class_button'))
