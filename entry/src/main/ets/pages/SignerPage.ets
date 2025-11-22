@@ -26,6 +26,14 @@ interface userMenu {
   SignPermission: number
 }
 
+// 定义主用户信息接口
+interface HostUserInfo {
+  cookies: string;
+  uid: number;
+  uname: string;
+  fid: number;
+}
+
 // 定义图片上传需要的 Token 接口
 interface CookiesTokenPUID {
   cookies: string
@@ -401,6 +409,7 @@ export struct SignPage {
   @State otherUserDialogIsShow: boolean = false
   @State objectidArr: string[] = []
   @State DestinationLocationName: string = '获取中...' // 初始状态
+  @State hostUser: HostUserInfo | null = null
 
   pathInfos: NavPathStack = new NavPathStack();
 
@@ -422,6 +431,19 @@ export struct SignPage {
 
     const cookies = currentUser.cookies;
     this.queryParams['activeId'] = this.activityInfo.ActivityId
+
+    // 初始化主用户信息用于手势和密码签到
+    try {
+      const loginInfo = await loginFunction.getUserInfo(cookies);
+      this.hostUser = {
+        cookies: cookies,
+        uid: loginInfo.uid,
+        uname: loginInfo.uname,
+        fid: parseInt(loginInfo.fid)
+      };
+    } catch (e) {
+      hilog.error(DOMAIN, TAG, `Failed to initialize host user: ${e.message}`);
+    }
 
     // 检查是否需要拍照
     this.ifPhoto = await Sign.ifPhoto(cookies, this.activityInfo.ActivityId)

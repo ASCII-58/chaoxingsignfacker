@@ -159,7 +159,7 @@ export struct PasswordSignComponent {
             Text(this.signResultMsg)
               .fontSize(16)
               .fontColor(this.isSignSuccess ? 
-                $r('sys.color.ohos_id_color_success') : 
+                $r('sys.color.ohos_id_color_emphasize') : 
                 $r('sys.color.ohos_id_color_warning'))
               .margin({ bottom: 20 })
           }

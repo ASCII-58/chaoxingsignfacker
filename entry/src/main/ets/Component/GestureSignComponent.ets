@@ -146,7 +146,7 @@ export struct GestureSignComponent {
 
           // 手势绘制区域
           Grid() {
-            ForEach(Array.from({ length: GESTURE_GRID_SIZE }, (_, i) => i), (index: number) => {
+            ForEach(Array.from<number, number>({ length: GESTURE_GRID_SIZE }, (_, i: number) => i), (index: number) => {
               GridItem() {
                 Circle({ width: 60, height: 60 })
                   .fill(this.gesturePoints[index] ? 
@@ -177,7 +177,7 @@ export struct GestureSignComponent {
             Text(this.signResultMsg)
               .fontSize(16)
               .fontColor(this.isSignSuccess ? 
-                $r('sys.color.ohos_id_color_success') : 
+                $r('sys.color.ohos_id_color_emphasize') : 
                 $r('sys.color.ohos_id_color_warning'))
               .margin({ bottom: 20 })
           }
