@@ -18,8 +18,6 @@ const DOMAIN = 0x0004;
 struct ClassListItem {
   @Prop classInfo: ClassInfo;
   @Prop index: number;
-  @State animOpacity: number = 0;
-  @State translateY: number = 20;
   @State animScale: number = 1;
   @Consume('pathInfos') pathInfos: NavPathStack;
 
@@ -45,16 +43,8 @@ struct ClassListItem {
     }
     .width('100%')
     .padding({ left: 5, right: 15 })
-    .opacity(this.animOpacity)
-    .translate({ y: this.translateY })
     .scale({ x: this.animScale, y: this.animScale })
     .animation({ duration: 200, curve: Curve.EaseInOut })
-    .onAppear(() => {
-      animateTo({ duration: 500, curve: Curve.EaseOut, delay: 400 + (this.index * 80) }, () => {
-        this.animOpacity = 1
-        this.translateY = 0
-      })
-    })
     .onTouch((event: TouchEvent) => {
       if (event.type === TouchType.Down) {
         this.animScale = 0.97
@@ -71,8 +61,6 @@ struct ClassIcon {
   @Prop imageurl: string;
   @State ImageData: image.PixelMap | null = null;
   @State isLoaded: boolean = false;
-  @State animOpacity: number = 0;
-  @State animScale: number = 0.8;
 
   build() {
     Column() {
@@ -83,15 +71,12 @@ struct ClassIcon {
         .borderWidth(3)
         .borderRadius(15)
         .margin(10)
-        .opacity(this.animOpacity)
-        .scale({ x: this.animScale, y: this.animScale })
+        .alt($r('app.media.foreground'))
         .onAppear(async () => {
-          this.ImageData = await loginFunction.GetPic(this.imageurl)
-          this.isLoaded = true
-          animateTo({ duration: 400, curve: Curve.EaseOut }, () => {
-            this.animOpacity = 1
-            this.animScale = 1
-          })
+          if (!this.isLoaded) {
+            this.ImageData = await loginFunction.GetPic(this.imageurl)
+            this.isLoaded = true
+          }
         })
     }
   }
@@ -105,10 +90,7 @@ struct OtherUserItem {
   @Link otherUserList: UserDataAndId[]
   @State userImage: image.PixelMap | null = null;
   @State userName: string = ''
-  @State isHovered: boolean = false;
   @State isLoaded: boolean = false;
-  @State animOpacity: number = 0;
-  @State translateX: number = -20;
   @State animScale: number = 1;
   private dbManger: DatabaseManager = DatabaseManager.getInstance()
 
@@ -121,6 +103,7 @@ struct OtherUserItem {
         .borderWidth(3)
         .borderRadius(15)
         .margin(10)
+        .alt($r('app.media.foreground'))
       Column() {
         Text(this.userName)
           .fontSize(20)
@@ -155,15 +138,12 @@ struct OtherUserItem {
 
     }
     .onAppear(async () => {
-      let userInfo = await loginFunction.getUserInfo(this.userData.cookies)
-      this.userName = userInfo.uname
-      this.userImage = await loginFunction.GetPic(userInfo.pic)
-      this.isLoaded = true
-      // Stagger animation based on index
-      animateTo({ duration: 500, curve: Curve.EaseOut, delay: this.index * 100 }, () => {
-        this.animOpacity = 1
-        this.translateX = 0
-      })
+      if (!this.isLoaded) {
+        let userInfo = await loginFunction.getUserInfo(this.userData.cookies)
+        this.userName = userInfo.uname
+        this.userImage = await loginFunction.GetPic(userInfo.pic)
+        this.isLoaded = true
+      }
     })
     .height(80)
     .width('100%')
@@ -175,8 +155,6 @@ struct OtherUserItem {
       offsetX: 0,
       offsetY: 3
     })
-    .opacity(this.animOpacity)
-    .translate({ x: this.translateX })
     .scale({ x: this.animScale, y: this.animScale })
     .animation({ duration: 200, curve: Curve.EaseInOut })
     .onTouch((event: TouchEvent) => {
@@ -206,10 +184,6 @@ struct UI {
   @State LoginURLIsSHow: boolean = false
   @State clickTime: number = 0
   @State otherUserList: UserDataAndId[] = []
-  @State searchOpacity: number = 0
-  @State searchScale: number = 0.9
-  @State headerOpacity: number = 0
-  @State headerTranslateY: number = -20
   @State qrButtonScale: number = 1
   @State selectorButtonScale: number = 1
   @State urlButtonScale: number = 1
@@ -345,20 +319,12 @@ struct UI {
                           offsetX: 0,
                           offsetY: 2
                         })
-                        .opacity(this.searchOpacity)
-                        .scale({ x: this.searchScale, y: this.searchScale })
                         // [End Search_start]
                         .onTouch((event: TouchEvent) => {
                           if (event.type === TouchType.Up) {
                             // set search animation
                             this.showSearchPage();
                           }
-                        })
-                        .onAppear(() => {
-                          animateTo({ duration: 500, curve: Curve.EaseOut, delay: 200 }, () => {
-                            this.searchOpacity = 1
-                            this.searchScale = 1
-                          })
                         })
                     }
                     .size({
@@ -385,7 +351,7 @@ struct UI {
                   .onClick(() => {
                     this.pathInfos.pushPath({ name: 'ActivityListPage', param: classInfo });
                   })
-                })
+                }, (classInfo: ClassInfo) => classInfo.id)
               }
               .height('100%')
               .width('100%')
@@ -464,14 +430,6 @@ struct UI {
                   color: '#00000025',
                   offsetX: 0,
                   offsetY: 4
-                })
-                .opacity(this.headerOpacity)
-                .translate({ y: this.headerTranslateY })
-                .onAppear(() => {
-                  animateTo({ duration: 600, curve: Curve.EaseOut, delay: 200 }, () => {
-                    this.headerOpacity = 1
-                    this.headerTranslateY = 0
-                  })
                 })
               }.width('100%')
               .justifyContent(FlexAlign.Start)
@@ -647,7 +605,7 @@ struct UI {
                       OtherUserItem({ userData: item, otherUserList: this.otherUserList, index: index })
                     }.width('100%')
                     .margin({ bottom: '2%' })
-                  })
+                  }, (item: UserDataAndId) => item.id.toString())
                 }
                 .margin({ top: '2%' })
                 .alignListItem(ListItemAlign.Center)
