@@ -15,6 +15,10 @@ import { pasteboard } from '@kit.BasicServicesKit';
 import { promptAction } from '@kit.ArkUI';
 import { GestureSignComponent } from '../Component/GestureSignComponent';
 import { PasswordSignComponent } from '../Component/PasswordSignComponent';
+import { scanBarcode, scanCore } from '@kit.ScanKit';
+
+import { BusinessError } from '@kit.BasicServicesKit';
+import UrlTools from '../utils/urlTools';
 
 const TAG = 'SignerPage';
 const DOMAIN = 0x0008;
@@ -72,7 +76,7 @@ struct Icon {
       try {
         const dbManager = DatabaseManager.getInstance()
         let userData: UserDataAndId | null = null
-        
+
         if (this.UserId === 0) {
           // ID=0 表示主用户，从 HostUser 表获取
           userData = await dbManager.getUserByPosition(1, true) as UserDataAndId;
@@ -80,7 +84,7 @@ struct Icon {
           // 其他用户从 OtherUser 表获取
           userData = await dbManager.getUserByPosition(this.UserId, false) as UserDataAndId;
         }
-        
+
         if (userData) {
           const url = (await loginFunction.getUserInfo(userData.cookies)).pic
           this.ImageData = await loginFunction.GetPic(url) as image.PixelMap
@@ -213,7 +217,7 @@ struct photoPicker {
       })
       return
     }
-    
+
     const selectedUsers = this.otherUser.filter(u => this.signIdArray.includes(u.id));
     const userNames = selectedUsers.map(u => u.uname).join('、');
 
@@ -247,7 +251,7 @@ struct photoPicker {
       this.signerInfoArr = await Promise.all(
         this.signIdArray.map(async userId => {
           let info: CookiesTokenPUID = { cookies: '', Token: '', PUID: '' }
-          
+
           if (userId === 0) {
             // 主用户
             info.cookies = ((await dbManager.getUserByPosition(1, true)) as UserDataAndId).cookies
@@ -255,7 +259,7 @@ struct photoPicker {
             // 其他用户
             info.cookies = ((await dbManager.getUserByPosition(userId)) as UserDataAndId).cookies
           }
-          
+
           info.PUID = (await loginFunction.getUserInfo(info.cookies)).puid
           info.Token = await Sign.GetToken(info.cookies)
           return info
@@ -316,16 +320,16 @@ struct photoPicker {
   private async uploadPhoto(context: Context, uploadConfig: request.UploadConfig, signIndex: number) {
     try {
       const task = await request.uploadFile(context, uploadConfig)
-      
+
       task.on("fail", (event) => {
         hilog.error(DOMAIN, TAG, `Upload failed for index ${signIndex}`, JSON.stringify(event))
         promptAction.showToast({ message: `图片 ${signIndex + 1} 上传失败`, duration: 2000 })
-        
+
         // 更新完成计数
         this.uploadCompletedCount++
         const uploadedCount = this.objectidArray.filter(id => id).length
         this.uploadStatus = `上传失败 (${uploadedCount}/${this.uploadTotalCount})`
-        
+
         // 检查是否所有上传都已完成
         if (this.uploadCompletedCount >= this.uploadTotalCount) {
           this.isUploading = false
@@ -334,13 +338,13 @@ struct photoPicker {
           }
         }
       })
-      
+
       task.on('complete', () => {
         // 更新完成计数
         this.uploadCompletedCount++
         const uploadedCount = this.objectidArray.filter(id => id).length
         this.uploadStatus = `已上传 ${uploadedCount}/${this.uploadTotalCount}`
-        
+
         // 检查是否所有上传都已完成
         if (this.uploadCompletedCount >= this.uploadTotalCount) {
           this.isUploading = false
@@ -350,17 +354,17 @@ struct photoPicker {
           }
         }
       })
-      
+
       task.on('headerReceive', (value) => {
         if (value && value['body']) {
           try {
             const bodyObj = JSON.parse(value['body']) as object
             this.objectidArray[signIndex] = bodyObj['objectId'] as string
-            
+
             // 更新上传状态
             const uploadedCount = this.objectidArray.filter(id => id).length
             this.uploadStatus = `已上传 ${uploadedCount}/${this.uploadTotalCount}`
-            
+
             console.info(`Photo ${signIndex + 1} uploaded successfully`)
           } catch (e) {
             hilog.error(DOMAIN, TAG, 'Failed to parse upload response', e)
@@ -370,12 +374,12 @@ struct photoPicker {
     } catch (e) {
       hilog.error(DOMAIN, TAG, "Upload task creation failed", e)
       promptAction.showToast({ message: `图片 ${signIndex + 1} 上传失败`, duration: 2000 })
-      
+
       // 更新完成计数
       this.uploadCompletedCount++
       const uploadedCount = this.objectidArray.filter(id => id).length
       this.uploadStatus = `上传失败 (${uploadedCount}/${this.uploadTotalCount})`
-      
+
       // 检查是否所有上传都已完成
       if (this.uploadCompletedCount >= this.uploadTotalCount) {
         this.isUploading = false
@@ -451,7 +455,7 @@ export struct SignPage {
     // 如果是位置签到，获取位置信息
     if (this.activityInfo.signType === SignType.LOCATION) {
       try {
-        const locName = await Sign.GetLocationSignInfo(cookies, this.activityInfo.ActivityId)
+        const locName = (await Sign.GetLocationSignInfo(cookies, this.activityInfo.ActivityId))['locationText'] as string
         this.DestinationLocationName = locName ? locName : '该签到无要求位置'
       } catch (e) {
         this.DestinationLocationName = '位置信息获取失败'
@@ -528,7 +532,7 @@ export struct SignPage {
       })
       return
     }
-    
+
     const selectedUsers = this.otherUser.filter(u => this.signIdArray.includes(u.id));
     const userNames = selectedUsers.map(u => u.uname).join('、');
 
@@ -556,13 +560,88 @@ export struct SignPage {
       promptAction.showToast({ message: '请等待图片上传完成' })
       return
     }
-    
+
     if (this.signIdArray.length === 0) {
       promptAction.showToast({ message: '请选择至少一个用户' })
       return
     }
-    
+
     this.canSign = false
+    if (this.activityInfo?.signType === SignType.QRCODE) {
+      const dbManager = DatabaseManager.getInstance()
+      // 获取当前用户信息
+      const currentUser = await dbManager.getUserByPosition(1, true) as UserDataAndId;
+
+      if (!this.activityInfo || !currentUser) return;
+
+      const cookies = currentUser.cookies;
+      let loc = await Sign.GetLocationSignInfo(cookies, this.activityInfo.ActivityId)
+      this.queryParams['address'] = loc['locationText'] as string;
+      this.queryParams['longitude'] = loc['longitude'] as number;
+      this.queryParams['latitude'] = loc['latitude'] as number;
+      let options: scanBarcode.ScanOptions = {
+        scanTypes: [scanCore.ScanType.ALL],
+        enableMultiMode: true,
+        enableAlbum: true
+      };
+      try {
+        // 可调用getHostContext接口获取当前页面关联的Context
+        if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
+          scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
+            .then(async (result: scanBarcode.ScanResult) => {
+              if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
+
+              } else {
+                promptAction.openToast({ message: '权限错误' })
+              }
+              let url = result.originalValue
+              let parse = UrlTools.parseUrlParams(url)
+              this.queryParams['enc'] = parse['enc']
+              // 解析码值结果跳转应用服务页
+              hilog.info(0x0001, '[Scan CPSample]',
+                `Succeeded in getting ScanResult by promise with options, result is ${JSON.stringify(result)}`);
+            })
+            .catch((error: BusinessError) => {
+              hilog.error(0x0001, '[Scan CPSample]',
+                `Failed to get ScanResult by promise with options. Code:${error.code}, message: ${error.message}`);
+            });
+          const hashTable = new Map<string, string[]>();
+          const dbManager = DatabaseManager.getInstance()
+
+          // 遍历所有选中的用户进行签到
+          for (let i = 0; i < this.signIdArray.length; i++) {
+            try {
+              const userId = this.signIdArray[i]
+              let userInfo: UserDataAndId
+              let isMainUser = false
+
+              if (userId === 0) {
+                // id 为 0 表示主用户
+                userInfo = await dbManager.getUserByPosition(1, true) as UserDataAndId
+                isMainUser = true
+              } else {
+                // 其他用户
+                userInfo = await dbManager.getUserByPosition(userId) as UserDataAndId
+                isMainUser = false
+              }
+
+              await this.performSingleSign(userInfo, this.objectidArr[i], hashTable, isMainUser)
+            } catch (e) {
+              hilog.error(DOMAIN, TAG, `User ${this.signIdArray[i]} sign error`, e)
+            }
+          }
+
+          this.showSignResult(hashTable);
+          this.canSign = true
+          return
+        } else {
+          // Fallback for unsupported SystemCapability
+        }
+      } catch (error) {
+        hilog.error(0x0001, '[Scan CPSample]',
+          `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
+      }
+    }
     const hashTable = new Map<string, string[]>();
     const dbManager = DatabaseManager.getInstance()
 
@@ -572,7 +651,7 @@ export struct SignPage {
         const userId = this.signIdArray[i]
         let userInfo: UserDataAndId
         let isMainUser = false
-        
+
         if (userId === 0) {
           // id 为 0 表示主用户
           userInfo = await dbManager.getUserByPosition(1, true) as UserDataAndId
@@ -582,7 +661,7 @@ export struct SignPage {
           userInfo = await dbManager.getUserByPosition(userId) as UserDataAndId
           isMainUser = false
         }
-        
+
         await this.performSingleSign(userInfo, this.objectidArr[i], hashTable, isMainUser)
       } catch (e) {
         hilog.error(DOMAIN, TAG, `User ${this.signIdArray[i]} sign error`, e)
@@ -705,11 +784,18 @@ export struct SignPage {
                 Text(user.uname)
                   .fontSize(14)
                   .fontColor($r('sys.color.ohos_id_color_text_primary'))
+
               }
               .padding({ left: 12, right: 12, top: 6, bottom: 6 })
               .backgroundColor($r('sys.color.ohos_id_color_emphasize', 0.1))
               .borderRadius(16)
-              .margin({ right: 8, bottom: 8 })
+              .margin({ right: 8, bottom: 8 }).onClick(() => {
+                if (this.signIdArray.includes(user.id)) {
+                  this.signIdArray = this.signIdArray.filter(num => num !== user.id)
+                } else {
+                  this.signIdArray.push(user.id)
+                }
+              })
             })
           })
         }
@@ -859,12 +945,11 @@ export struct SignPage {
     .width('100%')
   }
 
+
   build() {
     NavDestination() {
       if (this.activityInfo) {
         Column() {
-          // 1. 滚动内容区
-          Scroll() {
             Column() {
               // 标题
               Text('签到详情')
@@ -880,8 +965,8 @@ export struct SignPage {
               // 根据类型渲染不同内容
               if (this.activityInfo?.signType === SignType.NORMAL) {
                 if (this.ifPhoto) {
-                  photoPicker({ 
-                    signIdArray: this.signIdArray, 
+                  photoPicker({
+                    signIdArray: this.signIdArray,
                     objectidArray: this.objectidArr,
                     otherUserDialogIsShow: this.otherUserDialogIsShow,
                     otherUser: this.otherUser
@@ -899,22 +984,16 @@ export struct SignPage {
               } else if (this.activityInfo?.signType === SignType.GESTURE) {
                 // 手势签到 - 只允许单用户签到
                 this.GestureSignCard()
-              } else if (this.activityInfo?.signType === SignType.PASSWORD) {
-                // 签到码签到 - 只允许单用户签到
-                this.PasswordSignCard()
-              } else {
+              } else if (this.activityInfo.signType === SignType.QRCODE) {
+              }else {
                 Text('未支持的签到类型')
                   .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
                   .margin(32)
               }
-            }
-          }
-          .layoutWeight(1) // 占据剩余高度
-          .width('100%')
-          .align(Alignment.Top)
+            }.width('100%').height('65%')
 
           // 2. 底部按钮区 (固定) - 手势签到和密码签到不显示底部按钮
-          if (this.activityInfo?.signType !== SignType.GESTURE && 
+          if (this.activityInfo?.signType !== SignType.GESTURE &&
               this.activityInfo?.signType !== SignType.PASSWORD) {
             Column() {
               Button('立即签到')

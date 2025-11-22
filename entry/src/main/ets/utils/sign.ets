@@ -120,7 +120,7 @@ export class Sign {
     }
   }
 
-  static async GetLocationSignInfo(cookies: string, activeId: string): Promise<string> {
+  static async GetLocationSignInfo(cookies: string, activeId: string): Promise<object> {
     const httpRequest = http.createHttp()
     const url = ChaoXingApi.URL_GET_LOCATION_SIGN_INFO.buildUrl({ 'activeId': activeId }).toString()
     try {
@@ -129,10 +129,10 @@ export class Sign {
         header: {"Cookie":cookies}
       })
       const body = JSON.parse(result.result as string) as object
-      return body?.['data']?.['locationText'] as string
+      return body?.['data'] as object
     }catch (e){
       hilog.error(DOMAIN, TAG, `Get location sign info failed: ${e.message}`);
-      return ''
+      return JSON.parse('{}') as object
     }finally {
       httpRequest.destroy()
     }
