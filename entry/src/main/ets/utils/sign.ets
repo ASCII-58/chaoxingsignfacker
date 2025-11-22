@@ -276,10 +276,10 @@ export class Sign {
       })
       const jsonResult = JSON.parse(result.result as string) as object
       return {
-        signInId: jsonResult?.['signInId'] as number || 0,
-        signOutId: jsonResult?.['signOutId'] as number || 0,
-        signOutPublishTimeStamp: jsonResult?.['signOutPublishTimeStamp'] as number || -1,
-        numberCount: jsonResult?.['numberCount'] as number || 0
+        signInId: (jsonResult?.['signInId'] as number) ?? 0,
+        signOutId: (jsonResult?.['signOutId'] as number) ?? 0,
+        signOutPublishTimeStamp: (jsonResult?.['signOutPublishTimeStamp'] as number) ?? -1,
+        numberCount: (jsonResult?.['numberCount'] as number) ?? 0
       } as SignInfoResult
     } catch (e) {
       hilog.error(DOMAIN, TAG, `Get sign info failed: ${e.message}`);
@@ -320,11 +320,12 @@ export class Sign {
   /**
    * 手势签到或签到码签到
    * @param cookies 用户 Cookie
-   * @param queryParams 查询参数
+   * @param queryParams 查询参数（包含 activeId, uid, name, fid, latitude, longitude）
    * @param signCode 签到码或手势顺序码
    * @returns 签到结果
    */
   static async DoSignWithCode(cookies: string, queryParams: object, signCode: string): Promise<string> {
+    // 分两次调用 buildUrl：先添加基础参数，再添加签到特定参数（deviceCode 和 signCode）
     const url = ChaoXingApi.URL_SIGN.buildUrl(queryParams).buildUrl({
       deviceCode: ChaoxingUtils.generateUUIDv4(),
       signCode: signCode
@@ -372,6 +373,25 @@ export class Sign {
     } finally {
       httpRequest.destroy()
     }
+  }
+
+  /**
+   * 构建签到查询参数对象
+   * @param activeId 活动ID
+   * @param uid 用户ID
+   * @param name 用户名
+   * @param fid 学校ID
+   * @returns 查询参数对象
+   */
+  static buildSignQueryParams(activeId: string, uid: number, name: string, fid: number): object {
+    return {
+      activeId: activeId,
+      uid: uid,
+      name: name,
+      fid: fid,
+      latitude: '',
+      longitude: ''
+    };
   }
 }
 

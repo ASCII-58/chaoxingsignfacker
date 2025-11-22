@@ -66,14 +66,12 @@ export struct PasswordSignComponent {
         return;
       }
 
-      const queryParams = {
-        activeId: this.activityId,
-        uid: this.uid,
-        name: this.uname,
-        fid: this.fid,
-        latitude: '',
-        longitude: ''
-      };
+      const queryParams = Sign.buildSignQueryParams(
+        this.activityId,
+        this.uid,
+        this.uname,
+        this.fid
+      );
 
       const result = await Sign.DoSignWithCode(this.cookies, queryParams, this.signCode);
       

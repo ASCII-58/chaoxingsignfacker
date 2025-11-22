@@ -4,6 +4,7 @@ import { promptAction } from '@kit.ArkUI';
 
 const TAG = 'GestureSignComponent';
 const DOMAIN = 0x0009;
+const GESTURE_GRID_SIZE = 9; // 手势网格大小（3x3）
 
 /**
  * 手势签到组件
@@ -24,7 +25,7 @@ export struct GestureSignComponent {
   @State gesturePattern: number[] = []; // 手势顺序
   @State isSignSuccess: boolean = false;
   @State signResultMsg: string = '';
-  @State gesturePoints: boolean[] = Array(9).fill(false);
+  @State gesturePoints: boolean[] = Array(GESTURE_GRID_SIZE).fill(false);
 
   async aboutToAppear() {
     await this.loadSignInfo();
@@ -54,7 +55,7 @@ export struct GestureSignComponent {
   }
 
   resetGesture() {
-    this.gesturePoints = Array(9).fill(false);
+    this.gesturePoints = Array(GESTURE_GRID_SIZE).fill(false);
     this.gesturePattern = [];
     this.signResultMsg = '';
   }
@@ -77,14 +78,12 @@ export struct GestureSignComponent {
         return;
       }
 
-      const queryParams = {
-        activeId: this.activityId,
-        uid: this.uid,
-        name: this.uname,
-        fid: this.fid,
-        latitude: '',
-        longitude: ''
-      };
+      const queryParams = Sign.buildSignQueryParams(
+        this.activityId,
+        this.uid,
+        this.uname,
+        this.fid
+      );
 
       const result = await Sign.DoSignWithCode(this.cookies, queryParams, gestureCode);
       
@@ -147,7 +146,7 @@ export struct GestureSignComponent {
 
           // 手势绘制区域
           Grid() {
-            ForEach([0, 1, 2, 3, 4, 5, 6, 7, 8], (index: number) => {
+            ForEach(Array.from({ length: GESTURE_GRID_SIZE }, (_, i) => i), (index: number) => {
               GridItem() {
                 Circle({ width: 60, height: 60 })
                   .fill(this.gesturePoints[index] ? 
