@@ -47,7 +47,7 @@ struct Icon {
           .height(48)
           .borderRadius(24) // 圆形
           .objectFit(ImageFit.Cover)
-          .border({ width: 1, color: $r('sys.color.ohos_id_color_separator') }) // 系统分割线颜色
+          .border({ width: 1, color: $r('sys.color.comp_divider') }) // 系统分割线颜色
       } else {
         // 加载占位图
         Circle({ width: 48, height: 48 })
@@ -155,7 +155,7 @@ struct photoPicker {
       Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
         ForEach(this.signIdArray, (signId: number, index: number) => {
           Circle({ width: 8, height: 8 })
-            .fill(this.objectidArray[index] ? $r('sys.color.ohos_id_color_success') : $r('sys.color.ohos_id_color_warning'))
+            .fill(this.objectidArray[index] ? $r('sys.color.ohos_id_color_connected') : $r('sys.color.ohos_id_color_warning'))
             .margin(4)
         })
       }
@@ -673,16 +673,9 @@ export struct SignPage {
           .fontColor($r('sys.color.ohos_id_color_warning'))
           .padding(12)
       } else {
-        // 创建 Map 以优化查找性能 O(1)
-        // 注意：虽然在 build 方法中创建 Map 会在每次渲染时重新创建，
-        // 但由于用户列表变化不频繁且数量通常较小，这种开销是可接受的
-        const userMap = new Map<number, userMenu>()
-        this.otherUser.forEach(u => userMap.set(u.id, u))
-        
         Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap }) {
           ForEach(this.signIdArray, (userId: number) => {
-            const user = userMap.get(userId)
-            if (user) {
+            ForEach(this.otherUser.filter(u => u.id === userId), (user: userMenu) => {
               Row() {
                 Text(user.uname)
                   .fontSize(14)
@@ -692,7 +685,7 @@ export struct SignPage {
               .backgroundColor($r('sys.color.ohos_id_color_emphasize', 0.1))
               .borderRadius(16)
               .margin({ right: 8, bottom: 8 })
-            }
+            })
           })
         }
       }
@@ -738,7 +731,7 @@ export struct SignPage {
       .padding(12)
       .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
       .borderRadius(12)
-      .border({ width: 1, color: $r('sys.color.ohos_id_color_separator') })
+      .border({ width: 1, color: $r('sys.color.comp_divider') })
 
       // 已选坐标展示
       if (this.queryParams?.['address']) {
@@ -870,8 +863,7 @@ export struct SignPage {
     }
     .hideTitleBar(false)
     .title('签到', {
-      backgroundColor: $r('sys.color.ohos_id_color_background'),
-      mainTitleCss: { color: $r('sys.color.ohos_id_color_text_primary') }
+      backgroundColor: $r('sys.color.ohos_id_color_background')
     })
     .onReady((ctx: NavDestinationContext) => {
       this.pathInfos = ctx.pathStack;
