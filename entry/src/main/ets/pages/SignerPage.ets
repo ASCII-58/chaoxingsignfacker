@@ -176,16 +176,26 @@ struct photoPicker {
 
   // 显示图片选择确认对话框
   private showPhotoConfirmDialog() {
+    if (this.signIdArray.length === 0) {
+      AlertDialog.show({
+        title: '提示',
+        message: '请先选择至少一个用户',
+        confirm: {
+          value: '知道了',
+          action: () => {
+            this.otherUserDialogIsShow = true
+          }
+        }
+      })
+      return
+    }
+    
     const selectedUsers = this.otherUser.filter(u => this.signIdArray.includes(u.id));
     const userNames = selectedUsers.map(u => u.uname).join('、');
-    
-    const message = selectedUsers.length > 0 
-      ? `将为以下用户上传图片：\n${userNames}\n\n是否继续？`
-      : '未选择任何用户，是否继续？';
 
     AlertDialog.show({
       title: '确认上传图片',
-      message: message,
+      message: `将为以下用户上传图片：\n${userNames}\n\n是否继续？`,
       primaryButton: {
         value: '修改用户',
         action: () => {
@@ -396,16 +406,26 @@ export struct SignPage {
 
   // 3. 逻辑方法：显示签到确认对话框
   private showSignConfirmDialog() {
+    if (this.signIdArray.length === 0) {
+      AlertDialog.show({
+        title: '提示',
+        message: '请先选择至少一个用户',
+        confirm: {
+          value: '知道了',
+          action: () => {
+            this.otherUserDialogIsShow = true
+          }
+        }
+      })
+      return
+    }
+    
     const selectedUsers = this.otherUser.filter(u => this.signIdArray.includes(u.id));
     const userNames = selectedUsers.map(u => u.uname).join('、');
-    
-    const message = selectedUsers.length > 0 
-      ? `即将为以下用户签到：\n${userNames}\n\n是否继续？`
-      : '未选择任何用户，是否继续？';
 
     AlertDialog.show({
       title: '确认签到',
-      message: message,
+      message: `即将为以下用户签到：\n${userNames}\n\n是否继续？`,
       primaryButton: {
         value: '修改用户',
         action: () => {
