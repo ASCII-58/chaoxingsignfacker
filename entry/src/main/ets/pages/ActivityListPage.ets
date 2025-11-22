@@ -24,6 +24,7 @@ export enum SignType {
 struct signIcon {
   @Prop signType: string;
   @State icon: ResourceStr = $r('app.media.foreground')
+  @State isLoaded: boolean = false
 
   // 位置签到、二维码签到、普通签到、签到
   build() {
@@ -35,6 +36,13 @@ struct signIcon {
         .borderWidth(3)
         .borderRadius(10)
         .margin(10)
+        .backgroundColor('#aaaaaa')
+        .opacity(this.isLoaded ? 1 : 0)
+        .scale({ x: this.isLoaded ? 1 : 0.8, y: this.isLoaded ? 1 : 0.8 })
+        .animation({
+          duration: 300,
+          curve: Curve.FastOutSlowIn
+        })
         .onAppear(() => {
           if (this.signType === '4') {
             this.icon = $r('app.media.map_badge_local')
@@ -45,8 +53,13 @@ struct signIcon {
           if (this.signType === '0') {
             this.icon = $r('app.media.hand_tap')
           }
+          animateTo({
+            duration: 300,
+            curve: Curve.FastOutSlowIn
+          }, () => {
+            this.isLoaded = true
+          })
         })
-        .backgroundColor('#aaaaaa')
     }
   }
 }
@@ -75,22 +88,26 @@ export struct ActivityListPage {
     NavDestination() {
       if (this.ActivityList) {
         List({ space: 12, initialIndex: 0 }) {
-          ForEach(this.ActivityList, (Activity: ActivityItem) => {
+          ForEach(this.ActivityList, (Activity: ActivityItem, index: number) => {
             if (!(Activity.type != 2 && Activity.type != 74)) {
               ListItem() {
                 Row() {
                   signIcon({ signType: Activity.otherId.toString() })
                   if (1) {
                     Column() {
-                      Text(Activity.nameOne).fontSize(20)
+                      Text(Activity.nameOne).fontSize(20).fontWeight(FontWeight.Medium)
                       if (typeof Activity.endTime === 'string') {
                         Text(ChaoxingUtils.isSignActivityStarted(Activity.startTime) ? '无截止日期' :
                           `${ChaoxingUtils.getRemainingTime(Activity.startTime) / 60000 << 0}分钟开始签到`)
+                          .fontSize(12)
+                          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
                       } else {
                         Text(ChaoxingUtils.isSignActivityActive(Activity.startTime, Activity.endTime) ?
                           (`${ChaoxingUtils.getRemainingTime(Activity.endTime) / 60000 << 0}分钟后结束`) :
                           (ChaoxingUtils.isSignActivityEnded(Activity.endTime) ? '已结束' :
                             `${ChaoxingUtils.getRemainingTime(Activity.startTime) / 60000 << 0}分钟后开始签到`))
+                          .fontSize(12)
+                          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
                       }
                     }.width(100)
                   }
@@ -105,6 +122,19 @@ export struct ActivityListPage {
                   $r('app.color.class_button_disabled')))
               .height(70)
               .borderRadius(20)
+              .shadow({
+                radius: 8,
+                color: '#00000015',
+                offsetX: 0,
+                offsetY: 2
+              })
+              .transition(TransitionEffect.asymmetric(
+                TransitionEffect.OPACITY
+                  .combine(TransitionEffect.translate({ y: 30 }))
+                  .animation({ duration: 300, delay: index * 50, curve: Curve.FastOutSlowIn }),
+                TransitionEffect.OPACITY
+                  .animation({ duration: 200 })
+              ))
               .onClick(() => {
                 if (typeof Activity.endTime === 'number') {
                   if (!ChaoxingUtils.isSignActivityActive(Activity.startTime, Activity.endTime) ||
@@ -119,7 +149,12 @@ export struct ActivityListPage {
                   ClassId: this.classId,
                   signType: Activity.otherId.toString() as SignType
                 }
-                this.pathInfos.pushPath({ name: 'SignerPage', param: activityInfo })
+                animateTo({
+                  duration: 250,
+                  curve: Curve.FastOutSlowIn
+                }, () => {
+                  this.pathInfos.pushPath({ name: 'SignerPage', param: activityInfo })
+                })
               })
             }
           })
