@@ -361,7 +361,7 @@ export struct SignPage {
     this.canSign = true
   }
 
-  private async performSingleSign(userInfo: UserDataAndId, photoObjId: string | undefined, map: Map<string, string[]>, isMainUser: boolean = false) {
+  private async performSingleSign(userInfo: UserDataAndId, photoObjId: string | undefined, map: Map<string, string[]>, isMainUser: boolean) {
     const loginInfo = await loginFunction.getUserInfo(userInfo.cookies)
 
     this.queryParams['uid'] = userInfo.uid
