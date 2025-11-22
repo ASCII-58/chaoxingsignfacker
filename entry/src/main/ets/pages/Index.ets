@@ -26,21 +26,9 @@ struct ClassIcon {
         .borderWidth(3)
         .borderRadius(15)
         .margin(10)
-        .opacity(this.isLoaded ? 1 : 0)
-        .scale({ x: this.isLoaded ? 1 : 0.5, y: this.isLoaded ? 1 : 0.5 })
-        .rotate({ angle: this.isLoaded ? 0 : -10 })
-        .animation({
-          duration: 500,
-          curve: curves.springMotion(0.6, 0.9)
-        })
         .onAppear(async () => {
           this.ImageData = await loginFunction.GetPic(this.imageurl)
-          animateTo({
-            duration: 500,
-            curve: curves.springMotion(0.6, 0.9)
-          }, () => {
-            this.isLoaded = true
-          })
+          this.isLoaded = true
         })
     }
   }
@@ -67,13 +55,6 @@ struct OtherUserItem {
         .borderWidth(3)
         .borderRadius(15)
         .margin(10)
-        .scale({ x: this.isLoaded ? 1 : 0.8, y: this.isLoaded ? 1 : 0.8 })
-        .opacity(this.isLoaded ? 1 : 0)
-        .animation({
-          duration: 400,
-          delay: this.index * 60,
-          curve: curves.springMotion(0.6, 0.9)
-        })
       Column() {
         Text(this.userName)
           .fontSize(20)
@@ -92,15 +73,10 @@ struct OtherUserItem {
       Button('删除')
         .backgroundColor($r('sys.color.warning'))
         .onClick(async () => {
-          animateTo({
-            duration: 300,
-            curve: curves.springMotion(0.6, 1.0)
-          }, async () => {
-            let result = await this.dbManger.deleteUser(this.userData.id)
-            if (result === 1) {
-              this.otherUserList.splice(this.index, 1)
-            }
-          })
+          let result = await this.dbManger.deleteUser(this.userData.id)
+          if (result === 1) {
+            this.otherUserList.splice(this.index, 1)
+          }
         })
         .width(100)
         .height('100%')
@@ -116,35 +92,17 @@ struct OtherUserItem {
       let userInfo = await loginFunction.getUserInfo(this.userData.cookies)
       this.userName = userInfo.uname
       this.userImage = await loginFunction.GetPic(userInfo.pic)
-      animateTo({
-        duration: 400,
-        delay: this.index * 60,
-        curve: curves.springMotion(0.6, 0.9)
-      }, () => {
-        this.isLoaded = true
-      })
+      this.isLoaded = true
     })
     .height(80)
     .width('100%')
     .borderRadius(20)
     .backgroundColor($r('app.color.class_button'))
     .shadow({
-      radius: this.isHovered ? 16 : 8,
-      color: this.isHovered ? '#00000030' : '#00000020',
+      radius: 8,
+      color: '#00000020',
       offsetX: 0,
-      offsetY: this.isHovered ? 6 : 3
-    })
-    .scale({ x: this.isHovered ? 1.03 : 1, y: this.isHovered ? 1.03 : 1 })
-    .animation({
-      duration: 250,
-      curve: curves.springMotion(0.6, 0.9)
-    })
-    .onTouch((event: TouchEvent) => {
-      if (event.type === TouchType.Down) {
-        this.isHovered = true
-      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-        this.isHovered = false
-      }
+      offsetY: 3
     })
   }
 }
