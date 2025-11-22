@@ -141,7 +141,7 @@ export default struct SearchLongTakeTransitionPageTwo {
     }
   }
 
-  handleCourseClick(course: ClassInfo) {
+  handleCourseClick(course: ClassInfo): void {
     // 返回上一页并传递选中的课程信息
     promptAction.showToast({ 
       message: `已选择: ${course.name}`, 
