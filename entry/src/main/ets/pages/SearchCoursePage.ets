@@ -34,6 +34,7 @@ export function init() {
 @Component
 struct CourseItem {
   @Prop course: ClassInfo
+  @Prop index: number
   @State courseImage: image.PixelMap | null = null
   @State isPressed: boolean = false
   @State opacity: number = 0
@@ -97,11 +98,11 @@ struct CourseItem {
       }
     })
     .onAppear(async () => {
-      // Staggered animation for list items
+      // Staggered animation for list items - each item animates with a delay based on its index
       animateTo({
         duration: 400,
         curve: curves.springMotion(0.6, 0.8),
-        delay: 0
+        delay: this.index * 50
       }, () => {
         this.opacity = 1
         this.translateY = 0
@@ -289,6 +290,7 @@ export default struct SearchLongTakeTransitionPageTwo {
                 ListItem() {
                   CourseItem({ 
                     course: course,
+                    index: index,
                     onCourseClick: (c: ClassInfo) => this.handleCourseClick(c)
                   })
                 }
