@@ -11,6 +11,27 @@ export struct loginByCommon {
   @State password: string = '';
   @State LoginEnable: boolean = false
   @Link isShow: boolean
+  @State commonTranslateY: number = 0
+  @State commonScale: number = 1
+
+  // Trigger shake animation for error feedback
+  private triggerShakeAnimation() {
+    animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+      this.commonTranslateY = 10
+      this.commonScale = 0.98
+    })
+    setTimeout(() => {
+      animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+        this.commonTranslateY = -10
+      })
+      setTimeout(() => {
+        animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+          this.commonTranslateY = 0
+          this.commonScale = 1
+        })
+      }, 100)
+    }, 100)
+  }
 
   build() {
     Column() {
@@ -134,6 +155,7 @@ export struct loginByCommon {
                     (e.message.includes("手机号已存在，请使用其他手机号") ? ', 该账号已添加' : ''),
                   duration: 2000
                 })
+                this.triggerShakeAnimation()
                 return
               }
             }
@@ -145,12 +167,15 @@ export struct loginByCommon {
             });
             this.username = '';
             this.password = '';
+            this.triggerShakeAnimation()
           }
         })
         .margin({ bottom: 20 })
     }
     .width('100%')
     .justifyContent(FlexAlign.Center)
+    .translate({ y: this.commonTranslateY })
+    .scale({ x: this.commonScale, y: this.commonScale })
   }
 }
 
@@ -161,6 +186,27 @@ export struct loginByURL {
   @State LoginURL: string = '';
   @State LoginEnable: boolean = false
   @Link isShow: boolean
+  @State urlTranslateY: number = 0
+  @State urlScale: number = 1
+
+  // Trigger shake animation for error feedback
+  private triggerShakeAnimation() {
+    animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+      this.urlTranslateY = 10
+      this.urlScale = 0.98
+    })
+    setTimeout(() => {
+      animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+        this.urlTranslateY = -10
+      })
+      setTimeout(() => {
+        animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+          this.urlTranslateY = 0
+          this.urlScale = 1
+        })
+      }, 100)
+    }, 100)
+  }
 
   build() {
     Column() {
@@ -216,13 +262,14 @@ export struct loginByURL {
           } else {
             this.LoginURL = '';
             this.LoginEnable = false
-            this.urlTranslateY = 45
-            this.urlScale = 0.9
+            this.triggerShakeAnimation()
           }
         })
         .margin({ bottom: 20 })
     }
     .width('100%')
     .justifyContent(FlexAlign.Center)
+    .translate({ y: this.urlTranslateY })
+    .scale({ x: this.urlScale, y: this.urlScale })
   }
 }
