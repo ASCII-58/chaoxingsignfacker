@@ -50,6 +50,15 @@ export interface UserQueryObject {
   name: string;
 }
 
+export interface SignQueryParams {
+  activeId: string;
+  uid: number;
+  name: string;
+  fid: number;
+  latitude: string;
+  longitude: string;
+}
+
 export class Sign {
   static async DoPreSignIn(activePrimaryId: number, classId: number, courseId: number, cookies: string) {
     const httpRequest = http.createHttp()
@@ -283,7 +292,7 @@ export class Sign {
       } as SignInfoResult
     } catch (e) {
       hilog.error(DOMAIN, TAG, `Get sign info failed: ${e.message}`);
-      throw e
+      throw new Error(`Get sign info failed: ${e.message}`)
     } finally {
       httpRequest.destroy()
     }
@@ -369,7 +378,7 @@ export class Sign {
       return result.result.toString()
     } catch (e) {
       hilog.error(DOMAIN, TAG, `Sign out failed: ${e.message}`);
-      throw e
+      throw new Error(`Sign out failed: ${e.message}`)
     } finally {
       httpRequest.destroy()
     }
@@ -383,7 +392,7 @@ export class Sign {
    * @param fid 学校ID
    * @returns 查询参数对象
    */
-  static buildSignQueryParams(activeId: string, uid: number, name: string, fid: number): object {
+  static buildSignQueryParams(activeId: string, uid: number, name: string, fid: number): SignQueryParams {
     return {
       activeId: activeId,
       uid: uid,
