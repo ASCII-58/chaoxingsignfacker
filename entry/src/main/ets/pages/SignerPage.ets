@@ -58,7 +58,16 @@ struct Icon {
     .onAppear(async () => {
       try {
         const dbManager = DatabaseManager.getInstance()
-        const userData = await dbManager.getUserByPosition(this.UserId, false) as UserDataAndId;
+        let userData: UserDataAndId | null = null
+        
+        if (this.UserId === 0) {
+          // ID=0 表示主用户，从 HostUser 表获取
+          userData = await dbManager.getUserByPosition(1, true) as UserDataAndId;
+        } else {
+          // 其他用户从 OtherUser 表获取
+          userData = await dbManager.getUserByPosition(this.UserId, false) as UserDataAndId;
+        }
+        
         if (userData) {
           const url = (await loginFunction.getUserInfo(userData.cookies)).pic
           this.ImageData = await loginFunction.GetPic(url) as image.PixelMap
@@ -145,9 +154,6 @@ struct photoPicker {
             .fill(this.objectidArray[index] ? $r('sys.color.ohos_id_color_success') : $r('sys.color.ohos_id_color_warning'))
             .margin(4)
         })
-        Circle({ width: 8, height: 8 })
-          .fill(this.objectidArray[this.signIdArray.length] ? $r('sys.color.ohos_id_color_success') : $r('sys.color.ohos_id_color_warning'))
-          .margin(4)
       }
       .padding(10)
       .width('100%')
