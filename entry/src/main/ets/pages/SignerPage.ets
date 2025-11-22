@@ -567,81 +567,83 @@ export struct SignPage {
     }
 
     this.canSign = false
+    
+    // 特殊处理二维码签到
     if (this.activityInfo?.signType === SignType.QRCODE) {
+      await this.handleQRCodeSign()
+      return
+    }
+    
+    // 处理其他类型签到
+    await this.performSignForAllUsers()
+  }
+  
+  // 5. 逻辑方法：处理二维码签到
+  private async handleQRCodeSign() {
+    try {
+      // 首先检查设备是否支持扫码功能
+      if (!canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
+        promptAction.showToast({ message: '设备不支持扫码功能' })
+        this.canSign = true
+        return
+      }
+
       const dbManager = DatabaseManager.getInstance()
-      // 获取当前用户信息
       const currentUser = await dbManager.getUserByPosition(1, true) as UserDataAndId;
 
-      if (!this.activityInfo || !currentUser) return;
+      if (!this.activityInfo || !currentUser) {
+        this.canSign = true
+        return
+      }
 
       const cookies = currentUser.cookies;
       let loc = await Sign.GetLocationSignInfo(cookies, this.activityInfo.ActivityId)
       this.queryParams['address'] = loc['locationText'] as string;
       this.queryParams['longitude'] = loc['longitude'] as number;
       this.queryParams['latitude'] = loc['latitude'] as number;
+      
       let options: scanBarcode.ScanOptions = {
         scanTypes: [scanCore.ScanType.ALL],
         enableMultiMode: true,
         enableAlbum: true
       };
+
       try {
-        // 可调用getHostContext接口获取当前页面关联的Context
-        if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
-          scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
-            .then(async (result: scanBarcode.ScanResult) => {
-              if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
-
-              } else {
-                promptAction.openToast({ message: '权限错误' })
-              }
-              let url = result.originalValue
-              let parse = UrlTools.parseUrlParams(url)
-              this.queryParams['enc'] = parse['enc']
-              // 解析码值结果跳转应用服务页
-              hilog.info(0x0001, '[Scan CPSample]',
-                `Succeeded in getting ScanResult by promise with options, result is ${JSON.stringify(result)}`);
-            })
-            .catch((error: BusinessError) => {
-              hilog.error(0x0001, '[Scan CPSample]',
-                `Failed to get ScanResult by promise with options. Code:${error.code}, message: ${error.message}`);
-            });
-          const hashTable = new Map<string, string[]>();
-          const dbManager = DatabaseManager.getInstance()
-
-          // 遍历所有选中的用户进行签到
-          for (let i = 0; i < this.signIdArray.length; i++) {
-            try {
-              const userId = this.signIdArray[i]
-              let userInfo: UserDataAndId
-              let isMainUser = false
-
-              if (userId === 0) {
-                // id 为 0 表示主用户
-                userInfo = await dbManager.getUserByPosition(1, true) as UserDataAndId
-                isMainUser = true
-              } else {
-                // 其他用户
-                userInfo = await dbManager.getUserByPosition(userId) as UserDataAndId
-                isMainUser = false
-              }
-
-              await this.performSingleSign(userInfo, this.objectidArr[i], hashTable, isMainUser)
-            } catch (e) {
-              hilog.error(DOMAIN, TAG, `User ${this.signIdArray[i]} sign error`, e)
-            }
-          }
-
-          this.showSignResult(hashTable);
+        const result = await scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
+        
+        // 解析二维码结果
+        let url = result.originalValue
+        let parse = UrlTools.parseUrlParams(url)
+        
+        // 验证 enc 参数是否存在
+        if (!parse['enc']) {
+          promptAction.showToast({ message: '二维码格式错误，缺少必要参数' })
           this.canSign = true
           return
-        } else {
-          // Fallback for unsupported SystemCapability
         }
+        
+        this.queryParams['enc'] = parse['enc']
+        
+        hilog.info(DOMAIN, TAG, `QR code scanned successfully: ${JSON.stringify(result)}`)
+        
+        // 扫码成功后，执行所有用户的签到
+        await this.performSignForAllUsers()
+        
       } catch (error) {
-        hilog.error(0x0001, '[Scan CPSample]',
-          `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
+        const err = error as BusinessError
+        hilog.error(DOMAIN, TAG, `Failed to scan QR code. Code:${err.code ?? 'unknown'}, message: ${err.message ?? 'unknown'}`)
+        promptAction.showToast({ message: '扫码失败或已取消' })
+        this.canSign = true
       }
+    } catch (error) {
+      hilog.error(DOMAIN, TAG, 'QR code sign-in error', error)
+      promptAction.showToast({ message: '二维码签到失败' })
+      this.canSign = true
     }
+  }
+  
+  // 6. 逻辑方法：为所有选中用户执行签到
+  private async performSignForAllUsers() {
     const hashTable = new Map<string, string[]>();
     const dbManager = DatabaseManager.getInstance()
 
