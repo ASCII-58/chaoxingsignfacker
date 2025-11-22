@@ -15,6 +15,7 @@ import { loginByCommon, loginByURL } from '../Component/loginCom';
 struct ClassIcon {
   @Prop imageurl: string;
   @State ImageData: image.PixelMap | null = null;
+  @State isLoaded: boolean = false;
 
   build() {
     Column() {
@@ -25,8 +26,20 @@ struct ClassIcon {
         .borderWidth(3)
         .borderRadius(10)
         .margin(10)
+        .opacity(this.isLoaded ? 1 : 0)
+        .scale({ x: this.isLoaded ? 1 : 0.8, y: this.isLoaded ? 1 : 0.8 })
+        .animation({
+          duration: 300,
+          curve: Curve.FastOutSlowIn
+        })
         .onAppear(async () => {
           this.ImageData = await loginFunction.GetPic(this.imageurl)
+          animateTo({
+            duration: 300,
+            curve: Curve.FastOutSlowIn
+          }, () => {
+            this.isLoaded = true
+          })
         })
     }
   }
@@ -40,6 +53,7 @@ struct OtherUserItem {
   @Link otherUserList: UserDataAndId[]
   @State userImage: image.PixelMap | null = null;
   @State userName: string = ''
+  @State isHovered: boolean = false;
   private dbManger: DatabaseManager = DatabaseManager.getInstance()
 
   build() {
@@ -64,10 +78,15 @@ struct OtherUserItem {
       Button('删除')
         .backgroundColor($r('sys.color.warning'))
         .onClick(async () => {
-          let result = await this.dbManger.deleteUser(this.userData.id)
-          if (result === 1) {
-            this.otherUserList.splice(this.index, 1)
-          }
+          animateTo({
+            duration: 200,
+            curve: Curve.FastOutLinearIn
+          }, async () => {
+            let result = await this.dbManger.deleteUser(this.userData.id)
+            if (result === 1) {
+              this.otherUserList.splice(this.index, 1)
+            }
+          })
         })
         .width(100)
         .height('100%')
@@ -88,6 +107,24 @@ struct OtherUserItem {
     .width('100%')
     .borderRadius(20)
     .backgroundColor($r('app.color.class_button'))
+    .shadow({
+      radius: this.isHovered ? 12 : 6,
+      color: '#00000020',
+      offsetX: 0,
+      offsetY: this.isHovered ? 4 : 2
+    })
+    .scale({ x: this.isHovered ? 1.02 : 1, y: this.isHovered ? 1.02 : 1 })
+    .animation({
+      duration: 200,
+      curve: Curve.Smooth
+    })
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        this.isHovered = true
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        this.isHovered = false
+      }
+    })
   }
 }
 
@@ -236,14 +273,23 @@ struct UI {
                   ListItem() {
                     Column({ space: 20 }) {
                       // [Start Search_start]
-                      Search({ placeholder: 'Search' })
+                      Search({ placeholder: '搜索课程...' })
                         .height(40)
                         .width('100%')
+                        .borderRadius(20)
+                        .backgroundColor($r('sys.color.ohos_id_color_component_normal'))
+                        .placeholderColor($r('sys.color.ohos_id_color_text_secondary'))
                         // set geometry transition
                         .geometryTransition('SEARCH_ONE_SHOT_DEMO_TRANSITION_ID', { follow: true })
                         .defaultFocus(false)
                         .focusOnTouch(false)
                         .focusable(false)
+                        .shadow({
+                          radius: 4,
+                          color: '#00000010',
+                          offsetX: 0,
+                          offsetY: 1
+                        })
                         // [End Search_start]
                         .onTouch((event: TouchEvent) => {
                           if (event.type === TouchType.Up) {
@@ -259,13 +305,14 @@ struct UI {
                   }
                 }
 
-                ForEach(this.classList, (classInfo: ClassInfo) => {
+                ForEach(this.classList, (classInfo: ClassInfo, index: number) => {
                   ListItem() {
                     Row() {
                       ClassIcon({ imageurl: classInfo.imageurl })
                       Column() {
-                        Text(classInfo.name).fontSize(15).width('100%')
+                        Text(classInfo.name).fontSize(15).width('100%').fontWeight(FontWeight.Medium)
                         Text(classInfo.teacherfactor).fontSize(10).textAlign(TextAlign.Start).width('100%')
+                          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
                       }.width(200)
                     }.width('100%')
                   }
@@ -273,9 +320,27 @@ struct UI {
                   .backgroundColor($r('app.color.class_button'))
                   .height(70)
                   .borderRadius(20)
-                  .onClick(() => {
-                    this.pathInfos.pushPath({ name: 'ActivityListPage', param: classInfo });
+                  .shadow({
+                    radius: 8,
+                    color: '#00000015',
+                    offsetX: 0,
+                    offsetY: 2
                   })
+                  .onClick(() => {
+                    animateTo({
+                      duration: 250,
+                      curve: curves.springMotion()
+                    }, () => {
+                      this.pathInfos.pushPath({ name: 'ActivityListPage', param: classInfo });
+                    })
+                  })
+                  .transition(TransitionEffect.asymmetric(
+                    TransitionEffect.OPACITY
+                      .combine(TransitionEffect.translate({ y: 50 }))
+                      .animation({ duration: 300, delay: index * 50, curve: Curve.FastOutSlowIn }),
+                    TransitionEffect.OPACITY
+                      .animation({ duration: 200 })
+                  ))
                 })
               }
               .height('100%')
@@ -317,9 +382,11 @@ struct UI {
                   Column() {
                     Text(this.hostName)
                       .fontSize(20)
+                      .fontWeight(FontWeight.Medium)
                       .textAlign(TextAlign.Center)
                     Text(this.hostPhone)
                       .fontSize(10)
+                      .fontColor($r('sys.color.ohos_id_color_text_secondary'))
                   }
                   .margin({ left: 10 })
 
@@ -348,6 +415,12 @@ struct UI {
                 .borderRadius(35)
                 .padding({ left: 5, right: 5 })
                 .zIndex(999999)
+                .shadow({
+                  radius: 8,
+                  color: '#00000020',
+                  offsetX: 0,
+                  offsetY: 3
+                })
               }.width('100%')
               .justifyContent(FlexAlign.Start)
 
@@ -360,6 +433,13 @@ struct UI {
                     .fillColor($r('app.color.icon'))
                     .margin(15)
                 }.borderRadius(999)
+                .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+                .shadow({
+                  radius: 6,
+                  color: '#00000015',
+                  offsetX: 0,
+                  offsetY: 2
+                })
                 .onClick(() => {
                   let options: scanBarcode.ScanOptions = {
                     scanTypes: [scanCore.ScanType.ALL],
@@ -406,6 +486,13 @@ struct UI {
                 }.onClick(() => {
                   this.LoginCommonIsShow = !this.LoginCommonIsShow
                 }).borderRadius(999)
+                .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+                .shadow({
+                  radius: 6,
+                  color: '#00000015',
+                  offsetX: 0,
+                  offsetY: 2
+                })
                 .bindSheet($$this.LoginCommonIsShow, this.loginCommon, {
                   height: '90%', onWillDismiss: () => {
                     this.LoginCommonIsShow = false
@@ -420,6 +507,13 @@ struct UI {
                 }.onClick(() => {
                   this.LoginURLIsSHow = true
                 }).borderRadius(999)
+                .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+                .shadow({
+                  radius: 6,
+                  color: '#00000015',
+                  offsetX: 0,
+                  offsetY: 2
+                })
                 .bindSheet($$this.LoginURLIsSHow, this.loginURL(), {
                   height: '90%', onWillDismiss: () => {
                     this.LoginURLIsSHow = false
@@ -435,6 +529,13 @@ struct UI {
                   this.QRCodeIsShow = true
                 })
                 .borderRadius(30)
+                .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+                .shadow({
+                  radius: 6,
+                  color: '#00000015',
+                  offsetX: 0,
+                  offsetY: 2
+                })
                 .bindSheet($$this.QRCodeIsShow, this.QRCodeDialog,
                   {
                     height: '90%',
