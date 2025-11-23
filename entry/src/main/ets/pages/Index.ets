@@ -328,7 +328,7 @@ struct UI {
                         })
                     }
                     .size({
-                      width: '90%',
+                      width: '100%',
                       height: 40
                     })
                   }
@@ -607,10 +607,11 @@ struct UI {
                     .margin({ bottom: '2%' })
                   }, (item: UserDataAndId) => item.id.toString())
                 }
-                .margin({ top: '2%' })
+                .margin({ top: '2%', bottom: '2%' })
+                .borderRadius('20')
                 .alignListItem(ListItemAlign.Center)
                 .width('96%')
-                .height(300)
+                .height('60%')
               }
               .margin({ top: 30 })
               .borderRadius(25)
