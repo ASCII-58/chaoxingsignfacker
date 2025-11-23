@@ -87,6 +87,8 @@ export class Sign {
     const url = ChaoXingApi.URL_SIGN.buildUrl(queryParams).buildUrl({
       deviceCode: NeedDeviceCode ? ChaoxingUtils.generateUUIDv4() : ''
     }).toString()
+
+    console.log('BuildUrl\n'+url+'\ncookies\n'+cookies)
     hilog.debug(DOMAIN, TAG, 'Executing sign-in request');
     const httpRequest = http.createHttp()
     try {

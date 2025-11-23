@@ -10,14 +10,12 @@ import fs from '@ohos.file.fs';
 import request from '@ohos.request';
 import { ChaoxingUtils } from '../utils/utils';
 import { picker } from '@kit.CoreFileKit';
-import { Context, common } from '@kit.AbilityKit';
-import { pasteboard } from '@kit.BasicServicesKit';
+import { Context } from '@kit.AbilityKit';
+import { BusinessError, pasteboard } from '@kit.BasicServicesKit';
 import { promptAction } from '@kit.ArkUI';
 import { GestureSignComponent } from '../Component/GestureSignComponent';
 import { PasswordSignComponent } from '../Component/PasswordSignComponent';
 import { scanBarcode, scanCore } from '@kit.ScanKit';
-
-import { BusinessError } from '@kit.BasicServicesKit';
 import UrlTools from '../utils/urlTools';
 
 const TAG = 'SignerPage';
@@ -126,7 +124,8 @@ struct userItem {
 
         Text(this.user.SignPermission === 1 ? '可签到' : this.user.SignPermission === 0 ? '已签到' : '无权限')
           .fontSize(12)
-          .fontColor(this.user.SignPermission === 1 ? $r('sys.color.ohos_id_color_text_secondary') : $r('sys.color.ohos_id_color_warning'))
+          .fontColor(this.user.SignPermission === 1 ? $r('sys.color.ohos_id_color_text_secondary') :
+            $r('sys.color.ohos_id_color_warning'))
           .margin({ top: 4 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -170,7 +169,8 @@ struct photoPicker {
       Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
         ForEach(this.signIdArray, (signId: number, index: number) => {
           Circle({ width: 8, height: 8 })
-            .fill(this.objectidArray[index] ? $r('sys.color.ohos_id_color_connected') : $r('sys.color.ohos_id_color_warning'))
+            .fill(this.objectidArray[index] ? $r('sys.color.ohos_id_color_connected') :
+              $r('sys.color.ohos_id_color_warning'))
             .margin(4)
         })
       }
@@ -388,6 +388,134 @@ struct photoPicker {
   }
 }
 
+@Reusable
+@Component
+struct QRCodeLocation {
+  @Prop ActivityId: string;
+  @Link queryParams: object
+  @State DestinationLocationName: string = '获取中...' // 初始状态
+  @State Position: object = JSON.parse('{"result":1,"mockData":"{\\"strategy\\":0,\\"probability\\":-1}"}') as object
+
+  build() {
+    Column() {
+      // 标题提示
+      Text('要求位置')
+        .fontSize(14)
+        .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+        .width('100%')
+        .margin({ bottom: 8 })
+
+      // 位置信息与复制按钮
+      Row() {
+        Text(this.DestinationLocationName)
+          .layoutWeight(1) // ⭐️ 关键：自动占据剩余空间
+          .fontSize(16)
+          .fontColor($r('sys.color.ohos_id_color_text_primary'))
+          .maxLines(3)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .copyOption(CopyOptions.LocalDevice)
+
+        if (this.DestinationLocationName !== '获取中...' && this.DestinationLocationName !== '该签到无要求位置') {
+          Button('复制')
+            .fontSize(12)
+            .height(28)
+            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+            .fontColor($r('sys.color.ohos_id_color_text_primary'))
+            .margin({ left: 8 })
+            .onClick(() => this.copyText(this.DestinationLocationName))
+
+        }
+      }
+      .onAttach(async () => {
+
+        const dbManager = DatabaseManager.getInstance()
+        // 获取当前用户信息
+        const currentUser = await dbManager.getUserByPosition(1, true) as UserDataAndId;
+
+        const cookies = currentUser.cookies;
+        try {
+          const locName =
+            (await Sign.GetLocationSignInfo(cookies, this.ActivityId))['locationText'] as string
+          this.DestinationLocationName = locName ? locName : '该签到无要求位置'
+        } catch (e) {
+          this.DestinationLocationName = '位置信息获取失败'
+        }
+      })
+      .width('100%')
+      .padding(12)
+      .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+      .borderRadius(12)
+      .border({ width: 1, color: $r('sys.color.comp_divider') })
+
+      // 已选坐标展示
+      if (this.Position?.['address']) {
+        Column() {
+          Text(`已选位置: ${this.Position['address']}`)
+            .fontSize(14).fontColor($r('sys.color.ohos_id_color_text_primary')).margin({ top: 8 })
+          Text(`经度: ${this.Position['longitude']}`)
+            .fontSize(12)
+            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+          Text(`纬度: ${this.Position['latitude']}`)
+            .fontSize(12)
+            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+        }.alignItems(HorizontalAlign.Start).width('100%').margin({ top: 8 })
+      } else {
+        Text('请点击下方按钮选择位置')
+          .fontSize(14)
+          .fontColor($r('sys.color.ohos_id_color_warning'))
+          .margin({ top: 16, bottom: 4 })
+          .width('100%')
+          .textAlign(TextAlign.Center)
+      }
+
+      // 地图选点按钮 (FunctionalButton)
+      Column() {
+        FunctionalButton({
+          params: {
+            openType: functionalButtonComponentManager.OpenType.CHOOSE_LOCATION,
+            label: '打开地图选点',
+            styleOption: {
+              bgColor: functionalButtonComponentManager.ColorType.DEFAULT,
+              size: functionalButtonComponentManager.SizeType.DEFAULT,
+              plain: false,
+              disabled: false,
+              loading: false,
+              hoverClass: functionalButtonComponentManager.HoverClassType.HOVER_CLASS,
+              hoverStartTime: 0,
+              hoverStayTime: 0,
+              styleConfig: new functionalButtonComponentManager.ButtonConfig().fontSize(16)
+            },
+          },
+          controller: new functionalButtonComponentManager.FunctionalButtonController()
+            .onChooseLocation((err, data) => {
+              if (err) {
+                hilog.error(0x0000, "Sign", "Location Error: %{public}s", err.message);
+                return;
+              }
+              const LoginLocation = ChaoxingUtils.gcj02_to_bd09(data.latitude, data.longitude)
+              this.Position['address'] = data.name as string;
+              this.Position['longitude'] = LoginLocation.lon as number;
+              this.Position['latitude'] = LoginLocation.lat as number;
+              this.queryParams['location'] = JSON.stringify(this.Position)
+            })
+        }).enabled(this.DestinationLocationName !== '获取中...' && this.DestinationLocationName !== '该签到无要求位置')
+      }
+      .width('100%')
+      .margin({ top: 12 })
+    }
+    .padding(16)
+    .width('100%')
+  }
+
+  // 1. 逻辑方法：复制文本
+  private copyText(text: string) {
+    const pasteboardData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text)
+    const systemPasteboard = pasteboard.getSystemPasteboard()
+    systemPasteboard.setData(pasteboardData)
+    promptAction.showToast({ message: '已复制到剪贴板', duration: 1500 })
+  }
+}
+
 // ---------------------------------------------------------------
 // 全局 Builder
 // ---------------------------------------------------------------
@@ -414,8 +542,331 @@ export struct SignPage {
   @State objectidArr: string[] = []
   @State DestinationLocationName: string = '获取中...' // 初始状态
   @State hostUser: HostUserInfo | null = null
-
   pathInfos: NavPathStack = new NavPathStack();
+
+  // 4. UI Builders
+  @Builder
+  otherUserMenu() {
+    List() {
+      ForEach(this.otherUser, (user: userMenu) => {
+        ListItem() {
+          userItem({ user, signIdArray: this.signIdArray })
+        }
+        .onClick(() => {
+          if (this.signIdArray.includes(user.id)) {
+            this.signIdArray = this.signIdArray.filter(num => num !== user.id)
+          } else {
+            this.signIdArray.push(user.id)
+          }
+        })
+      })
+    }
+    .width('100%')
+    .height('100%')
+    .padding(16)
+  }
+
+  @Builder
+  UserSelectionCard() {
+    Column() {
+      Row() {
+        Text('已选用户')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.ohos_id_color_text_primary'))
+          .layoutWeight(1)
+
+        Button('选择用户')
+          .fontSize(14)
+          .height(32)
+          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+          .fontColor($r('sys.color.ohos_id_color_text_primary'))
+          .onClick(() => {
+            this.otherUserDialogIsShow = true
+          })
+          .bindSheet($$this.otherUserDialogIsShow, this.otherUserMenu, {
+            title: { title: $r('app.string.other_user') },
+            backgroundColor: $r('sys.color.ohos_id_color_dialog_bg')
+          })
+      }
+      .width('100%')
+      .margin({ bottom: 12 })
+
+      if (this.signIdArray.length === 0) {
+        Text('未选择用户，请点击上方按钮选择')
+          .fontSize(14)
+          .fontColor($r('sys.color.ohos_id_color_warning'))
+          .padding(12)
+      } else {
+        Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap }) {
+          ForEach(this.signIdArray, (userId: number) => {
+            ForEach(this.otherUser.filter(u => u.id === userId), (user: userMenu) => {
+              Row() {
+                Text(user.uname)
+                  .fontSize(14)
+                  .fontColor($r('sys.color.ohos_id_color_text_primary'))
+
+              }
+              .padding({
+                left: 12,
+                right: 12,
+                top: 6,
+                bottom: 6
+              })
+              .backgroundColor($r('sys.color.ohos_id_color_emphasize', 0.1))
+              .borderRadius(16)
+              .margin({ right: 8, bottom: 8 })
+              .onClick(() => {
+                if (this.signIdArray.includes(user.id)) {
+                  this.signIdArray = this.signIdArray.filter(num => num !== user.id)
+                } else {
+                  this.signIdArray.push(user.id)
+                }
+              })
+            })
+          })
+        }
+      }
+    }
+    .padding(16)
+    .width('100%')
+    .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+    .borderRadius(12)
+    .margin({ left: 16, right: 16, bottom: 16 })
+  }
+
+  @Builder
+  LocationCard() {
+    Column() {
+      // 标题提示
+      Text('要求位置')
+        .fontSize(14)
+        .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+        .width('100%')
+        .margin({ bottom: 8 })
+
+      // 位置信息与复制按钮
+      Row() {
+        Text(this.DestinationLocationName)
+          .layoutWeight(1) // ⭐️ 关键：自动占据剩余空间
+          .fontSize(16)
+          .fontColor($r('sys.color.ohos_id_color_text_primary'))
+          .maxLines(3)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .copyOption(CopyOptions.LocalDevice)
+
+        if (this.DestinationLocationName !== '获取中...' && this.DestinationLocationName !== '该签到无要求位置') {
+          Button('复制')
+            .fontSize(12)
+            .height(28)
+            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+            .fontColor($r('sys.color.ohos_id_color_text_primary'))
+            .margin({ left: 8 })
+            .onClick(() => this.copyText(this.DestinationLocationName))
+        }
+      }
+      .width('100%')
+      .padding(12)
+      .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+      .borderRadius(12)
+      .border({ width: 1, color: $r('sys.color.comp_divider') })
+
+      // 已选坐标展示
+      if (this.queryParams?.['address']) {
+        Column() {
+          Text(`已选位置: ${this.queryParams['address']}`)
+            .fontSize(14).fontColor($r('sys.color.ohos_id_color_text_primary')).margin({ top: 8 })
+          Text(`经度: ${this.queryParams['longitude']}`)
+            .fontSize(12)
+            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+          Text(`纬度: ${this.queryParams['latitude']}`)
+            .fontSize(12)
+            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+        }.alignItems(HorizontalAlign.Start).width('100%').margin({ top: 8 })
+      } else {
+        Text('请点击下方按钮选择位置')
+          .fontSize(14)
+          .fontColor($r('sys.color.ohos_id_color_warning'))
+          .margin({ top: 16, bottom: 4 })
+          .width('100%')
+          .textAlign(TextAlign.Center)
+      }
+
+      // 地图选点按钮 (FunctionalButton)
+      Column() {
+        FunctionalButton({
+          params: {
+            openType: functionalButtonComponentManager.OpenType.CHOOSE_LOCATION,
+            label: '打开地图选点',
+            styleOption: {
+              bgColor: functionalButtonComponentManager.ColorType.DEFAULT,
+              size: functionalButtonComponentManager.SizeType.DEFAULT,
+              plain: false,
+              disabled: false,
+              loading: false,
+              hoverClass: functionalButtonComponentManager.HoverClassType.HOVER_CLASS,
+              hoverStartTime: 0,
+              hoverStayTime: 0,
+              styleConfig: new functionalButtonComponentManager.ButtonConfig().fontSize(16)
+            },
+          },
+          controller: new functionalButtonComponentManager.FunctionalButtonController()
+            .onChooseLocation((err, data) => {
+              if (err) {
+                hilog.error(0x0000, "Sign", "Location Error: %{public}s", err.message);
+                return;
+              }
+              const LoginLocation = ChaoxingUtils.gcj02_to_bd09(data.latitude, data.longitude)
+              this.queryParams['address'] = data.name as string;
+              this.queryParams['longitude'] = LoginLocation.lon as number;
+              this.queryParams['latitude'] = LoginLocation.lat as number;
+            })
+        })
+      }
+      .width('100%')
+      .margin({ top: 12 })
+    }
+    .padding(16)
+    .width('100%')
+  }
+
+  @Builder
+  QRCodeCard() {
+QRCodeLocation({queryParams: this.queryParams,ActivityId: this.activityInfo?.ActivityId.toString() || '',})
+  }
+
+  @Builder
+  GestureSignCard() {
+    Column() {
+      if (this.hostUser) {
+        GestureSignComponent({
+          activityId: this.activityInfo?.ActivityId || '',
+          courseId: this.activityInfo?.CourseId || '',
+          classId: this.activityInfo?.ClassId || '',
+          cookies: this.hostUser.cookies,
+          uid: this.hostUser.uid,
+          uname: this.hostUser.uname,
+          fid: this.hostUser.fid
+        })
+      } else {
+        Text('加载用户信息中...')
+          .fontSize(14)
+          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          .margin(20)
+      }
+    }
+    .width('100%')
+  }
+
+  @Builder
+  PasswordSignCard() {
+    Column() {
+      if (this.hostUser) {
+        PasswordSignComponent({
+          activityId: this.activityInfo?.ActivityId || '',
+          courseId: this.activityInfo?.CourseId || '',
+          classId: this.activityInfo?.ClassId || '',
+          cookies: this.hostUser.cookies,
+          uid: this.hostUser.uid,
+          uname: this.hostUser.uname,
+          fid: this.hostUser.fid
+        })
+      } else {
+        Text('加载用户信息中...')
+          .fontSize(14)
+          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          .margin(20)
+      }
+    }
+    .width('100%')
+  }
+
+  build() {
+    NavDestination() {
+      if (this.activityInfo) {
+        Column() {
+          Column() {
+            // 标题
+            Text('签到详情')
+              .fontSize(24)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.ohos_id_color_text_primary'))
+              .width('100%')
+              .margin({ top: 20, bottom: 20, left: 16 })
+
+            // 用户选择卡片
+            this.UserSelectionCard()
+
+            // 根据类型渲染不同内容
+            if (this.activityInfo?.signType === SignType.NORMAL) {
+              if (this.ifPhoto) {
+                photoPicker({
+                  signIdArray: this.signIdArray,
+                  objectidArray: this.objectidArr,
+                  otherUserDialogIsShow: this.otherUserDialogIsShow,
+                  otherUser: this.otherUser
+                })
+                  .margin({ left: 16, right: 16 })
+              } else {
+                Column() {
+                  Text('点击下方按钮直接签到')
+                    .fontSize(16)
+                    .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+                }.height(100).justifyContent(FlexAlign.Center)
+              }
+            } else if (this.activityInfo?.signType === SignType.LOCATION) {
+              this.LocationCard()
+            } else if (this.activityInfo?.signType === SignType.GESTURE) {
+              // 手势签到 - 只允许单用户签到
+              this.GestureSignCard()
+            } else if (this.activityInfo.signType === SignType.QRCODE) {
+              this.QRCodeCard()
+            } else {
+              Text('未支持的签到类型')
+                .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+                .margin(32)
+            }
+          }.width('100%').height('70%')
+
+          // 2. 底部按钮区 (固定) - 手势签到和密码签到不显示底部按钮
+          if (this.activityInfo?.signType !== SignType.GESTURE &&
+            this.activityInfo?.signType !== SignType.PASSWORD) {
+            Column() {
+              Button('立即签到')
+                .width('90%')
+                .height(48)
+                .fontSize(18)
+                .fontWeight(FontWeight.Medium)
+                .backgroundColor($r('sys.color.ohos_id_color_emphasize'))
+                .enabled(this.canSign)
+                .onClick(() => {
+                  this.showSignConfirmDialog()
+                })
+            }
+            .width('100%')
+            .padding({ top: 12, bottom: 24 }) // 底部留白
+            .backgroundColor($r('sys.color.ohos_id_color_background')) // 避免内容穿透
+          }
+        }
+        .height('100%')
+        .backgroundColor($r('sys.color.ohos_id_color_sub_background')) // 页面底色
+      } else {
+        Column() {
+          Text('参数加载失败').fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+        }.justifyContent(FlexAlign.Center).height('100%')
+      }
+    }
+    .hideTitleBar(false)
+    .title('签到', {
+      backgroundColor: $r('sys.color.ohos_id_color_background')
+    })
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathInfos = ctx.pathStack;
+    })
+    .onAppear(() => {
+      this.initPageData(); // 统一数据初始化入口
+    })
+  }
 
   // 1. 逻辑方法：复制文本
   private copyText(text: string) {
@@ -431,7 +882,9 @@ export struct SignPage {
     // 获取当前用户信息
     const currentUser = await dbManager.getUserByPosition(1, true) as UserDataAndId;
 
-    if (!this.activityInfo || !currentUser) return;
+    if (!this.activityInfo || !currentUser) {
+      return;
+    }
 
     const cookies = currentUser.cookies;
     this.queryParams['activeId'] = this.activityInfo.ActivityId
@@ -455,7 +908,8 @@ export struct SignPage {
     // 如果是位置签到，获取位置信息
     if (this.activityInfo.signType === SignType.LOCATION) {
       try {
-        const locName = (await Sign.GetLocationSignInfo(cookies, this.activityInfo.ActivityId))['locationText'] as string
+        const locName =
+          (await Sign.GetLocationSignInfo(cookies, this.activityInfo.ActivityId))['locationText'] as string
         this.DestinationLocationName = locName ? locName : '该签到无要求位置'
       } catch (e) {
         this.DestinationLocationName = '位置信息获取失败'
@@ -475,7 +929,8 @@ export struct SignPage {
       const mainUserInfo = await dbManager.getUserByPosition(1, true)
       if (mainUserInfo) {
         const loginInfo = await loginFunction.getUserInfo(mainUserInfo.cookies)
-        const permission = await Sign.PreSignIn(actInfo.ActivityId, actInfo.ClassId, actInfo.CourseId, loginInfo.uid, mainUserInfo.cookies)
+        const permission = await Sign.PreSignIn(actInfo.ActivityId, actInfo.ClassId, actInfo.CourseId, loginInfo.uid,
+          mainUserInfo.cookies)
         newUserList.push({
           uname: loginInfo.uname + ' (主用户)',
           id: 0, // 用 0 表示主用户
@@ -497,7 +952,8 @@ export struct SignPage {
         const userInfo = await dbManager.getUserByPosition(i)
         if (userInfo) {
           const loginInfo = await loginFunction.getUserInfo(userInfo.cookies)
-          const permission = await Sign.PreSignIn(actInfo.ActivityId, actInfo.ClassId, actInfo.CourseId, loginInfo.uid, userInfo.cookies)
+          const permission =
+            await Sign.PreSignIn(actInfo.ActivityId, actInfo.ClassId, actInfo.CourseId, loginInfo.uid, userInfo.cookies)
           newUserList.push({
             uname: loginInfo.uname,
             id: i,
@@ -595,15 +1051,15 @@ export struct SignPage {
               try {
                 let url = result.originalValue
                 let parse = UrlTools.parseUrlParams(url)
-                
+
                 if (!parse || !parse['enc']) {
                   promptAction.showToast({ message: '二维码格式错误' });
                   this.canSign = true;
                   return;
                 }
-                
+
                 this.queryParams['enc'] = parse['enc']
-                
+
                 hilog.info(DOMAIN, TAG,
                   `Scan successful, enc: ${this.queryParams['enc']}`);
 
@@ -664,7 +1120,7 @@ export struct SignPage {
         return;
       }
     }
-    
+
     // 非扫码签到的正常流程
     const hashTable = new Map<string, string[]>();
     const dbManager = DatabaseManager.getInstance()
@@ -696,7 +1152,8 @@ export struct SignPage {
     this.canSign = true
   }
 
-  private async performSingleSign(userInfo: UserDataAndId, photoObjId: string | undefined, map: Map<string, string[]>, isMainUser: boolean) {
+  private async performSingleSign(userInfo: UserDataAndId, photoObjId: string | undefined, map: Map<string, string[]>,
+    isMainUser: boolean) {
     const loginInfo = await loginFunction.getUserInfo(userInfo.cookies)
 
     this.queryParams['uid'] = userInfo.uid
@@ -734,325 +1191,18 @@ export struct SignPage {
       }
     });
 
-    if (message === '') message = '未进行任何签到操作';
+    if (message === '') {
+      message = '未进行任何签到操作';
+    }
 
     AlertDialog.show({
       title: '签到结果',
       message: message,
       confirm: {
         value: '确定',
-        action: () => {}
-      }
-    })
-  }
-
-
-  // 4. UI Builders
-  @Builder
-  otherUserMenu() {
-    List() {
-      ForEach(this.otherUser, (user: userMenu) => {
-        ListItem() {
-          userItem({ user, signIdArray: this.signIdArray })
-        }
-        .onClick(() => {
-          if (this.signIdArray.includes(user.id)) {
-            this.signIdArray = this.signIdArray.filter(num => num !== user.id)
-          } else {
-            this.signIdArray.push(user.id)
-          }
-        })
-      })
-    }
-    .width('100%')
-    .height('100%')
-    .padding(16)
-  }
-
-  @Builder
-  UserSelectionCard() {
-    Column() {
-      Row() {
-        Text('已选用户')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.ohos_id_color_text_primary'))
-          .layoutWeight(1)
-
-        Button('选择用户')
-          .fontSize(14)
-          .height(32)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .fontColor($r('sys.color.ohos_id_color_text_primary'))
-          .onClick(() => {
-            this.otherUserDialogIsShow = true
-          })
-          .bindSheet($$this.otherUserDialogIsShow, this.otherUserMenu, {
-            title: { title: $r('app.string.other_user') },
-            backgroundColor: $r('sys.color.ohos_id_color_dialog_bg')
-          })
-      }
-      .width('100%')
-      .margin({ bottom: 12 })
-
-      if (this.signIdArray.length === 0) {
-        Text('未选择用户，请点击上方按钮选择')
-          .fontSize(14)
-          .fontColor($r('sys.color.ohos_id_color_warning'))
-          .padding(12)
-      } else {
-        Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap }) {
-          ForEach(this.signIdArray, (userId: number) => {
-            ForEach(this.otherUser.filter(u => u.id === userId), (user: userMenu) => {
-              Row() {
-                Text(user.uname)
-                  .fontSize(14)
-                  .fontColor($r('sys.color.ohos_id_color_text_primary'))
-
-              }
-              .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-              .backgroundColor($r('sys.color.ohos_id_color_emphasize', 0.1))
-              .borderRadius(16)
-              .margin({ right: 8, bottom: 8 }).onClick(() => {
-                if (this.signIdArray.includes(user.id)) {
-                  this.signIdArray = this.signIdArray.filter(num => num !== user.id)
-                } else {
-                  this.signIdArray.push(user.id)
-                }
-              })
-            })
-          })
+        action: () => {
         }
       }
-    }
-    .padding(16)
-    .width('100%')
-    .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
-    .borderRadius(12)
-    .margin({ left: 16, right: 16, bottom: 16 })
-  }
-
-  @Builder
-  LocationCard() {
-    Column() {
-      // 标题提示
-      Text('要求位置')
-        .fontSize(14)
-        .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-        .width('100%')
-        .margin({ bottom: 8 })
-
-      // 位置信息与复制按钮
-      Row() {
-        Text(this.DestinationLocationName)
-          .layoutWeight(1) // ⭐️ 关键：自动占据剩余空间
-          .fontSize(16)
-          .fontColor($r('sys.color.ohos_id_color_text_primary'))
-          .maxLines(3)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .copyOption(CopyOptions.LocalDevice)
-
-        if (this.DestinationLocationName !== '获取中...' && this.DestinationLocationName !== '该签到无要求位置') {
-          Button('复制')
-            .fontSize(12)
-            .height(28)
-            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-            .fontColor($r('sys.color.ohos_id_color_text_primary'))
-            .margin({ left: 8 })
-            .onClick(() => this.copyText(this.DestinationLocationName))
-        }
-      }
-      .width('100%')
-      .padding(12)
-      .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
-      .borderRadius(12)
-      .border({ width: 1, color: $r('sys.color.comp_divider') })
-
-      // 已选坐标展示
-      if (this.queryParams?.['address']) {
-        Column() {
-          Text(`已选位置: ${this.queryParams['address']}`)
-            .fontSize(14).fontColor($r('sys.color.ohos_id_color_text_primary')).margin({top: 8})
-          Text(`经度: ${this.queryParams['longitude']}`).fontSize(12).fontColor($r('sys.color.ohos_id_color_text_tertiary'))
-          Text(`纬度: ${this.queryParams['latitude']}`).fontSize(12).fontColor($r('sys.color.ohos_id_color_text_tertiary'))
-        }.alignItems(HorizontalAlign.Start).width('100%').margin({top: 8})
-      } else {
-        Text('请点击下方按钮选择位置')
-          .fontSize(14)
-          .fontColor($r('sys.color.ohos_id_color_warning'))
-          .margin({ top: 16, bottom: 4 })
-          .width('100%')
-          .textAlign(TextAlign.Center)
-      }
-
-      // 地图选点按钮 (FunctionalButton)
-      Column() {
-        FunctionalButton({
-          params: {
-            openType: functionalButtonComponentManager.OpenType.CHOOSE_LOCATION,
-            label: '打开地图选点',
-            styleOption: {
-              bgColor: functionalButtonComponentManager.ColorType.DEFAULT,
-              size: functionalButtonComponentManager.SizeType.DEFAULT,
-              plain: false,
-              disabled: false,
-              loading: false,
-              hoverClass: functionalButtonComponentManager.HoverClassType.HOVER_CLASS,
-              hoverStartTime: 0,
-              hoverStayTime: 0,
-              styleConfig: new functionalButtonComponentManager.ButtonConfig().fontSize(16)
-            },
-          },
-          controller: new functionalButtonComponentManager.FunctionalButtonController()
-            .onChooseLocation((err, data) => {
-              if (err) {
-                hilog.error(0x0000, "Sign", "Location Error: %{public}s", err.message);
-                return;
-              }
-              const LoginLocation = ChaoxingUtils.gcj02_to_bd09(data.latitude, data.longitude)
-              this.queryParams['address'] = data.name as string;
-              this.queryParams['longitude'] = LoginLocation.lon as number;
-              this.queryParams['latitude'] = LoginLocation.lat as number;
-            })
-        })
-      }
-      .width('100%')
-      .margin({ top: 12 })
-    }
-    .padding(16)
-    .width('100%')
-  }
-
-  @Builder
-  GestureSignCard() {
-    Column() {
-      if (this.hostUser) {
-        GestureSignComponent({
-          activityId: this.activityInfo?.ActivityId || '',
-          courseId: this.activityInfo?.CourseId || '',
-          classId: this.activityInfo?.ClassId || '',
-          cookies: this.hostUser.cookies,
-          uid: this.hostUser.uid,
-          uname: this.hostUser.uname,
-          fid: this.hostUser.fid
-        })
-      } else {
-        Text('加载用户信息中...')
-          .fontSize(14)
-          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-          .margin(20)
-      }
-    }
-    .width('100%')
-  }
-
-  @Builder
-  PasswordSignCard() {
-    Column() {
-      if (this.hostUser) {
-        PasswordSignComponent({
-          activityId: this.activityInfo?.ActivityId || '',
-          courseId: this.activityInfo?.CourseId || '',
-          classId: this.activityInfo?.ClassId || '',
-          cookies: this.hostUser.cookies,
-          uid: this.hostUser.uid,
-          uname: this.hostUser.uname,
-          fid: this.hostUser.fid
-        })
-      } else {
-        Text('加载用户信息中...')
-          .fontSize(14)
-          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-          .margin(20)
-      }
-    }
-    .width('100%')
-  }
-
-
-  build() {
-    NavDestination() {
-      if (this.activityInfo) {
-        Column() {
-            Column() {
-              // 标题
-              Text('签到详情')
-                .fontSize(24)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('sys.color.ohos_id_color_text_primary'))
-                .width('100%')
-                .margin({ top: 20, bottom: 20, left: 16 })
-
-              // 用户选择卡片
-              this.UserSelectionCard()
-
-              // 根据类型渲染不同内容
-              if (this.activityInfo?.signType === SignType.NORMAL) {
-                if (this.ifPhoto) {
-                  photoPicker({
-                    signIdArray: this.signIdArray,
-                    objectidArray: this.objectidArr,
-                    otherUserDialogIsShow: this.otherUserDialogIsShow,
-                    otherUser: this.otherUser
-                  })
-                    .margin({ left: 16, right: 16 })
-                } else {
-                  Column() {
-                    Text('点击下方按钮直接签到')
-                      .fontSize(16)
-                      .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-                  }.height(100).justifyContent(FlexAlign.Center)
-                }
-              } else if (this.activityInfo?.signType === SignType.LOCATION) {
-                this.LocationCard()
-              } else if (this.activityInfo?.signType === SignType.GESTURE) {
-                // 手势签到 - 只允许单用户签到
-                this.GestureSignCard()
-              } else if (this.activityInfo.signType === SignType.QRCODE) {
-              }else {
-                Text('未支持的签到类型')
-                  .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
-                  .margin(32)
-              }
-            }.width('100%').height('65%')
-
-          // 2. 底部按钮区 (固定) - 手势签到和密码签到不显示底部按钮
-          if (this.activityInfo?.signType !== SignType.GESTURE &&
-              this.activityInfo?.signType !== SignType.PASSWORD) {
-            Column() {
-              Button('立即签到')
-                .width('90%')
-                .height(48)
-                .fontSize(18)
-                .fontWeight(FontWeight.Medium)
-                .backgroundColor($r('sys.color.ohos_id_color_emphasize'))
-                .enabled(this.canSign)
-                .onClick(() => {
-                  this.showSignConfirmDialog()
-                })
-            }
-            .width('100%')
-            .padding({ top: 12, bottom: 24 }) // 底部留白
-            .backgroundColor($r('sys.color.ohos_id_color_background')) // 避免内容穿透
-          }
-        }
-        .height('100%')
-        .backgroundColor($r('sys.color.ohos_id_color_sub_background')) // 页面底色
-      } else {
-        Column() {
-          Text('参数加载失败').fontColor($r('sys.color.ohos_id_color_text_tertiary'))
-        }.justifyContent(FlexAlign.Center).height('100%')
-      }
-    }
-    .hideTitleBar(false)
-    .title('签到', {
-      backgroundColor: $r('sys.color.ohos_id_color_background')
-    })
-    .onReady((ctx: NavDestinationContext) => {
-      this.pathInfos = ctx.pathStack;
-    })
-    .onAppear(() => {
-      this.initPageData(); // 统一数据初始化入口
     })
   }
 }
