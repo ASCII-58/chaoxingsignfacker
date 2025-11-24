@@ -105,6 +105,12 @@ struct UI {
   @State urlButtonScale: number = 1
   @State shareButtonScale: number = 1
   @State logoutButtonScale: number = 1
+  @State userHeaderOpacity: number = 0
+  @State userHeaderTranslateY: number = -20
+  @State buttonRowOpacity: number = 0
+  @State buttonRowTranslateY: number = 20
+  @State userListOpacity: number = 0
+  @State userListTranslateY: number = 30
   private controller: TabsController = new TabsController();
   private uiContext: UIContext = this.getUIContext();
 
@@ -403,6 +409,8 @@ struct UI {
                 offsetX: 0,
                 offsetY: 4
               })
+              .opacity(this.userHeaderOpacity)
+              .translate({ y: this.userHeaderTranslateY })
             }.width('100%')
             .justifyContent(FlexAlign.Start)
 
@@ -535,6 +543,8 @@ struct UI {
               })
 
             }.margin({ top: 15, left: '1.5%' }).justifyContent(FlexAlign.SpaceAround).width('97%')
+            .opacity(this.buttonRowOpacity)
+            .translate({ y: this.buttonRowTranslateY })
 
             Column() {
               List() {
@@ -555,9 +565,40 @@ struct UI {
             .borderRadius(25)
             .backgroundColor($r('sys.color.comp_background_secondary'))
             .width('98%')
+            .opacity(this.userListOpacity)
+            .translate({ y: this.userListTranslateY })
           }
           .height('100%')
         }.tabBar($r('app.string.user'))
+        .onAppear(() => {
+          // Animate user center elements with staggered timing
+          animateTo({
+            duration: 500,
+            curve: curves.springMotion(0.6, 0.9),
+            delay: 100
+          }, () => {
+            this.userHeaderOpacity = 1
+            this.userHeaderTranslateY = 0
+          })
+
+          animateTo({
+            duration: 500,
+            curve: curves.springMotion(0.6, 0.9),
+            delay: 200
+          }, () => {
+            this.buttonRowOpacity = 1
+            this.buttonRowTranslateY = 0
+          })
+
+          animateTo({
+            duration: 500,
+            curve: curves.springMotion(0.6, 0.9),
+            delay: 300
+          }, () => {
+            this.userListOpacity = 1
+            this.userListTranslateY = 0
+          })
+        })
 
       }
       .height('100%')
