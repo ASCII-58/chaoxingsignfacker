@@ -2,8 +2,11 @@ import { DatabaseManager, UserDataAndId } from '../utils/DataBase';
 import { image } from '@kit.ImageKit';
 import { loginFunction } from '../utils/Login';
 import { curves } from '@kit.ArkUI';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const DELETE_ANIMATION_DURATION_MS = 300;
+const TAG = 'OtherUserItem';
+const DOMAIN = 0x0009;
 
 @Reusable
 @Component
@@ -88,7 +91,9 @@ export struct OtherUserItem {
               this.otherUserList.splice(this.index, 1)
             }
           } catch (error) {
-            // Error is logged in DataBase.ets, just reset the animation
+            // Log the error and reset animation to indicate failure
+            hilog.error(DOMAIN, TAG, `Failed to delete user: ${error.message}`);
+            // Reset the animation to restore the item
             animateTo({
               duration: 200,
               curve: curves.springMotion(0.6, 0.9)
@@ -131,6 +136,8 @@ export struct OtherUserItem {
       offsetX: 0,
       offsetY: 4
     })
+    // Note: Using explicit opacity, translate, and scale instead of .animation()
+    // to have precise control over entrance and exit animations with spring motion curves
     .opacity(this.itemOpacity)
     .translate({ y: this.translateY })
     .scale({ x: this.itemScale, y: this.itemScale })
