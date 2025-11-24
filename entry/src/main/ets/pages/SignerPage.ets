@@ -21,7 +21,13 @@ import UrlTools from '../utils/urlTools';
 const TAG = 'SignerPage';
 const DOMAIN = 0x0008;
 
-// 定义位置状态常量
+/**
+ * 位置签到状态常量
+ * 用于统一管理位置信息的各种状态显示文本
+ * @constant LOADING - 正在获取位置信息
+ * @constant NO_REQUIREMENT - 签到活动不要求位置
+ * @constant FAILED - 位置信息获取失败
+ */
 const LOCATION_STATUS = {
   LOADING: '获取中...',
   NO_REQUIREMENT: '该签到无要求位置',
@@ -105,10 +111,13 @@ struct Icon {
 // ---------------------------------------------------------------
 // 组件 2: 用户列表项
 // 优化：遵循华为"一镜到底"设计原则
-// - 增强视觉层次和信息密度
-// - 添加流畅的交互动画
-// - 改进选中状态的视觉反馈
-// - 优化深色模式适配
+// 
+// 一镜到底设计实现：
+// 1. 视觉连续性：通过流畅的触摸动画(scale/opacity)保持视觉流畅
+// 2. 清晰层次：使用卡片、阴影、圆角等元素建立信息层级
+// 3. 即时反馈：选中状态通过多种视觉元素反馈（背景色、边框、图标）
+// 4. 信息密度：在有限空间内展示头像、姓名、状态等关键信息
+// 5. 状态可见：通过颜色编码(绿/灰/黄)直观展示用户签到状态
 // ---------------------------------------------------------------
 @Reusable
 @Component
@@ -130,10 +139,10 @@ struct userItem {
   build() {
     Row() {
       // 头像容器 - 添加选中动画
-      Stack() {
+      Stack({ alignContent: Alignment.BottomEnd }) {
         Icon({ UserId: this.user.id })
         
-        // 选中状态指示器 - 使用相对定位
+        // 选中状态指示器 - 使用简化的定位
         if (this.isSelected) {
           Stack() {
             Circle({ width: 18, height: 18 })
@@ -146,9 +155,6 @@ struct userItem {
           }
           .width(18)
           .height(18)
-          .alignContent(Alignment.BottomEnd)
-          .margin({ left: '100%', top: '100%' })
-          .translate({ x: '-100%', y: '-100%' })
         }
       }
       .width(48)
