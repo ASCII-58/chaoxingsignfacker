@@ -21,6 +21,13 @@ import UrlTools from '../utils/urlTools';
 const TAG = 'SignerPage';
 const DOMAIN = 0x0008;
 
+// 定义位置状态常量
+const LOCATION_STATUS = {
+  LOADING: '获取中...',
+  NO_REQUIREMENT: '该签到无要求位置',
+  FAILED: '位置信息获取失败'
+} as const;
+
 // 定义用户对象接口
 interface userMenu {
   uname: string
@@ -126,17 +133,22 @@ struct userItem {
       Stack() {
         Icon({ UserId: this.user.id })
         
-        // 选中状态指示器
+        // 选中状态指示器 - 使用相对定位
         if (this.isSelected) {
-          Circle({ width: 16, height: 16 })
-            .fill($r('sys.color.ohos_id_color_connected'))
-            .position({ x: 36, y: 36 })
-          
-          Image($r('sys.media.ohos_ic_public_ok'))
-            .width(12)
-            .height(12)
-            .fillColor($r('sys.color.ohos_id_color_primary_contrary'))
-            .position({ x: 38, y: 38 })
+          Stack() {
+            Circle({ width: 18, height: 18 })
+              .fill($r('sys.color.ohos_id_color_connected'))
+            
+            Image($r('sys.media.ohos_ic_public_ok'))
+              .width(12)
+              .height(12)
+              .fillColor($r('sys.color.ohos_id_color_primary_contrary'))
+          }
+          .width(18)
+          .height(18)
+          .alignContent(Alignment.BottomEnd)
+          .margin({ left: '100%', top: '100%' })
+          .translate({ x: '-100%', y: '-100%' })
         }
       }
       .width(48)
@@ -607,7 +619,7 @@ struct photoPicker {
 struct QRCodeLocation {
   @Prop ActivityId: string;
   @Link queryParams: object
-  @State DestinationLocationName: string = '获取中...' // 初始状态
+  @State DestinationLocationName: string = LOCATION_STATUS.LOADING; // 初始状态
   @State Position: object = JSON.parse('{"result":1,"mockData":"{\\"strategy\\":0,\\"probability\\":-1}"}') as object
 
   build() {
@@ -629,7 +641,8 @@ struct QRCodeLocation {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .copyOption(CopyOptions.LocalDevice)
 
-        if (this.DestinationLocationName !== '获取中...' && this.DestinationLocationName !== '该签到无要求位置') {
+        if (this.DestinationLocationName !== LOCATION_STATUS.LOADING && 
+            this.DestinationLocationName !== LOCATION_STATUS.NO_REQUIREMENT) {
           Button('复制')
             .fontSize(12)
             .height(28)
@@ -650,9 +663,9 @@ struct QRCodeLocation {
         try {
           const locName =
             (await Sign.GetLocationSignInfo(cookies, this.ActivityId))['locationText'] as string
-          this.DestinationLocationName = locName ? locName : '该签到无要求位置'
+          this.DestinationLocationName = locName ? locName : LOCATION_STATUS.NO_REQUIREMENT
         } catch (e) {
-          this.DestinationLocationName = '位置信息获取失败'
+          this.DestinationLocationName = LOCATION_STATUS.FAILED
         }
       })
       .width('100%')
@@ -712,7 +725,8 @@ struct QRCodeLocation {
               this.Position['latitude'] = LoginLocation.lat as number;
               this.queryParams['location'] = JSON.stringify(this.Position)
             })
-        }).enabled(this.DestinationLocationName !== '获取中...' && this.DestinationLocationName !== '该签到无要求位置')
+        }).enabled(this.DestinationLocationName !== LOCATION_STATUS.LOADING && 
+                   this.DestinationLocationName !== LOCATION_STATUS.NO_REQUIREMENT)
       }
       .width('100%')
       .margin({ top: 12 })
@@ -754,7 +768,7 @@ export struct SignPage {
   @State ifPhoto: boolean = false
   @State otherUserDialogIsShow: boolean = false
   @State objectidArr: string[] = []
-  @State DestinationLocationName: string = '获取中...' // 初始状态
+  @State DestinationLocationName: string = LOCATION_STATUS.LOADING; // 初始状态
   @State hostUser: HostUserInfo | null = null
   pathInfos: NavPathStack = new NavPathStack();
 
@@ -1079,9 +1093,9 @@ export struct SignPage {
             .fontColor($r('sys.color.ohos_id_color_text_secondary'))
             .layoutWeight(1)
           
-          if (this.DestinationLocationName !== '获取中...' && 
-              this.DestinationLocationName !== '该签到无要求位置' &&
-              this.DestinationLocationName !== '位置信息获取失败') {
+          if (this.DestinationLocationName !== LOCATION_STATUS.LOADING && 
+              this.DestinationLocationName !== LOCATION_STATUS.NO_REQUIREMENT &&
+              this.DestinationLocationName !== LOCATION_STATUS.FAILED) {
             Button({ type: ButtonType.Normal }) {
               Row({ space: 4 }) {
                 Image($r('sys.media.ohos_ic_public_copy'))
@@ -1105,19 +1119,19 @@ export struct SignPage {
 
         // 位置信息展示
         Row() {
-          if (this.DestinationLocationName === '获取中...') {
+          if (this.DestinationLocationName === LOCATION_STATUS.LOADING) {
             LoadingProgress()
               .width(20)
               .height(20)
               .color($r('sys.color.ohos_id_color_emphasize'))
               .margin({ right: 8 })
-          } else if (this.DestinationLocationName === '位置信息获取失败') {
+          } else if (this.DestinationLocationName === LOCATION_STATUS.FAILED) {
             Image($r('sys.media.ohos_ic_public_fail'))
               .width(20)
               .height(20)
               .fillColor($r('sys.color.ohos_id_color_warning'))
               .margin({ right: 8 })
-          } else if (this.DestinationLocationName === '该签到无要求位置') {
+          } else if (this.DestinationLocationName === LOCATION_STATUS.NO_REQUIREMENT) {
             Image($r('sys.media.ohos_ic_public_ok'))
               .width(20)
               .height(20)
@@ -1222,8 +1236,8 @@ export struct SignPage {
               bgColor: functionalButtonComponentManager.ColorType.DEFAULT,
               size: functionalButtonComponentManager.SizeType.DEFAULT,
               plain: false,
-              disabled: this.DestinationLocationName === '获取中...' || 
-                       this.DestinationLocationName === '该签到无要求位置',
+              disabled: this.DestinationLocationName === LOCATION_STATUS.LOADING || 
+                       this.DestinationLocationName === LOCATION_STATUS.NO_REQUIREMENT,
               loading: false,
               hoverClass: functionalButtonComponentManager.HoverClassType.HOVER_CLASS,
               hoverStartTime: 0,
@@ -1518,9 +1532,9 @@ QRCodeLocation({queryParams: this.queryParams,ActivityId: this.activityInfo?.Act
       try {
         const locName =
           (await Sign.GetLocationSignInfo(cookies, this.activityInfo.ActivityId))['locationText'] as string
-        this.DestinationLocationName = locName ? locName : '该签到无要求位置'
+        this.DestinationLocationName = locName ? locName : LOCATION_STATUS.NO_REQUIREMENT
       } catch (e) {
-        this.DestinationLocationName = '位置信息获取失败'
+        this.DestinationLocationName = LOCATION_STATUS.FAILED
       }
     }
 
