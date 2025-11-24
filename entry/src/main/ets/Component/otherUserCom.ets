@@ -3,6 +3,8 @@ import { image } from '@kit.ImageKit';
 import { loginFunction } from '../utils/Login';
 import { curves } from '@kit.ArkUI';
 
+const DELETE_ANIMATION_DURATION_MS = 300;
+
 @Reusable
 @Component
 export struct OtherUserItem {
@@ -70,7 +72,7 @@ export struct OtherUserItem {
       .onClick(async () => {
         // Animate out before deletion
         animateTo({
-          duration: 300,
+          duration: DELETE_ANIMATION_DURATION_MS,
           curve: curves.springMotion(0.6, 0.9)
         }, () => {
           this.itemOpacity = 0
@@ -80,11 +82,23 @@ export struct OtherUserItem {
         
         // Wait for animation to complete before deleting
         setTimeout(async () => {
-          let result = await this.dbManger.deleteUser(this.userData.id)
-          if (result === 1) {
-            this.otherUserList.splice(this.index, 1)
+          try {
+            let result = await this.dbManger.deleteUser(this.userData.id)
+            if (result === 1) {
+              this.otherUserList.splice(this.index, 1)
+            }
+          } catch (error) {
+            // Error is logged in DataBase.ets, just reset the animation
+            animateTo({
+              duration: 200,
+              curve: curves.springMotion(0.6, 0.9)
+            }, () => {
+              this.itemOpacity = 1
+              this.translateY = 0
+              this.itemScale = 1
+            })
           }
-        }, 300)
+        }, DELETE_ANIMATION_DURATION_MS)
       })
 
     }
