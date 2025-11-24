@@ -268,7 +268,7 @@ struct userItem {
 
 // ---------------------------------------------------------------
 // 组件 3: 图片选择器
-// 优化：UI 样式微调，逻辑保持不变
+// 优化：遵循"一镜到底"设计，改进 UI 样式和用户反馈
 // ---------------------------------------------------------------
 @Reusable
 @Component
@@ -285,42 +285,135 @@ struct photoPicker {
   @State uploadTotalCount: number = 0 // 总上传数量
 
   build() {
-    Column() {
-      // 状态指示点
-      Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
-        ForEach(this.signIdArray, (signId: number, index: number) => {
-          Circle({ width: 8, height: 8 })
-            .fill(this.objectidArray[index] ? $r('sys.color.ohos_id_color_connected') :
-              $r('sys.color.ohos_id_color_warning'))
-            .margin(4)
-        })
+    Column({ space: 16 }) {
+      // 标题
+      Row() {
+        Image($r('sys.media.ohos_ic_public_photo'))
+          .width(24)
+          .height(24)
+          .fillColor($r('sys.color.ohos_id_color_emphasize'))
+          .margin({ right: 8 })
+        
+        Text('拍照签到')
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.ohos_id_color_text_primary'))
       }
-      .padding(10)
       .width('100%')
 
-      // 上传状态反馈文本
+      // 状态指示区域 - 改进可视化
+      Column({ space: 12 }) {
+        Row() {
+          Text('上传进度')
+            .fontSize(14)
+            .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          
+          Blank()
+          
+          Text(`${this.objectidArray.filter(id => id).length}/${this.signIdArray.length}`)
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.ohos_id_color_emphasize'))
+        }
+        .width('100%')
+
+        // 进度指示器
+        Row({ space: 8 }) {
+          ForEach(this.signIdArray, (signId: number, index: number) => {
+            Stack() {
+              Circle({ width: 32, height: 32 })
+                .fill(this.objectidArray[index] ? 
+                  $r('sys.color.ohos_id_color_connected', 0.2) : 
+                  $r('sys.color.ohos_id_color_fourth', 0.3))
+                .border({
+                  width: 2,
+                  color: this.objectidArray[index] ? 
+                    $r('sys.color.ohos_id_color_connected') : 
+                    $r('sys.color.ohos_id_color_fourth')
+                })
+              
+              if (this.objectidArray[index]) {
+                Image($r('sys.media.ohos_ic_public_ok'))
+                  .width(16)
+                  .height(16)
+                  .fillColor($r('sys.color.ohos_id_color_connected'))
+              } else {
+                Text(`${index + 1}`)
+                  .fontSize(12)
+                  .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+              }
+            }
+          })
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
+      }
+      .width('100%')
+      .padding(16)
+      .backgroundColor($r('sys.color.ohos_id_color_background'))
+      .borderRadius(12)
+
+      // 状态文本反馈
       if (this.uploadStatus) {
-        Text(this.uploadStatus)
-          .fontSize(14)
-          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-          .margin({ top: 8, bottom: 8 })
+        Row() {
+          if (this.isUploading) {
+            LoadingProgress()
+              .width(16)
+              .height(16)
+              .color($r('sys.color.ohos_id_color_emphasize'))
+              .margin({ right: 8 })
+          }
+          
+          Text(this.uploadStatus)
+            .fontSize(14)
+            .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
       }
 
-      Button('选择图片 / 拍照')
-        .type(ButtonType.Capsule)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .fontColor($r('sys.color.ohos_id_color_text_primary_activated'))
-        .width('60%')
-        .margin({ top: 12 })
-        .enabled(!this.isUploading)
-        .onClick(async () => {
-          this.showPhotoConfirmDialog()
-        })
+      // 选择图片按钮
+      Button({ type: ButtonType.Normal }) {
+        Row({ space: 8 }) {
+          Image($r('sys.media.ohos_ic_public_photo'))
+            .width(20)
+            .height(20)
+            .fillColor($r('sys.color.ohos_id_color_text_primary_activated'))
+          
+          Text('选择图片 / 拍照')
+            .fontSize(16)
+            .fontColor($r('sys.color.ohos_id_color_text_primary_activated'))
+        }
+      }
+      .width('100%')
+      .height(48)
+      .backgroundColor(this.isUploading ? 
+        $r('sys.color.ohos_id_color_fourth') : 
+        $r('sys.color.ohos_id_color_emphasize'))
+      .borderRadius(24)
+      .enabled(!this.isUploading)
+      .shadow({
+        radius: 12,
+        color: this.isUploading ? 
+          $r('sys.color.ohos_id_color_fourth', 0.1) : 
+          $r('sys.color.ohos_id_color_emphasize', 0.3),
+        offsetX: 0,
+        offsetY: 4
+      })
+      .onClick(async () => {
+        this.showPhotoConfirmDialog()
+      })
     }
     .width('100%')
     .padding(16)
     .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
     .borderRadius(16)
+    .shadow({
+      radius: 8,
+      color: $r('sys.color.ohos_id_color_fourth', 0.1),
+      offsetX: 0,
+      offsetY: 2
+    })
   }
 
   // 显示图片选择确认对话框
@@ -902,7 +995,6 @@ export struct SignPage {
 
                 // 用户头像
                 Icon({ UserId: user.id })
-                  .margin({ right: 0 })
 
                 // 用户信息
                 Column({ space: 2 }) {
