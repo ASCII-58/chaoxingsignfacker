@@ -1,6 +1,7 @@
 import { DatabaseManager, UserDataAndId } from '../utils/DataBase';
 import { image } from '@kit.ImageKit';
 import { loginFunction } from '../utils/Login';
+import { curves } from '@kit.ArkUI';
 
 @Reusable
 @Component
@@ -12,6 +13,9 @@ export struct OtherUserItem {
   @State userImage: image.PixelMap | null = null;
   @State userName: string = ''
   @State isLoaded: boolean = false;
+  @State itemOpacity: number = 0;
+  @State translateY: number = 20;
+  @State itemScale: number = 0.95;
   private dbManger: DatabaseManager = DatabaseManager.getInstance()
 
   build() {
@@ -64,14 +68,38 @@ export struct OtherUserItem {
         }
       }).margin({ right:15 })
       .onClick(async () => {
-        let result = await this.dbManger.deleteUser(this.userData.id)
-        if (result === 1) {
-          this.otherUserList.splice(this.index, 1)
-        }
+        // Animate out before deletion
+        animateTo({
+          duration: 300,
+          curve: curves.springMotion(0.6, 0.9)
+        }, () => {
+          this.itemOpacity = 0
+          this.translateY = -20
+          this.itemScale = 0.8
+        })
+        
+        // Wait for animation to complete before deleting
+        setTimeout(async () => {
+          let result = await this.dbManger.deleteUser(this.userData.id)
+          if (result === 1) {
+            this.otherUserList.splice(this.index, 1)
+          }
+        }, 300)
       })
 
     }
     .onAppear(async () => {
+      // Staggered entrance animation for list items
+      animateTo({
+        duration: 400,
+        curve: curves.springMotion(0.6, 0.8),
+        delay: this.index * 50
+      }, () => {
+        this.itemOpacity = 1
+        this.translateY = 0
+        this.itemScale = 1
+      })
+
       if (!this.isLoaded) {
         let userInfo = await loginFunction.getUserInfo(this.userData.cookies)
         this.userName = userInfo.uname
@@ -84,11 +112,13 @@ export struct OtherUserItem {
     .borderRadius(15)
     .backgroundColor($r('app.color.class_button'))
     .shadow({
-      radius: 8,
-      color: '#00000020',
+      radius: 10,
+      color: '#00000025',
       offsetX: 0,
-      offsetY: 3
+      offsetY: 4
     })
-    .animation({ duration: 200, curve: Curve.EaseInOut })
+    .opacity(this.itemOpacity)
+    .translate({ y: this.translateY })
+    .scale({ x: this.itemScale, y: this.itemScale })
   }
 }
