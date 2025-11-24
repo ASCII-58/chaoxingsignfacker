@@ -4,11 +4,12 @@ import image from '@ohos.multimedia.image';
 import { ClassInfo, CourseAndActivity } from '../utils/classFun';
 import fs from '@ohos.file.fs';
 import { scanBarcode, scanCore } from '@kit.ScanKit';
-import { componentSnapshot, curves, UIContext } from '@kit.ArkUI';
+import { componentUtils, curves, componentSnapshot, UIContext } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import promptAction from '@ohos.promptAction';
 import { loginByCommon, loginByURL } from '../Component/loginCom';
+import { OtherUserItem } from '../Component/otherUserCom';
 
 const TAG = 'IndexPage';
 const DOMAIN = 0x0004;
@@ -82,91 +83,6 @@ struct ClassIcon {
   }
 }
 
-@Reusable
-@Component
-struct OtherUserItem {
-  @Prop userData: UserDataAndId;
-  @Prop index: number;
-  @Link otherUserList: UserDataAndId[]
-  @State userImage: image.PixelMap | null = null;
-  @State userName: string = ''
-  @State isLoaded: boolean = false;
-  @State animScale: number = 1;
-  private dbManger: DatabaseManager = DatabaseManager.getInstance()
-
-  build() {
-    Row() {
-      Image(this.userImage)
-        .width(60)
-        .height(60)
-        .borderColor($r('app.color.class_icon_border'))
-        .borderWidth(3)
-        .borderRadius(15)
-        .margin(10)
-        .alt($r('app.media.foreground'))
-      Column() {
-        Text(this.userName)
-          .fontSize(20)
-          .fontWeight(FontWeight.Medium)
-          .textAlign(TextAlign.Start)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.userData.phone)
-          .fontSize(12)
-          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-      }.margin({ left: 10 })
-      .width(140)
-      .alignItems(HorizontalAlign.Start)
-
-      Blank()
-      Button('删除')
-        .backgroundColor($r('sys.color.warning'))
-        .onClick(async () => {
-          let result = await this.dbManger.deleteUser(this.userData.id)
-          if (result === 1) {
-            this.otherUserList.splice(this.index, 1)
-          }
-        })
-        .width(100)
-        .height('100%')
-        .borderRadius({
-          topLeft: 0,
-          topRight: 20,
-          bottomLeft: 0,
-          bottomRight: 20
-        })
-
-    }
-    .onAppear(async () => {
-      if (!this.isLoaded) {
-        let userInfo = await loginFunction.getUserInfo(this.userData.cookies)
-        this.userName = userInfo.uname
-        this.userImage = await loginFunction.GetPic(userInfo.pic)
-        this.isLoaded = true
-      }
-    })
-    .height(80)
-    .width('100%')
-    .borderRadius(20)
-    .backgroundColor($r('app.color.class_button'))
-    .shadow({
-      radius: 8,
-      color: '#00000020',
-      offsetX: 0,
-      offsetY: 3
-    })
-    .scale({ x: this.animScale, y: this.animScale })
-    .animation({ duration: 200, curve: Curve.EaseInOut })
-    .onTouch((event: TouchEvent) => {
-      if (event.type === TouchType.Down) {
-        this.animScale = 0.98
-      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-        this.animScale = 1
-      }
-    })
-  }
-}
-
 @Entry
 @Component
 struct UI {
@@ -188,6 +104,7 @@ struct UI {
   @State selectorButtonScale: number = 1
   @State urlButtonScale: number = 1
   @State shareButtonScale: number = 1
+  @State logoutButtonScale: number = 1
   private controller: TabsController = new TabsController();
   private uiContext: UIContext = this.getUIContext();
 
@@ -288,285 +205,126 @@ struct UI {
   }
 
   build() {
-      Navigation(this.pathInfos) {
-        Tabs({ controller: this.controller }) {
-          TabContent() {
-            Column() {
+    Navigation(this.pathInfos) {
+      Tabs({ controller: this.controller }) {
+        TabContent() {
+          Column() {
 
-              List({ space: 12, initialIndex: 0 }) {
-                ListItemGroup() {
-                  ListItem() {
-                    Column().height(56)
-                  }
-
-                  ListItem() {
-                    Column({ space: 20 }) {
-                      // [Start Search_start]
-                      Search({ placeholder: '搜索课程...' })
-                        .height(40)
-                        .width('100%')
-                        .borderRadius(20)
-                        .backgroundColor($r('sys.color.ohos_id_color_component_normal'))
-                        .placeholderColor($r('sys.color.ohos_id_color_text_secondary'))
-                        // set geometry transition
-                        .geometryTransition('SEARCH_ONE_SHOT_DEMO_TRANSITION_ID', { follow: true })
-                        .defaultFocus(false)
-                        .focusOnTouch(false)
-                        .focusable(false)
-                        .shadow({
-                          radius: 6,
-                          color: '#00000020',
-                          offsetX: 0,
-                          offsetY: 2
-                        })
-                        // [End Search_start]
-                        .onTouch((event: TouchEvent) => {
-                          if (event.type === TouchType.Up) {
-                            // set search animation
-                            this.showSearchPage();
-                          }
-                        })
-                    }
-                    .size({
-                      width: '100%',
-                      height: 40
-                    })
-                  }
+            List({ space: 12, initialIndex: 0 }) {
+              ListItemGroup() {
+                ListItem() {
+                  Column().height(56)
                 }
 
-                ForEach(this.classList, (classInfo: ClassInfo, index: number) => {
-                  ListItem() {
-                    ClassListItem({ classInfo: classInfo, index: index })
+                ListItem() {
+                  Column({ space: 20 }) {
+                    // [Start Search_start]
+                    Search({ placeholder: '搜索课程...' })
+                      .height(40)
+                      .width('100%')
+                      .borderRadius(20)
+                      .backgroundColor($r('sys.color.ohos_id_color_component_normal'))
+                      .placeholderColor($r('sys.color.ohos_id_color_text_secondary'))
+                      // set geometry transition
+                      .geometryTransition('SEARCH_ONE_SHOT_DEMO_TRANSITION_ID', { follow: true })
+                      .defaultFocus(false)
+                      .focusOnTouch(false)
+                      .focusable(false)
+                      .shadow({
+                        radius: 6,
+                        color: '#00000020',
+                        offsetX: 0,
+                        offsetY: 2
+                      })
+                      // [End Search_start]
+                      .onTouch((event: TouchEvent) => {
+                        if (event.type === TouchType.Up) {
+                          // set search animation
+                          this.showSearchPage();
+                        }
+                      })
                   }
-                  .width('100%')
-                  .backgroundColor($r('app.color.class_button'))
-                  .height(80)
-                  .borderRadius(20)
-                  .shadow({
-                    radius: 10,
-                    color: '#00000020',
-                    offsetX: 0,
-                    offsetY: 3
+                  .size({
+                    width: '100%',
+                    height: 40
                   })
-                  .onClick(() => {
-                    this.pathInfos.pushPath({ name: 'ActivityListPage', param: classInfo });
-                  })
-                }, (classInfo: ClassInfo) => classInfo.id)
+                }
               }
-              .height('100%')
-              .width('100%')
-            }.height('100%')
-            .width('100%')
 
-          }.tabBar($r('app.string.class_list'))
-          .onAppear(async () => {
-            // 加载课程列表
-            const dbManager = DatabaseManager.getInstance()
-            const cookies = (await dbManager.getUserByPosition(1, true) as UserDataAndId).cookies
-            hilog.debug(DOMAIN, TAG, 'Loading class list');
-            this.classList = (await CourseAndActivity.getClassList(cookies)).classList
-          })
-
-          TabContent() {
-            Column() {
-              Column().height(56)
-              Column() {
-                Row() {
-                  Image(this.HostImageData)
-                    .width(50)
-                    .height(50)
-                    .borderRadius(90)// 设置圆角
-                    .objectFit(ImageFit.Cover)// 图片填充模式
-                    .alt($r('app.media.foreground'))
-                    .margin({ left: 7.5 })
-                    .onClick(() => {
-                      if ((++this.clickTime) > 9) {
-                        this.clickTime = 0
-                        this.pathInfos.pushPath({ name: 'TestPage' });
-                      }
-                    })
-
-                  Column() {
-                    Text(this.hostName)
-                      .fontSize(20)
-                      .fontWeight(FontWeight.Medium)
-                      .textAlign(TextAlign.Start)
-                      .maxLines(1)
-                      .textOverflow({ overflow: TextOverflow.Ellipsis })
-                    Text(this.hostPhone)
-                      .fontSize(12)
-                      .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-                  }
-                  .margin({ left: 10 })
-                  .alignItems(HorizontalAlign.Start)
-
-                  Blank().layoutWeight(1)
-                  Button('退出', { buttonStyle: ButtonStyleMode.NORMAL, role: ButtonRole.ERROR })
-                    .fontSize(20)
-                    .onClick(async () => {
-
-                      const dbManager = DatabaseManager.getInstance()
-                      try {
-                        await dbManager.clearHostUserTable()
-                      } catch (error) {
-                        hilog.error(DOMAIN, TAG, `Failed to clear host user: ${error.message}`);
-                      }
-                      this.hostName = $r('app.string.defaultUname')
-                      this.hostPhone = $r('app.string.defaultPhone')
-                      this.uiContext.getRouter().replaceUrl({ url: 'pages/LoginPage' });
-                    })
-                    .margin({ right: 15 })
-                    .height(40)
-                    .borderRadius(20)
+              ForEach(this.classList, (classInfo: ClassInfo, index: number) => {
+                ListItem() {
+                  ClassListItem({ classInfo: classInfo, index: index })
                 }
-                .width('97%')
-                .height(70)
-                .backgroundColor($r('app.color.header_background'))
-                .borderRadius(35)
-                .padding({ left: 5, right: 5 })
-                .zIndex(999999)
+                .width('100%')
+                .backgroundColor($r('app.color.class_button'))
+                .height(80)
+                .borderRadius(20)
                 .shadow({
                   radius: 10,
-                  color: '#00000025',
+                  color: '#00000020',
                   offsetX: 0,
-                  offsetY: 4
+                  offsetY: 3
                 })
-              }.width('100%')
-              .justifyContent(FlexAlign.Start)
+                .onClick(() => {
+                  this.pathInfos.pushPath({ name: 'ActivityListPage', param: classInfo });
+                })
+              }, (classInfo: ClassInfo) => classInfo.id)
+            }
+            .height('100%')
+            .width('100%')
+          }.height('100%')
+          .width('100%')
 
+        }.tabBar($r('app.string.class_list'))
+        .onAppear(async () => {
+          // 加载课程列表
+          const dbManager = DatabaseManager.getInstance()
+          const cookies = (await dbManager.getUserByPosition(1, true) as UserDataAndId).cookies
+          hilog.debug(DOMAIN, TAG, 'Loading class list');
+          this.classList = (await CourseAndActivity.getClassList(cookies)).classList
+        })
+
+        TabContent() {
+          Column() {
+            Column().height(56)
+            Column() {
               Row() {
-
-                Button() {
-                  Image($r('app.media.qrcode'))
-                    .height(30)
-                    .width(30)
-                    .fillColor($r('app.color.icon'))
-                    .margin(15)
-                }.borderRadius(999)
-                .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-                .shadow({
-                  radius: 8,
-                  color: '#00000020',
-                  offsetX: 0,
-                  offsetY: 3
-                })
-                .scale({ x: this.qrButtonScale, y: this.qrButtonScale })
-                .animation({ duration: 200, curve: Curve.EaseInOut })
-                .onTouch((event: TouchEvent) => {
-                  if (event.type === TouchType.Down) {
-                    this.qrButtonScale = 0.92
-                  } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                    this.qrButtonScale = 1
-                  }
-                })
-                .onClick(() => {
-                  let options: scanBarcode.ScanOptions = {
-                    scanTypes: [scanCore.ScanType.ALL],
-                    enableMultiMode: true,
-                    enableAlbum: true
-                  };
-                  try {
-                    // 可调用getHostContext接口获取当前页面关联的Context
-                    if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
-                      scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
-                        .then(async (result: scanBarcode.ScanResult) => {
-                          if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
-                            let loginMSG = await loginFunction.LoginByURL(result.originalValue)
-                            promptAction.showToast({ message: loginMSG })
-                            let dbManager = DatabaseManager.getInstance();
-                            this.otherUserList = await dbManager.getAllUsers()
-                          } else {
-                            promptAction.showToast({ message: '权限错误' })
-                          }
-                          // loginFunction.LoginChaoXing()
-                          // 解析码值结果跳转应用服务页
-                          hilog.info(0x0001, '[Scan CPSample]',
-                            `Succeeded in getting ScanResult by promise with options, result is ${JSON.stringify(result)}`);
-                        })
-                        .catch((error: BusinessError) => {
-                          hilog.error(0x0001, '[Scan CPSample]',
-                            `Failed to get ScanResult by promise with options. Code:${error.code}, message: ${error.message}`);
-                        });
-                    } else {
-                      // Fallback for unsupported SystemCapability
+                Image(this.HostImageData)
+                  .width(50)
+                  .height(50)
+                  .borderRadius(90)// 设置圆角
+                  .objectFit(ImageFit.Cover)// 图片填充模式
+                  .alt($r('app.media.foreground'))
+                  .margin({ left: 7.5 })
+                  .onClick(() => {
+                    if ((++this.clickTime) > 9) {
+                      this.clickTime = 0
+                      this.pathInfos.pushPath({ name: 'TestPage' });
                     }
-                  } catch (error) {
-                    hilog.error(0x0001, '[Scan CPSample]',
-                      `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
-                  }
-                })
+                  })
 
-                Button() {
-                  Image($r('app.media.selector'))
-                    .height(30)
-                    .width(30)
-                    .fillColor($r('app.color.icon'))
-                    .margin(15)
+                Column() {
+                  Text(this.hostName)
+                    .fontSize(20)
+                    .fontWeight(FontWeight.Medium)
+                    .textAlign(TextAlign.Start)
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  Text(this.hostPhone)
+                    .fontSize(12)
+                    .fontColor($r('sys.color.ohos_id_color_text_secondary'))
                 }
-                .onClick(() => {
-                  this.LoginCommonIsShow = !this.LoginCommonIsShow
-                })
-                .borderRadius(999)
-                .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-                .shadow({
-                  radius: 8,
-                  color: '#00000020',
-                  offsetX: 0,
-                  offsetY: 3
-                })
-                .scale({ x: this.selectorButtonScale, y: this.selectorButtonScale })
-                .animation({ duration: 200, curve: Curve.EaseInOut })
-                .onTouch((event: TouchEvent) => {
-                  if (event.type === TouchType.Down) {
-                    this.selectorButtonScale = 0.92
-                  } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                    this.selectorButtonScale = 1
-                  }
-                })
-                .bindSheet($$this.LoginCommonIsShow, this.loginCommon, {
-                  height: '90%', onWillDismiss: () => {
-                    this.LoginCommonIsShow = false
-                  }
-                })
+                .margin({ left: 10 })
+                .alignItems(HorizontalAlign.Start)
 
-                Button() {
-                  Image($r('app.media.paperclip')).height(30)
-                    .width(30)
-                    .fillColor($r('app.color.icon'))
-                    .margin(15)
-                }
-                .onClick(() => {
-                  this.LoginURLIsSHow = true
-                })
-                .borderRadius(999)
-                .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-                .shadow({
-                  radius: 8,
-                  color: '#00000020',
-                  offsetX: 0,
-                  offsetY: 3
-                })
-                .scale({ x: this.urlButtonScale, y: this.urlButtonScale })
-                .animation({ duration: 200, curve: Curve.EaseInOut })
-                .onTouch((event: TouchEvent) => {
-                  if (event.type === TouchType.Down) {
-                    this.urlButtonScale = 0.92
-                  } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                    this.urlButtonScale = 1
-                  }
-                })
-                .bindSheet($$this.LoginURLIsSHow, this.loginURL(), {
-                  height: '90%', onWillDismiss: () => {
-                    this.LoginURLIsSHow = false
-                  }
-                })
-
+                Blank().layoutWeight(1)
                 Button() {
                   Column() {
                     Image($r('app.media.share'))
                       .height(30).width(30).fillColor($r('app.color.icon'))
-                  }.height(60).width(60).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
+                  }.height(45).width(45).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
                 }
+                .margin({ right: 10 })
                 .onClick(() => {
                   this.QRCodeIsShow = true
                 })
@@ -596,62 +354,242 @@ struct UI {
                       this.QRCodeIsShow = false
                     }
                   })
-              }.margin({ top: 15, left: '1.5%' }).justifyContent(FlexAlign.SpaceAround).width('97%')
 
-              Column() {
-                List() {
-                  ForEach(this.otherUserList, (item: UserDataAndId, index) => {
-                    ListItem() {
-                      OtherUserItem({ userData: item, otherUserList: this.otherUserList, index: index })
-                    }.width('100%')
-                    .margin({ bottom: '2%' })
-                  }, (item: UserDataAndId) => item.id.toString())
+                Button() {
+                  Column() {
+                    Image($r('app.media.ic_public_quit')).height(30).width(30).fillColor(Color.Red)
+                  }.height(45).width(45).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
                 }
-                .margin({ top: '2%', bottom: '2%' })
-                .borderRadius('20')
-                .alignListItem(ListItemAlign.Center)
-                .width('96%')
-                .height('60%')
+                .onClick(async () => {
+
+                  const dbManager = DatabaseManager.getInstance()
+                  try {
+                    await dbManager.clearHostUserTable()
+                  } catch (error) {
+                    hilog.error(DOMAIN, TAG, `Failed to clear host user: ${error.message}`);
+                  }
+                  this.hostName = $r('app.string.defaultUname')
+                  this.hostPhone = $r('app.string.defaultPhone')
+                  this.uiContext.getRouter().replaceUrl({ url: 'pages/LoginPage' });
+                })
+                .margin({ right: 10 })
+                .borderRadius(30)
+                .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+                .shadow({
+                  radius: 8,
+                  color: '#00000020',
+                  offsetX: 0,
+                  offsetY: 3
+                })
+                .scale({ x: this.logoutButtonScale, y: this.logoutButtonScale })
+                .animation({ duration: 200, curve: Curve.EaseInOut })
+                .onTouch((event: TouchEvent) => {
+                  if (event.type === TouchType.Down) {
+                    this.logoutButtonScale = 0.92
+                  } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                    this.logoutButtonScale = 1
+                  }
+                })
               }
-              .margin({ top: 30 })
-              .borderRadius(25)
-              .backgroundColor($r('sys.color.comp_background_secondary'))
-              .width('98%')
+              .width('97%')
+              .height(70)
+              .backgroundColor($r('app.color.header_background'))
+              .borderRadius(35)
+              .padding({ left: 5, right: 5 })
+              .zIndex(999999)
+              .shadow({
+                radius: 10,
+                color: '#00000025',
+                offsetX: 0,
+                offsetY: 4
+              })
+            }.width('100%')
+            .justifyContent(FlexAlign.Start)
+
+            Row() {
+
+              Button() {
+                Image($r('app.media.qrcode'))
+                  .height(30)
+                  .width(30)
+                  .fillColor($r('app.color.icon'))
+                  .margin(15)
+              }
+              .borderRadius(999)
+              .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+              .shadow({
+                radius: 8,
+                color: '#00000020',
+                offsetX: 0,
+                offsetY: 3
+              })
+              .scale({ x: this.qrButtonScale, y: this.qrButtonScale })
+              .animation({ duration: 200, curve: Curve.EaseInOut })
+              .onTouch((event: TouchEvent) => {
+                if (event.type === TouchType.Down) {
+                  this.qrButtonScale = 0.92
+                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                  this.qrButtonScale = 1
+                }
+              })
+              .onClick(() => {
+                let options: scanBarcode.ScanOptions = {
+                  scanTypes: [scanCore.ScanType.ALL],
+                  enableMultiMode: true,
+                  enableAlbum: true
+                };
+                try {
+                  // 可调用getHostContext接口获取当前页面关联的Context
+                  if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
+                    scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
+                      .then(async (result: scanBarcode.ScanResult) => {
+                        if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
+                          let loginMSG = await loginFunction.LoginByURL(result.originalValue)
+                          promptAction.showToast({ message: loginMSG })
+                          let dbManager = DatabaseManager.getInstance();
+                          this.otherUserList = await dbManager.getAllUsers()
+                        } else {
+                          promptAction.showToast({ message: '权限错误' })
+                        }
+                        // loginFunction.LoginChaoXing()
+                        // 解析码值结果跳转应用服务页
+                        hilog.info(0x0001, '[Scan CPSample]',
+                          `Succeeded in getting ScanResult by promise with options, result is ${JSON.stringify(result)}`);
+                      })
+                      .catch((error: BusinessError) => {
+                        hilog.error(0x0001, '[Scan CPSample]',
+                          `Failed to get ScanResult by promise with options. Code:${error.code}, message: ${error.message}`);
+                      });
+                  } else {
+                    // Fallback for unsupported SystemCapability
+                  }
+                } catch (error) {
+                  hilog.error(0x0001, '[Scan CPSample]',
+                    `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
+                }
+              })
+
+              Button() {
+                Image($r('app.media.selector'))
+                  .height(30)
+                  .width(30)
+                  .fillColor($r('app.color.icon'))
+                  .margin(15)
+              }
+              .onClick(() => {
+                this.LoginCommonIsShow = !this.LoginCommonIsShow
+              })
+              .borderRadius(999)
+              .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+              .shadow({
+                radius: 8,
+                color: '#00000020',
+                offsetX: 0,
+                offsetY: 3
+              })
+              .scale({ x: this.selectorButtonScale, y: this.selectorButtonScale })
+              .animation({ duration: 200, curve: Curve.EaseInOut })
+              .onTouch((event: TouchEvent) => {
+                if (event.type === TouchType.Down) {
+                  this.selectorButtonScale = 0.92
+                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                  this.selectorButtonScale = 1
+                }
+              })
+              .bindSheet($$this.LoginCommonIsShow, this.loginCommon, {
+                height: '90%', onWillDismiss: () => {
+                  this.LoginCommonIsShow = false
+                }
+              })
+
+              Button() {
+                Image($r('app.media.paperclip')).height(30)
+                  .width(30)
+                  .fillColor($r('app.color.icon'))
+                  .margin(15)
+              }
+              .onClick(() => {
+                this.LoginURLIsSHow = true
+              })
+              .borderRadius(999)
+              .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+              .shadow({
+                radius: 8,
+                color: '#00000020',
+                offsetX: 0,
+                offsetY: 3
+              })
+              .scale({ x: this.urlButtonScale, y: this.urlButtonScale })
+              .animation({ duration: 200, curve: Curve.EaseInOut })
+              .onTouch((event: TouchEvent) => {
+                if (event.type === TouchType.Down) {
+                  this.urlButtonScale = 0.92
+                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                  this.urlButtonScale = 1
+                }
+              })
+              .bindSheet($$this.LoginURLIsSHow, this.loginURL(), {
+                height: '90%', onWillDismiss: () => {
+                  this.LoginURLIsSHow = false
+                }
+              })
+
+            }.margin({ top: 15, left: '1.5%' }).justifyContent(FlexAlign.SpaceAround).width('97%')
+
+            Column() {
+              List() {
+                ForEach(this.otherUserList, (item: UserDataAndId, index) => {
+                  ListItem() {
+                    OtherUserItem({ userData: item, otherUserList: this.otherUserList, index: index })
+                  }.width('100%')
+                  .margin({ bottom: '2%' })
+                }, (item: UserDataAndId) => item.id.toString())
+              }
+              .margin({ top: '2%', bottom: '2%' })
+              .borderRadius('20')
+              .alignListItem(ListItemAlign.Center)
+              .width('96%')
+              .height('60%')
             }
-            .height('100%')
-          }.tabBar($r('app.string.user'))
+            .margin({ top: 30 })
+            .borderRadius(25)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+            .width('98%')
+          }
+          .height('100%')
+        }.tabBar($r('app.string.user'))
 
-        }
-        .height('100%')
-        .barWidth('100%')
-        .barHeight(50)
-        .vertical(false)
-        .barPosition(BarPosition.End)
-        .backgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THIN)
-        .fadingEdge(true)
-        .barMode(BarMode.Fixed)
-        .animationDuration(0)
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .divider({ strokeWidth: '1px', color: $r('sys.color.comp_divider') })
-        .scrollable(false)
-        .onChange((index) => {
-          this.titleName = index === 0 ? '首页' : '用户中心'
-        })
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
-      .mode(NavigationMode.Auto)
+      .height('100%')
+      .barWidth('100%')
+      .barHeight(50)
+      .vertical(false)
+      .barPosition(BarPosition.End)
+      .backgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THIN)
+      .fadingEdge(true)
+      .barMode(BarMode.Fixed)
+      .animationDuration(0)
       .backgroundColor($r('sys.color.comp_background_secondary'))
-      .title(this.titleName, {
-        backgroundBlurStyle: BlurStyle.BACKGROUND_THICK, barStyle: BarStyle.STACK, backgroundBlurStyleOptions: {
-          colorMode: ThemeColorMode.LIGHT,
-          adaptiveColor: AdaptiveColor.AVERAGE,
-          blurOptions: { grayscale: [20, 20] },
-          scale: 1
-        },
-
+      .divider({ strokeWidth: '1px', color: $r('sys.color.comp_divider') })
+      .scrollable(false)
+      .onChange((index) => {
+        this.titleName = index === 0 ? '首页' : '用户中心'
       })
-      .titleMode(NavigationTitleMode.Mini)
-      .hideBackButton(true)
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    }
+    .mode(NavigationMode.Auto)
+    .backgroundColor($r('sys.color.comp_background_secondary'))
+    .title(this.titleName, {
+      backgroundBlurStyle: BlurStyle.BACKGROUND_THICK, barStyle: BarStyle.STACK, backgroundBlurStyleOptions: {
+        colorMode: ThemeColorMode.LIGHT,
+        adaptiveColor: AdaptiveColor.AVERAGE,
+        blurOptions: { grayscale: [20, 20] },
+        scale: 1
+      },
+
+    })
+    .titleMode(NavigationTitleMode.Mini)
+    .hideBackButton(true)
     .backgroundImageSize({ width: '100%', height: '100%' })
     .borderRadius($r('sys.float.corner_radius_level8'))
     .height('100%')
@@ -682,7 +620,6 @@ struct UI {
         hilog.error(DOMAIN, TAG, `Error in onAppear: ${e.message}`);
       }
     })
-
 
   }
 
