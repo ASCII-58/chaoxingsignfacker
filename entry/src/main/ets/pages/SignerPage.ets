@@ -1054,62 +1054,165 @@ export struct SignPage {
 
   @Builder
   LocationCard() {
-    Column() {
-      // 标题提示
-      Text('要求位置')
-        .fontSize(14)
-        .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-        .width('100%')
-        .margin({ bottom: 8 })
-
-      // 位置信息与复制按钮
+    Column({ space: 16 }) {
+      // 标题
       Row() {
-        Text(this.DestinationLocationName)
-          .layoutWeight(1) // ⭐️ 关键：自动占据剩余空间
-          .fontSize(16)
+        Image($r('sys.media.ohos_ic_public_location'))
+          .width(24)
+          .height(24)
+          .fillColor($r('sys.color.ohos_id_color_emphasize'))
+          .margin({ right: 8 })
+        
+        Text('位置签到')
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.ohos_id_color_text_primary'))
-          .maxLines(3)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .copyOption(CopyOptions.LocalDevice)
-
-        if (this.DestinationLocationName !== '获取中...' && this.DestinationLocationName !== '该签到无要求位置') {
-          Button('复制')
-            .fontSize(12)
-            .height(28)
-            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-            .fontColor($r('sys.color.ohos_id_color_text_primary'))
-            .margin({ left: 8 })
-            .onClick(() => this.copyText(this.DestinationLocationName))
-        }
       }
       .width('100%')
-      .padding(12)
-      .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
-      .borderRadius(12)
-      .border({ width: 1, color: $r('sys.color.comp_divider') })
 
-      // 已选坐标展示
-      if (this.queryParams?.['address']) {
-        Column() {
-          Text(`已选位置: ${this.queryParams['address']}`)
-            .fontSize(14).fontColor($r('sys.color.ohos_id_color_text_primary')).margin({ top: 8 })
-          Text(`经度: ${this.queryParams['longitude']}`)
-            .fontSize(12)
-            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
-          Text(`纬度: ${this.queryParams['latitude']}`)
-            .fontSize(12)
-            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
-        }.alignItems(HorizontalAlign.Start).width('100%').margin({ top: 8 })
-      } else {
-        Text('请点击下方按钮选择位置')
-          .fontSize(14)
-          .fontColor($r('sys.color.ohos_id_color_warning'))
-          .margin({ top: 16, bottom: 4 })
-          .width('100%')
-          .textAlign(TextAlign.Center)
+      // 要求位置信息卡片
+      Column({ space: 12 }) {
+        Row() {
+          Text('要求位置')
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+            .layoutWeight(1)
+          
+          if (this.DestinationLocationName !== '获取中...' && 
+              this.DestinationLocationName !== '该签到无要求位置' &&
+              this.DestinationLocationName !== '位置信息获取失败') {
+            Button({ type: ButtonType.Normal }) {
+              Row({ space: 4 }) {
+                Image($r('sys.media.ohos_ic_public_copy'))
+                  .width(14)
+                  .height(14)
+                  .fillColor($r('sys.color.ohos_id_color_text_primary'))
+                
+                Text('复制')
+                  .fontSize(12)
+                  .fontColor($r('sys.color.ohos_id_color_text_primary'))
+              }
+            }
+            .height(28)
+            .padding({ left: 12, right: 12 })
+            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+            .borderRadius(14)
+            .onClick(() => this.copyText(this.DestinationLocationName))
+          }
+        }
+        .width('100%')
+
+        // 位置信息展示
+        Row() {
+          if (this.DestinationLocationName === '获取中...') {
+            LoadingProgress()
+              .width(20)
+              .height(20)
+              .color($r('sys.color.ohos_id_color_emphasize'))
+              .margin({ right: 8 })
+          } else if (this.DestinationLocationName === '位置信息获取失败') {
+            Image($r('sys.media.ohos_ic_public_fail'))
+              .width(20)
+              .height(20)
+              .fillColor($r('sys.color.ohos_id_color_warning'))
+              .margin({ right: 8 })
+          } else if (this.DestinationLocationName === '该签到无要求位置') {
+            Image($r('sys.media.ohos_ic_public_ok'))
+              .width(20)
+              .height(20)
+              .fillColor($r('sys.color.ohos_id_color_connected'))
+              .margin({ right: 8 })
+          }
+          
+          Text(this.DestinationLocationName)
+            .fontSize(15)
+            .fontColor($r('sys.color.ohos_id_color_text_primary'))
+            .maxLines(3)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .padding(12)
+        .backgroundColor($r('sys.color.ohos_id_color_background'))
+        .borderRadius(12)
       }
 
-      // 地图选点按钮 (FunctionalButton)
+      // 已选位置信息
+      if (this.queryParams?.['address']) {
+        Column({ space: 8 }) {
+          Row() {
+            Image($r('sys.media.ohos_ic_public_location'))
+              .width(16)
+              .height(16)
+              .fillColor($r('sys.color.ohos_id_color_connected'))
+              .margin({ right: 6 })
+            
+            Text('已选位置')
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          }
+          
+          Column({ space: 4 }) {
+            Row() {
+              Text('地址：')
+                .fontSize(13)
+                .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+              Text(`${this.queryParams['address']}`)
+                .fontSize(13)
+                .fontColor($r('sys.color.ohos_id_color_text_primary'))
+                .layoutWeight(1)
+            }
+            .width('100%')
+            
+            Row() {
+              Text(`经度：${this.queryParams['longitude']}`)
+                .fontSize(12)
+                .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+              
+              Text(' | ')
+                .fontSize(12)
+                .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+                .margin({ left: 8, right: 8 })
+              
+              Text(`纬度：${this.queryParams['latitude']}`)
+                .fontSize(12)
+                .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+            }
+          }
+        }
+        .width('100%')
+        .padding(12)
+        .backgroundColor($r('sys.color.ohos_id_color_connected', 0.1))
+        .borderRadius(12)
+        .border({ width: 1, color: $r('sys.color.ohos_id_color_connected', 0.3) })
+      } else {
+        // 未选择位置的提示
+        Column({ space: 8 }) {
+          Image($r('sys.media.ohos_ic_public_location'))
+            .width(32)
+            .height(32)
+            .fillColor($r('sys.color.ohos_id_color_warning'))
+            .opacity(0.6)
+          
+          Text('尚未选择位置')
+            .fontSize(14)
+            .fontColor($r('sys.color.ohos_id_color_warning'))
+          
+          Text('请点击下方按钮在地图上选择位置')
+            .fontSize(12)
+            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+        }
+        .width('100%')
+        .padding(20)
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor($r('sys.color.ohos_id_color_warning', 0.05))
+        .borderRadius(12)
+        .border({ width: 1, color: $r('sys.color.ohos_id_color_warning', 0.2) })
+      }
+
+      // 地图选点按钮
       Column() {
         FunctionalButton({
           params: {
@@ -1119,7 +1222,8 @@ export struct SignPage {
               bgColor: functionalButtonComponentManager.ColorType.DEFAULT,
               size: functionalButtonComponentManager.SizeType.DEFAULT,
               plain: false,
-              disabled: false,
+              disabled: this.DestinationLocationName === '获取中...' || 
+                       this.DestinationLocationName === '该签到无要求位置',
               loading: false,
               hoverClass: functionalButtonComponentManager.HoverClassType.HOVER_CLASS,
               hoverStartTime: 0,
@@ -1141,10 +1245,18 @@ export struct SignPage {
         })
       }
       .width('100%')
-      .margin({ top: 12 })
     }
     .padding(16)
     .width('100%')
+    .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+    .borderRadius(16)
+    .margin({ left: 16, right: 16, bottom: 16 })
+    .shadow({
+      radius: 8,
+      color: $r('sys.color.ohos_id_color_fourth', 0.1),
+      offsetX: 0,
+      offsetY: 2
+    })
   }
 
   @Builder
