@@ -386,10 +386,11 @@ struct UI {
                 .onClick(async () => {
                   if (!this.QRvalue) {
                     AlertDialog.show({ message: '请等待数据加载完成' })
+                    return
                   }
                   const shareUtils = new ShareUtils(this.context,this.QRvalue)
                   await shareUtils.getQRCode()
-                  shareUtils.write(true)
+                  await shareUtils.write(true)
                   this.share(shareUtils.FileUri,this.QRvalue)
                   // this.QRCodeIsShow = true
                 })
