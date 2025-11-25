@@ -35,28 +35,22 @@ export default class ShareUtils {
     return directoryUri
   }
 
-  public async getQRCode() {
+  public async getQRCode(): Promise<void> {
     try {
-      generateBarcode.createBarcode(this.ShareURL, this.QRCODE_OPTIONS).then((result: image.PixelMap) => {
-        const ShareIMAGE = result
-        const imagePackerApi: image.ImagePacker = image.createImagePacker()
+      const pixelMap: image.PixelMap = await generateBarcode.createBarcode(this.ShareURL, this.QRCODE_OPTIONS);
+      hilog.info(0x0001, '[Scan Sample]', `Succeeded in getting PixelMap by promise with options`);
 
-        imagePackerApi.packToData(ShareIMAGE, this.packOpts).catch(() => {
-          // TODO: Implement error handling.
-          hilog.error(0x0001, '[Scan Sample]', `Failed to packToData.`);
-        }).then((result: ArrayBuffer | void) => {
-          if (result) {
-            this.ShareBuffer = result
-          }
-        })
-        // 码图生成接口，成功返回PixelMap格式图片
-        hilog.info(0x0001, '[Scan Sample]', `Succeeded in getting PixelMap by promise with options`);
-      }).catch((error: BusinessError) => {
-        hilog.error(0x0001, '[Scan Sample]',
-          `Failed to get PixelMap by promise with options. Code: ${error.code}, message: ${error.message}`);
-      });
+      const imagePackerApi: image.ImagePacker = image.createImagePacker();
+      const result: ArrayBuffer | undefined = await imagePackerApi.packToData(pixelMap, this.packOpts);
+      if (result) {
+        this.ShareBuffer = result;
+      } else {
+        hilog.error(0x0001, '[Scan Sample]', `Failed to packToData: result is undefined`);
+      }
     } catch (error) {
-      hilog.error(0x0001, '[Scan Sample]', `Failed to generateBarcode. Code: ${error.code}, message: ${error.message}`);
+      const bizError = error as BusinessError;
+      hilog.error(0x0001, '[Scan Sample]',
+        `Failed to generate QR code. Code: ${bizError.code}, message: ${bizError.message}`);
     }
   }
 
