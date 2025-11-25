@@ -21,6 +21,19 @@ import UrlTools from '../utils/urlTools';
 const TAG = 'SignerPage';
 const DOMAIN = 0x0008;
 
+/**
+ * 位置签到状态常量
+ * 用于统一管理位置信息的各种状态显示文本
+ * @constant LOADING - 正在获取位置信息
+ * @constant NO_REQUIREMENT - 签到活动不要求位置
+ * @constant FAILED - 位置信息获取失败
+ */
+const LOCATION_STATUS = {
+  LOADING: '获取中...',
+  NO_REQUIREMENT: '该签到无要求位置',
+  FAILED: '位置信息获取失败'
+} as const;
+
 // 定义用户对象接口
 interface userMenu {
   uname: string
@@ -97,57 +110,183 @@ struct Icon {
 
 // ---------------------------------------------------------------
 // 组件 2: 用户列表项
-// 优化：交互动画优化、使用 Checkbox 指示选中状态、适配深色模式
+// 优化：遵循华为"一镜到底"设计原则
+// 
+// 一镜到底设计实现：
+// 1. 视觉连续性：通过流畅的触摸动画(scale/opacity)保持视觉流畅
+// 2. 清晰层次：使用卡片、阴影、圆角等元素建立信息层级
+// 3. 即时反馈：选中状态通过多种视觉元素反馈（背景色、边框、图标）
+// 4. 信息密度：在有限空间内展示头像、姓名、状态等关键信息
+// 5. 状态可见：通过颜色编码(绿/灰/黄)直观展示用户签到状态
 // ---------------------------------------------------------------
 @Reusable
 @Component
 struct userItem {
-  @State bgColor: Resource = $r('sys.color.ohos_id_color_card_bg'); // 默认卡片背景
   @Prop user: userMenu
   @Link @Watch('onSelectionChange') signIdArray: number[]
+  @State isSelected: boolean = false
+  @State scaleValue: number = 1
+  @State opacityValue: number = 1
 
   onSelectionChange() {
-    const isSelected = this.signIdArray.includes(this.user.id);
-    // 选中时稍微改变背景色以示强调（可选），这里主要靠 Checkbox
-    // this.bgColor = isSelected ? $r('sys.color.ohos_id_color_emphasize', 0.1) : $r('sys.color.ohos_id_color_card_bg');
+    this.isSelected = this.signIdArray.includes(this.user.id);
+  }
+
+  aboutToAppear() {
+    this.isSelected = this.signIdArray.includes(this.user.id);
   }
 
   build() {
     Row() {
-      Icon({ UserId: this.user.id })
+      // 头像容器 - 添加选中动画
+      Stack({ alignContent: Alignment.BottomEnd }) {
+        Icon({ UserId: this.user.id })
+        
+        // 选中状态指示器 - 使用简化的定位
+        if (this.isSelected) {
+          Stack() {
+            Circle({ width: 18, height: 18 })
+              .fill($r('sys.color.ohos_id_color_connected'))
+            
+            Image($r('sys.media.ohos_ic_public_ok'))
+              .width(12)
+              .height(12)
+              .fillColor($r('sys.color.ohos_id_color_primary_contrary'))
+          }
+          .width(18)
+          .height(18)
+        }
+      }
+      .width(48)
+      .height(48)
+      .margin({ right: 16 })
 
-      Column() {
-        Text(this.user.uname)
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.ohos_id_color_text_primary'))
+      // 用户信息区域
+      Column({ space: 4 }) {
+        Row() {
+          Text(this.user.uname)
+            .fontSize(16)
+            .fontWeight(this.isSelected ? FontWeight.Medium : FontWeight.Regular)
+            .fontColor($r('sys.color.ohos_id_color_text_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+        }
+        .width('100%')
 
-        Text(this.user.SignPermission === 1 ? '可签到' : this.user.SignPermission === 0 ? '已签到' : '无权限')
-          .fontSize(12)
-          .fontColor(this.user.SignPermission === 1 ? $r('sys.color.ohos_id_color_text_secondary') :
-            $r('sys.color.ohos_id_color_warning'))
-          .margin({ top: 4 })
+        // 状态标签
+        Row() {
+          Text(this.getStatusText())
+            .fontSize(12)
+            .fontColor(this.getStatusColor())
+            .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+            .backgroundColor(this.getStatusBgColor())
+            .borderRadius(4)
+        }
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
-      // 使用 Checkbox 代替纯背景色变化，交互更明确
-      Checkbox()
-        .select(this.signIdArray.includes(this.user.id))
-        .selectedColor($r('sys.color.ohos_id_color_connected'))
-        .hitTestBehavior(HitTestMode.None) // 让点击事件穿透到 Row
+      // 选择指示器 - 使用更现代的设计
+      if (this.user.SignPermission !== -1) {
+        Stack() {
+          Circle({ width: 24, height: 24 })
+            .fill(this.isSelected ? $r('sys.color.ohos_id_color_connected') : Color.Transparent)
+            .border({
+              width: 2,
+              color: this.isSelected ? $r('sys.color.ohos_id_color_connected') :
+                $r('sys.color.ohos_id_color_fourth')
+            })
+          
+          if (this.isSelected) {
+            Image($r('sys.media.ohos_ic_public_ok'))
+              .width(14)
+              .height(14)
+              .fillColor($r('sys.color.ohos_id_color_primary_contrary'))
+          }
+        }
+        .margin({ left: 12 })
+      } else {
+        // 无权限用户显示禁用图标
+        Image($r('sys.media.ohos_ic_public_remove'))
+          .width(24)
+          .height(24)
+          .fillColor($r('sys.color.ohos_id_color_warning'))
+          .margin({ left: 12 })
+      }
     }
     .width('100%')
-    .padding(12)
-    .backgroundColor(this.bgColor)
-    .borderRadius(12)
-    .margin({ bottom: 8 })
+    .padding(16)
+    .backgroundColor(this.isSelected ? 
+      $r('sys.color.ohos_id_color_emphasize', 0.08) : 
+      $r('sys.color.ohos_id_color_card_bg'))
+    .borderRadius(16)
+    .margin({ bottom: 12 })
+    .border({
+      width: this.isSelected ? 2 : 1,
+      color: this.isSelected ? $r('sys.color.ohos_id_color_connected') : $r('sys.color.comp_divider')
+    })
+    .shadow({
+      radius: this.isSelected ? 12 : 4,
+      color: this.isSelected ? $r('sys.color.ohos_id_color_connected', 0.2) : $r('sys.color.ohos_id_color_fourth', 0.1),
+      offsetX: 0,
+      offsetY: this.isSelected ? 4 : 2
+    })
+    .scale({ x: this.scaleValue, y: this.scaleValue })
+    .opacity(this.opacityValue)
+    .animation({
+      duration: 300,
+      curve: Curve.EaseInOut,
+      iterations: 1
+    })
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        this.scaleValue = 0.98
+        this.opacityValue = 0.8
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        this.scaleValue = 1
+        this.opacityValue = 1
+      }
+    })
+  }
+
+  private getStatusText(): string {
+    switch (this.user.SignPermission) {
+      case 1:
+        return '可签到';
+      case 0:
+        return '已签到';
+      default:
+        return '无权限';
+    }
+  }
+
+  private getStatusColor(): Resource {
+    switch (this.user.SignPermission) {
+      case 1:
+        return $r('sys.color.ohos_id_color_connected');
+      case 0:
+        return $r('sys.color.ohos_id_color_text_secondary');
+      default:
+        return $r('sys.color.ohos_id_color_warning');
+    }
+  }
+
+  private getStatusBgColor(): Resource {
+    switch (this.user.SignPermission) {
+      case 1:
+        return $r('sys.color.ohos_id_color_connected', 0.1);
+      case 0:
+        return $r('sys.color.ohos_id_color_fourth', 0.3);
+      default:
+        return $r('sys.color.ohos_id_color_warning', 0.1);
+    }
   }
 }
 
 // ---------------------------------------------------------------
 // 组件 3: 图片选择器
-// 优化：UI 样式微调，逻辑保持不变
+// 优化：遵循"一镜到底"设计，改进 UI 样式和用户反馈
 // ---------------------------------------------------------------
 @Reusable
 @Component
@@ -164,42 +303,135 @@ struct photoPicker {
   @State uploadTotalCount: number = 0 // 总上传数量
 
   build() {
-    Column() {
-      // 状态指示点
-      Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
-        ForEach(this.signIdArray, (signId: number, index: number) => {
-          Circle({ width: 8, height: 8 })
-            .fill(this.objectidArray[index] ? $r('sys.color.ohos_id_color_connected') :
-              $r('sys.color.ohos_id_color_warning'))
-            .margin(4)
-        })
+    Column({ space: 16 }) {
+      // 标题
+      Row() {
+        Image($r('sys.media.ohos_ic_public_photo'))
+          .width(24)
+          .height(24)
+          .fillColor($r('sys.color.ohos_id_color_emphasize'))
+          .margin({ right: 8 })
+        
+        Text('拍照签到')
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.ohos_id_color_text_primary'))
       }
-      .padding(10)
       .width('100%')
 
-      // 上传状态反馈文本
+      // 状态指示区域 - 改进可视化
+      Column({ space: 12 }) {
+        Row() {
+          Text('上传进度')
+            .fontSize(14)
+            .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          
+          Blank()
+          
+          Text(`${this.objectidArray.filter(id => id).length}/${this.signIdArray.length}`)
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.ohos_id_color_emphasize'))
+        }
+        .width('100%')
+
+        // 进度指示器
+        Row({ space: 8 }) {
+          ForEach(this.signIdArray, (signId: number, index: number) => {
+            Stack() {
+              Circle({ width: 32, height: 32 })
+                .fill(this.objectidArray[index] ? 
+                  $r('sys.color.ohos_id_color_connected', 0.2) : 
+                  $r('sys.color.ohos_id_color_fourth', 0.3))
+                .border({
+                  width: 2,
+                  color: this.objectidArray[index] ? 
+                    $r('sys.color.ohos_id_color_connected') : 
+                    $r('sys.color.ohos_id_color_fourth')
+                })
+              
+              if (this.objectidArray[index]) {
+                Image($r('sys.media.ohos_ic_public_ok'))
+                  .width(16)
+                  .height(16)
+                  .fillColor($r('sys.color.ohos_id_color_connected'))
+              } else {
+                Text(`${index + 1}`)
+                  .fontSize(12)
+                  .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+              }
+            }
+          })
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
+      }
+      .width('100%')
+      .padding(16)
+      .backgroundColor($r('sys.color.ohos_id_color_background'))
+      .borderRadius(12)
+
+      // 状态文本反馈
       if (this.uploadStatus) {
-        Text(this.uploadStatus)
-          .fontSize(14)
-          .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-          .margin({ top: 8, bottom: 8 })
+        Row() {
+          if (this.isUploading) {
+            LoadingProgress()
+              .width(16)
+              .height(16)
+              .color($r('sys.color.ohos_id_color_emphasize'))
+              .margin({ right: 8 })
+          }
+          
+          Text(this.uploadStatus)
+            .fontSize(14)
+            .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
       }
 
-      Button('选择图片 / 拍照')
-        .type(ButtonType.Capsule)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .fontColor($r('sys.color.ohos_id_color_text_primary_activated'))
-        .width('60%')
-        .margin({ top: 12 })
-        .enabled(!this.isUploading)
-        .onClick(async () => {
-          this.showPhotoConfirmDialog()
-        })
+      // 选择图片按钮
+      Button({ type: ButtonType.Normal }) {
+        Row({ space: 8 }) {
+          Image($r('sys.media.ohos_ic_public_photo'))
+            .width(20)
+            .height(20)
+            .fillColor($r('sys.color.ohos_id_color_text_primary_activated'))
+          
+          Text('选择图片 / 拍照')
+            .fontSize(16)
+            .fontColor($r('sys.color.ohos_id_color_text_primary_activated'))
+        }
+      }
+      .width('100%')
+      .height(48)
+      .backgroundColor(this.isUploading ? 
+        $r('sys.color.ohos_id_color_fourth') : 
+        $r('sys.color.ohos_id_color_emphasize'))
+      .borderRadius(24)
+      .enabled(!this.isUploading)
+      .shadow({
+        radius: 12,
+        color: this.isUploading ? 
+          $r('sys.color.ohos_id_color_fourth', 0.1) : 
+          $r('sys.color.ohos_id_color_emphasize', 0.3),
+        offsetX: 0,
+        offsetY: 4
+      })
+      .onClick(async () => {
+        this.showPhotoConfirmDialog()
+      })
     }
     .width('100%')
     .padding(16)
     .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
     .borderRadius(16)
+    .shadow({
+      radius: 8,
+      color: $r('sys.color.ohos_id_color_fourth', 0.1),
+      offsetX: 0,
+      offsetY: 2
+    })
   }
 
   // 显示图片选择确认对话框
@@ -393,7 +625,7 @@ struct photoPicker {
 struct QRCodeLocation {
   @Prop ActivityId: string;
   @Link queryParams: object
-  @State DestinationLocationName: string = '获取中...' // 初始状态
+  @State DestinationLocationName: string = LOCATION_STATUS.LOADING; // 初始状态
   @State Position: object = JSON.parse('{"result":1,"mockData":"{\\"strategy\\":0,\\"probability\\":-1}"}') as object
 
   build() {
@@ -415,7 +647,8 @@ struct QRCodeLocation {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .copyOption(CopyOptions.LocalDevice)
 
-        if (this.DestinationLocationName !== '获取中...' && this.DestinationLocationName !== '该签到无要求位置') {
+        if (this.DestinationLocationName !== LOCATION_STATUS.LOADING && 
+            this.DestinationLocationName !== LOCATION_STATUS.NO_REQUIREMENT) {
           Button('复制')
             .fontSize(12)
             .height(28)
@@ -436,9 +669,9 @@ struct QRCodeLocation {
         try {
           const locName =
             (await Sign.GetLocationSignInfo(cookies, this.ActivityId))['locationText'] as string
-          this.DestinationLocationName = locName ? locName : '该签到无要求位置'
+          this.DestinationLocationName = locName ? locName : LOCATION_STATUS.NO_REQUIREMENT
         } catch (e) {
-          this.DestinationLocationName = '位置信息获取失败'
+          this.DestinationLocationName = LOCATION_STATUS.FAILED
         }
       })
       .width('100%')
@@ -498,7 +731,8 @@ struct QRCodeLocation {
               this.Position['latitude'] = LoginLocation.lat as number;
               this.queryParams['location'] = JSON.stringify(this.Position)
             })
-        }).enabled(this.DestinationLocationName !== '获取中...' && this.DestinationLocationName !== '该签到无要求位置')
+        }).enabled(this.DestinationLocationName !== LOCATION_STATUS.LOADING && 
+                   this.DestinationLocationName !== LOCATION_STATUS.NO_REQUIREMENT)
       }
       .width('100%')
       .margin({ top: 12 })
@@ -540,159 +774,465 @@ export struct SignPage {
   @State ifPhoto: boolean = false
   @State otherUserDialogIsShow: boolean = false
   @State objectidArr: string[] = []
-  @State DestinationLocationName: string = '获取中...' // 初始状态
+  @State DestinationLocationName: string = LOCATION_STATUS.LOADING; // 初始状态
   @State hostUser: HostUserInfo | null = null
   pathInfos: NavPathStack = new NavPathStack();
 
   // 4. UI Builders
   @Builder
   otherUserMenu() {
-    List() {
-      ForEach(this.otherUser, (user: userMenu) => {
-        ListItem() {
-          userItem({ user, signIdArray: this.signIdArray })
+    Column() {
+      // 顶部统计信息区域 - 一镜到底设计：提供清晰的信息层次
+      Row() {
+        Column({ space: 4 }) {
+          Text('用户选择')
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.ohos_id_color_text_primary'))
+          
+          Text(`共 ${this.otherUser.length} 人 · 已选 ${this.signIdArray.length} 人`)
+            .fontSize(14)
+            .fontColor($r('sys.color.ohos_id_color_text_secondary'))
         }
-        .onClick(() => {
-          if (this.signIdArray.includes(user.id)) {
-            this.signIdArray = this.signIdArray.filter(num => num !== user.id)
-          } else {
-            this.signIdArray.push(user.id)
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        // 快速操作按钮
+        Row({ space: 8 }) {
+          Button('全选')
+            .fontSize(14)
+            .height(32)
+            .padding({ left: 16, right: 16 })
+            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+            .fontColor($r('sys.color.ohos_id_color_text_primary'))
+            .onClick(() => {
+              // 选择所有有权限的用户
+              this.signIdArray = this.otherUser
+                .filter(u => u.SignPermission !== -1)
+                .map(u => u.id)
+            })
+          
+          Button('清空')
+            .fontSize(14)
+            .height(32)
+            .padding({ left: 16, right: 16 })
+            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+            .fontColor($r('sys.color.ohos_id_color_text_primary'))
+            .onClick(() => {
+              this.signIdArray = []
+            })
+        }
+      }
+      .width('100%')
+      .padding(16)
+      .backgroundColor($r('sys.color.ohos_id_color_background'))
+
+      // 用户列表区域
+      List({ space: 0 }) {
+        // 添加分组提示
+        ListItemGroup() {
+          if (this.otherUser.filter(u => u.SignPermission === 1).length > 0) {
+            ListItem() {
+              Row() {
+                Text('可签到用户')
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+                  .margin({ left: 4 })
+              }
+              .width('100%')
+              .padding({ top: 8, bottom: 8 })
+            }
           }
-        })
+          
+          ForEach(this.otherUser.filter((u: userMenu) => u.SignPermission === 1), (user: userMenu) => {
+            ListItem() {
+              userItem({ user, signIdArray: this.signIdArray })
+            }
+            .onClick(() => {
+              if (this.signIdArray.includes(user.id)) {
+                this.signIdArray = this.signIdArray.filter(num => num !== user.id)
+              } else {
+                this.signIdArray.push(user.id)
+              }
+            })
+          })
+        }
+
+        ListItemGroup() {
+          if (this.otherUser.filter(u => u.SignPermission === 0).length > 0) {
+            ListItem() {
+              Row() {
+                Text('已签到用户')
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+                  .margin({ left: 4 })
+              }
+              .width('100%')
+              .padding({ top: 16, bottom: 8 })
+            }
+          }
+          
+          ForEach(this.otherUser.filter((u: userMenu) => u.SignPermission === 0), (user: userMenu) => {
+            ListItem() {
+              userItem({ user, signIdArray: this.signIdArray })
+            }
+            .onClick(() => {
+              if (this.signIdArray.includes(user.id)) {
+                this.signIdArray = this.signIdArray.filter(num => num !== user.id)
+              } else {
+                this.signIdArray.push(user.id)
+              }
+            })
+          })
+        }
+
+        ListItemGroup() {
+          if (this.otherUser.filter(u => u.SignPermission === -1).length > 0) {
+            ListItem() {
+              Row() {
+                Text('无权限用户')
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+                  .margin({ left: 4 })
+              }
+              .width('100%')
+              .padding({ top: 16, bottom: 8 })
+            }
+          }
+          
+          ForEach(this.otherUser.filter((u: userMenu) => u.SignPermission === -1), (user: userMenu) => {
+            ListItem() {
+              userItem({ user, signIdArray: this.signIdArray })
+            }
+          })
+        }
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .padding({ left: 16, right: 16, bottom: 16 })
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.Spring)
+      .divider({
+        strokeWidth: 0
       })
     }
     .width('100%')
     .height('100%')
-    .padding(16)
+    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 
   @Builder
   UserSelectionCard() {
-    Column() {
+    Column({ space: 12 }) {
+      // 标题和操作按钮区域
       Row() {
-        Text('已选用户')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.ohos_id_color_text_primary'))
-          .layoutWeight(1)
+        Column({ space: 4 }) {
+          Text('已选用户')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.ohos_id_color_text_primary'))
+          
+          if (this.signIdArray.length > 0) {
+            Text(`${this.signIdArray.length} 人已选择`)
+              .fontSize(12)
+              .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          }
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
 
-        Button('选择用户')
-          .fontSize(14)
-          .height(32)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .fontColor($r('sys.color.ohos_id_color_text_primary'))
-          .onClick(() => {
-            this.otherUserDialogIsShow = true
-          })
-          .bindSheet($$this.otherUserDialogIsShow, this.otherUserMenu, {
-            title: { title: $r('app.string.other_user') },
-            backgroundColor: $r('sys.color.ohos_id_color_dialog_bg')
-          })
+        Button({ type: ButtonType.Normal }) {
+          Row({ space: 6 }) {
+            Image($r('sys.media.ohos_ic_public_add'))
+              .width(16)
+              .height(16)
+              .fillColor($r('sys.color.ohos_id_color_text_primary_activated'))
+            
+            Text('选择用户')
+              .fontSize(14)
+              .fontColor($r('sys.color.ohos_id_color_text_primary_activated'))
+          }
+        }
+        .height(36)
+        .padding({ left: 16, right: 16 })
+        .backgroundColor($r('sys.color.ohos_id_color_emphasize'))
+        .borderRadius(18)
+        .onClick(() => {
+          this.otherUserDialogIsShow = true
+        })
+        .bindSheet($$this.otherUserDialogIsShow, this.otherUserMenu, {
+          height: '80%',
+          backgroundColor: $r('sys.color.ohos_id_color_dialog_bg'),
+          showClose: true,
+          dragBar: true,
+          blurStyle: BlurStyle.COMPONENT_ULTRA_THICK
+        })
       }
       .width('100%')
-      .margin({ bottom: 12 })
 
+      // 用户展示区域 - 使用卡片式布局
       if (this.signIdArray.length === 0) {
-        Text('未选择用户，请点击上方按钮选择')
-          .fontSize(14)
-          .fontColor($r('sys.color.ohos_id_color_warning'))
-          .padding(12)
+        // 空状态提示 - 一镜到底：使用引导性设计
+        Column({ space: 12 }) {
+          Image($r('sys.media.ohos_ic_public_community_messages'))
+            .width(48)
+            .height(48)
+            .fillColor($r('sys.color.ohos_id_color_text_tertiary'))
+            .opacity(0.6)
+          
+          Text('未选择用户')
+            .fontSize(16)
+            .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          
+          Text('请点击上方按钮选择要签到的用户')
+            .fontSize(14)
+            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+            .textAlign(TextAlign.Center)
+        }
+        .width('100%')
+        .padding(32)
+        .justifyContent(FlexAlign.Center)
       } else {
-        Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap }) {
-          ForEach(this.signIdArray, (userId: number) => {
+        // 已选用户列表 - 优化展示
+        Column({ space: 8 }) {
+          ForEach(this.signIdArray, (userId: number, index: number) => {
             ForEach(this.otherUser.filter(u => u.id === userId), (user: userMenu) => {
               Row() {
-                Text(user.uname)
+                // 序号指示器
+                Text(`${index + 1}`)
                   .fontSize(14)
-                  .fontColor($r('sys.color.ohos_id_color_text_primary'))
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.ohos_id_color_text_primary_contrary'))
+                  .width(24)
+                  .height(24)
+                  .textAlign(TextAlign.Center)
+                  .backgroundColor($r('sys.color.ohos_id_color_emphasize'))
+                  .borderRadius(12)
+                  .margin({ right: 12 })
 
-              }
-              .padding({
-                left: 12,
-                right: 12,
-                top: 6,
-                bottom: 6
-              })
-              .backgroundColor($r('sys.color.ohos_id_color_emphasize', 0.1))
-              .borderRadius(16)
-              .margin({ right: 8, bottom: 8 })
-              .onClick(() => {
-                if (this.signIdArray.includes(user.id)) {
-                  this.signIdArray = this.signIdArray.filter(num => num !== user.id)
-                } else {
-                  this.signIdArray.push(user.id)
+                // 用户头像
+                Icon({ UserId: user.id })
+
+                // 用户信息
+                Column({ space: 2 }) {
+                  Text(user.uname)
+                    .fontSize(15)
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor($r('sys.color.ohos_id_color_text_primary'))
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  
+                  Text(user.SignPermission === 1 ? '可签到' : '已签到')
+                    .fontSize(12)
+                    .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
                 }
-              })
+                .alignItems(HorizontalAlign.Start)
+                .layoutWeight(1)
+
+                // 移除按钮
+                Button({ type: ButtonType.Circle }) {
+                  Image($r('sys.media.ohos_ic_public_remove'))
+                    .width(16)
+                    .height(16)
+                    .fillColor($r('sys.color.ohos_id_color_warning'))
+                }
+                .width(32)
+                .height(32)
+                .backgroundColor($r('sys.color.ohos_id_color_warning', 0.1))
+                .onClick(() => {
+                  animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+                    this.signIdArray = this.signIdArray.filter(num => num !== user.id)
+                  })
+                })
+              }
+              .width('100%')
+              .padding(12)
+              .backgroundColor($r('sys.color.ohos_id_color_background'))
+              .borderRadius(12)
+              .border({ width: 1, color: $r('sys.color.comp_divider') })
             })
           })
         }
+        .width('100%')
       }
     }
     .padding(16)
     .width('100%')
     .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
-    .borderRadius(12)
+    .borderRadius(16)
     .margin({ left: 16, right: 16, bottom: 16 })
+    .shadow({
+      radius: 8,
+      color: $r('sys.color.ohos_id_color_fourth', 0.1),
+      offsetX: 0,
+      offsetY: 2
+    })
   }
 
   @Builder
   LocationCard() {
-    Column() {
-      // 标题提示
-      Text('要求位置')
-        .fontSize(14)
-        .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-        .width('100%')
-        .margin({ bottom: 8 })
-
-      // 位置信息与复制按钮
+    Column({ space: 16 }) {
+      // 标题
       Row() {
-        Text(this.DestinationLocationName)
-          .layoutWeight(1) // ⭐️ 关键：自动占据剩余空间
-          .fontSize(16)
+        Image($r('sys.media.ohos_ic_public_location'))
+          .width(24)
+          .height(24)
+          .fillColor($r('sys.color.ohos_id_color_emphasize'))
+          .margin({ right: 8 })
+        
+        Text('位置签到')
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.ohos_id_color_text_primary'))
-          .maxLines(3)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .copyOption(CopyOptions.LocalDevice)
-
-        if (this.DestinationLocationName !== '获取中...' && this.DestinationLocationName !== '该签到无要求位置') {
-          Button('复制')
-            .fontSize(12)
-            .height(28)
-            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-            .fontColor($r('sys.color.ohos_id_color_text_primary'))
-            .margin({ left: 8 })
-            .onClick(() => this.copyText(this.DestinationLocationName))
-        }
       }
       .width('100%')
-      .padding(12)
-      .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
-      .borderRadius(12)
-      .border({ width: 1, color: $r('sys.color.comp_divider') })
 
-      // 已选坐标展示
-      if (this.queryParams?.['address']) {
-        Column() {
-          Text(`已选位置: ${this.queryParams['address']}`)
-            .fontSize(14).fontColor($r('sys.color.ohos_id_color_text_primary')).margin({ top: 8 })
-          Text(`经度: ${this.queryParams['longitude']}`)
-            .fontSize(12)
-            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
-          Text(`纬度: ${this.queryParams['latitude']}`)
-            .fontSize(12)
-            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
-        }.alignItems(HorizontalAlign.Start).width('100%').margin({ top: 8 })
-      } else {
-        Text('请点击下方按钮选择位置')
-          .fontSize(14)
-          .fontColor($r('sys.color.ohos_id_color_warning'))
-          .margin({ top: 16, bottom: 4 })
-          .width('100%')
-          .textAlign(TextAlign.Center)
+      // 要求位置信息卡片
+      Column({ space: 12 }) {
+        Row() {
+          Text('要求位置')
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+            .layoutWeight(1)
+          
+          if (this.DestinationLocationName !== LOCATION_STATUS.LOADING && 
+              this.DestinationLocationName !== LOCATION_STATUS.NO_REQUIREMENT &&
+              this.DestinationLocationName !== LOCATION_STATUS.FAILED) {
+            Button({ type: ButtonType.Normal }) {
+              Row({ space: 4 }) {
+                Image($r('sys.media.ohos_ic_public_copy'))
+                  .width(14)
+                  .height(14)
+                  .fillColor($r('sys.color.ohos_id_color_text_primary'))
+                
+                Text('复制')
+                  .fontSize(12)
+                  .fontColor($r('sys.color.ohos_id_color_text_primary'))
+              }
+            }
+            .height(28)
+            .padding({ left: 12, right: 12 })
+            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+            .borderRadius(14)
+            .onClick(() => this.copyText(this.DestinationLocationName))
+          }
+        }
+        .width('100%')
+
+        // 位置信息展示
+        Row() {
+          if (this.DestinationLocationName === LOCATION_STATUS.LOADING) {
+            LoadingProgress()
+              .width(20)
+              .height(20)
+              .color($r('sys.color.ohos_id_color_emphasize'))
+              .margin({ right: 8 })
+          } else if (this.DestinationLocationName === LOCATION_STATUS.FAILED) {
+            Image($r('sys.media.ohos_ic_public_fail'))
+              .width(20)
+              .height(20)
+              .fillColor($r('sys.color.ohos_id_color_warning'))
+              .margin({ right: 8 })
+          } else if (this.DestinationLocationName === LOCATION_STATUS.NO_REQUIREMENT) {
+            Image($r('sys.media.ohos_ic_public_ok'))
+              .width(20)
+              .height(20)
+              .fillColor($r('sys.color.ohos_id_color_connected'))
+              .margin({ right: 8 })
+          }
+          
+          Text(this.DestinationLocationName)
+            .fontSize(15)
+            .fontColor($r('sys.color.ohos_id_color_text_primary'))
+            .maxLines(3)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .padding(12)
+        .backgroundColor($r('sys.color.ohos_id_color_background'))
+        .borderRadius(12)
       }
 
-      // 地图选点按钮 (FunctionalButton)
+      // 已选位置信息
+      if (this.queryParams?.['address']) {
+        Column({ space: 8 }) {
+          Row() {
+            Image($r('sys.media.ohos_ic_public_location'))
+              .width(16)
+              .height(16)
+              .fillColor($r('sys.color.ohos_id_color_connected'))
+              .margin({ right: 6 })
+            
+            Text('已选位置')
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+          }
+          
+          Column({ space: 4 }) {
+            Row() {
+              Text('地址：')
+                .fontSize(13)
+                .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+              Text(`${this.queryParams['address']}`)
+                .fontSize(13)
+                .fontColor($r('sys.color.ohos_id_color_text_primary'))
+                .layoutWeight(1)
+            }
+            .width('100%')
+            
+            Row() {
+              Text(`经度：${this.queryParams['longitude']}`)
+                .fontSize(12)
+                .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+              
+              Text(' | ')
+                .fontSize(12)
+                .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+                .margin({ left: 8, right: 8 })
+              
+              Text(`纬度：${this.queryParams['latitude']}`)
+                .fontSize(12)
+                .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+            }
+          }
+        }
+        .width('100%')
+        .padding(12)
+        .backgroundColor($r('sys.color.ohos_id_color_connected', 0.1))
+        .borderRadius(12)
+        .border({ width: 1, color: $r('sys.color.ohos_id_color_connected', 0.3) })
+      } else {
+        // 未选择位置的提示
+        Column({ space: 8 }) {
+          Image($r('sys.media.ohos_ic_public_location'))
+            .width(32)
+            .height(32)
+            .fillColor($r('sys.color.ohos_id_color_warning'))
+            .opacity(0.6)
+          
+          Text('尚未选择位置')
+            .fontSize(14)
+            .fontColor($r('sys.color.ohos_id_color_warning'))
+          
+          Text('请点击下方按钮在地图上选择位置')
+            .fontSize(12)
+            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+        }
+        .width('100%')
+        .padding(20)
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor($r('sys.color.ohos_id_color_warning', 0.05))
+        .borderRadius(12)
+        .border({ width: 1, color: $r('sys.color.ohos_id_color_warning', 0.2) })
+      }
+
+      // 地图选点按钮
       Column() {
         FunctionalButton({
           params: {
@@ -702,7 +1242,8 @@ export struct SignPage {
               bgColor: functionalButtonComponentManager.ColorType.DEFAULT,
               size: functionalButtonComponentManager.SizeType.DEFAULT,
               plain: false,
-              disabled: false,
+              disabled: this.DestinationLocationName === LOCATION_STATUS.LOADING || 
+                       this.DestinationLocationName === LOCATION_STATUS.NO_REQUIREMENT,
               loading: false,
               hoverClass: functionalButtonComponentManager.HoverClassType.HOVER_CLASS,
               hoverStartTime: 0,
@@ -724,10 +1265,18 @@ export struct SignPage {
         })
       }
       .width('100%')
-      .margin({ top: 12 })
     }
     .padding(16)
     .width('100%')
+    .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+    .borderRadius(16)
+    .margin({ left: 16, right: 16, bottom: 16 })
+    .shadow({
+      radius: 8,
+      color: $r('sys.color.ohos_id_color_fourth', 0.1),
+      offsetX: 0,
+      offsetY: 2
+    })
   }
 
   @Builder
@@ -785,48 +1334,100 @@ QRCodeLocation({queryParams: this.queryParams,ActivityId: this.activityInfo?.Act
     NavDestination() {
       if (this.activityInfo) {
         Column() {
-          Column() {
-            // 标题
-            Text('签到详情')
-              .fontSize(24)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('sys.color.ohos_id_color_text_primary'))
+          // 1. 内容区域 (可滚动) - 一镜到底：流畅的滚动体验
+          Scroll() {
+            Column() {
+              // 标题区域
+              Column() {
+                Text('签到详情')
+                  .fontSize(28)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('sys.color.ohos_id_color_text_primary'))
+                  .width('100%')
+                  .textAlign(TextAlign.Start)
+              }
               .width('100%')
-              .margin({ top: 20, bottom: 20, left: 16 })
+              .padding({ left: 16, right: 16, top: 20, bottom: 12 })
 
-            // 用户选择卡片
-            this.UserSelectionCard()
+              // 用户选择卡片
+              this.UserSelectionCard()
 
-            // 根据类型渲染不同内容
-            if (this.activityInfo?.signType === SignType.NORMAL) {
-              if (this.ifPhoto) {
-                photoPicker({
-                  signIdArray: this.signIdArray,
-                  objectidArray: this.objectidArr,
-                  otherUserDialogIsShow: this.otherUserDialogIsShow,
-                  otherUser: this.otherUser
-                })
-                  .margin({ left: 16, right: 16 })
+              // 根据类型渲染不同内容
+              if (this.activityInfo?.signType === SignType.NORMAL) {
+                if (this.ifPhoto) {
+                  photoPicker({
+                    signIdArray: this.signIdArray,
+                    objectidArray: this.objectidArr,
+                    otherUserDialogIsShow: this.otherUserDialogIsShow,
+                    otherUser: this.otherUser
+                  })
+                    .margin({ left: 16, right: 16, bottom: 16 })
+                } else {
+                  Column() {
+                    Image($r('sys.media.ohos_ic_public_ok'))
+                      .width(40)
+                      .height(40)
+                      .fillColor($r('sys.color.ohos_id_color_emphasize'))
+                      .opacity(0.6)
+                      .margin({ bottom: 12 })
+                    
+                    Text('普通签到')
+                      .fontSize(16)
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor($r('sys.color.ohos_id_color_text_primary'))
+                      .margin({ bottom: 4 })
+                    
+                    Text('点击下方按钮直接签到')
+                      .fontSize(14)
+                      .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+                  }
+                  .width('100%')
+                  .height(150)
+                  .justifyContent(FlexAlign.Center)
+                  .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+                  .borderRadius(16)
+                  .margin({ left: 16, right: 16, bottom: 16 })
+                }
+              } else if (this.activityInfo?.signType === SignType.LOCATION) {
+                this.LocationCard()
+              } else if (this.activityInfo?.signType === SignType.GESTURE) {
+                // 手势签到 - 只允许单用户签到
+                this.GestureSignCard()
+              } else if (this.activityInfo.signType === SignType.QRCODE) {
+                this.QRCodeCard()
               } else {
                 Column() {
-                  Text('点击下方按钮直接签到')
+                  Image($r('sys.media.ohos_ic_public_fail'))
+                    .width(40)
+                    .height(40)
+                    .fillColor($r('sys.color.ohos_id_color_warning'))
+                    .opacity(0.6)
+                    .margin({ bottom: 12 })
+                  
+                  Text('未支持的签到类型')
                     .fontSize(16)
-                    .fontColor($r('sys.color.ohos_id_color_text_secondary'))
-                }.height(100).justifyContent(FlexAlign.Center)
+                    .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+                }
+                .width('100%')
+                .height(150)
+                .justifyContent(FlexAlign.Center)
+                .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+                .borderRadius(16)
+                .margin({ left: 16, right: 16, bottom: 16 })
               }
-            } else if (this.activityInfo?.signType === SignType.LOCATION) {
-              this.LocationCard()
-            } else if (this.activityInfo?.signType === SignType.GESTURE) {
-              // 手势签到 - 只允许单用户签到
-              this.GestureSignCard()
-            } else if (this.activityInfo.signType === SignType.QRCODE) {
-              this.QRCodeCard()
-            } else {
-              Text('未支持的签到类型')
-                .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
-                .margin(32)
+
+              // 底部占位，避免被按钮遮挡
+              if (this.activityInfo?.signType !== SignType.GESTURE &&
+                this.activityInfo?.signType !== SignType.PASSWORD) {
+                Column().height(100)
+              }
             }
-          }.width('100%').height('70%')
+            .width('100%')
+          }
+          .layoutWeight(1)
+          .scrollBar(BarState.Auto)
+          .edgeEffect(EdgeEffect.Spring)
+          .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
 
           // 2. 底部按钮区 (固定) - 手势签到和密码签到不显示底部按钮
           if (this.activityInfo?.signType !== SignType.GESTURE &&
@@ -837,23 +1438,50 @@ QRCodeLocation({queryParams: this.queryParams,ActivityId: this.activityInfo?.Act
                 .height(48)
                 .fontSize(18)
                 .fontWeight(FontWeight.Medium)
-                .backgroundColor($r('sys.color.ohos_id_color_emphasize'))
+                .backgroundColor(this.canSign ? $r('sys.color.ohos_id_color_emphasize') : 
+                  $r('sys.color.ohos_id_color_fourth'))
+                .fontColor($r('sys.color.ohos_id_color_text_primary_activated'))
+                .borderRadius(24)
                 .enabled(this.canSign)
+                .shadow({
+                  radius: 12,
+                  color: this.canSign ? $r('sys.color.ohos_id_color_emphasize', 0.3) : 
+                    $r('sys.color.ohos_id_color_fourth', 0.1),
+                  offsetX: 0,
+                  offsetY: 4
+                })
                 .onClick(() => {
                   this.showSignConfirmDialog()
                 })
             }
             .width('100%')
-            .padding({ top: 12, bottom: 24 }) // 底部留白
-            .backgroundColor($r('sys.color.ohos_id_color_background')) // 避免内容穿透
+            .padding({ top: 16, bottom: 24, left: 16, right: 16 })
+            .backgroundColor($r('sys.color.ohos_id_color_background'))
+            .shadow({
+              radius: 16,
+              color: $r('sys.color.ohos_id_color_fourth', 0.15),
+              offsetX: 0,
+              offsetY: -4
+            })
           }
         }
         .height('100%')
-        .backgroundColor($r('sys.color.ohos_id_color_sub_background')) // 页面底色
       } else {
         Column() {
-          Text('参数加载失败').fontColor($r('sys.color.ohos_id_color_text_tertiary'))
-        }.justifyContent(FlexAlign.Center).height('100%')
+          Image($r('sys.media.ohos_ic_public_fail'))
+            .width(64)
+            .height(64)
+            .fillColor($r('sys.color.ohos_id_color_warning'))
+            .opacity(0.6)
+            .margin({ bottom: 16 })
+          
+          Text('参数加载失败')
+            .fontSize(16)
+            .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+        }
+        .justifyContent(FlexAlign.Center)
+        .height('100%')
+        .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
       }
     }
     .hideTitleBar(false)
@@ -910,9 +1538,9 @@ QRCodeLocation({queryParams: this.queryParams,ActivityId: this.activityInfo?.Act
       try {
         const locName =
           (await Sign.GetLocationSignInfo(cookies, this.activityInfo.ActivityId))['locationText'] as string
-        this.DestinationLocationName = locName ? locName : '该签到无要求位置'
+        this.DestinationLocationName = locName ? locName : LOCATION_STATUS.NO_REQUIREMENT
       } catch (e) {
-        this.DestinationLocationName = '位置信息获取失败'
+        this.DestinationLocationName = LOCATION_STATUS.FAILED
       }
     }
 
