@@ -25,14 +25,14 @@ export default class ShareUtils {
   }
 
   get FileUri(): string {
-    if (this.exists) {
-      return 'no this file'
+    if (!this.exists) {
+      return 'File not found'
     }
     let path = this.context.cacheDir + '/' + this.fileName;
     let fileUriObject = new fileUri.FileUri(path);
-    let directoryUri = fileUriObject.getFullDirectoryUri();
-    console.info(`success to getFullDirectoryUri: ${JSON.stringify(directoryUri)}`);
-    return directoryUri
+    let fileUriStr = fileUriObject.toString();
+    console.info(`success to getFileUri: ${JSON.stringify(fileUriStr)}`);
+    return fileUriStr
   }
 
   public async getQRCode(): Promise<void> {
