@@ -229,7 +229,7 @@ export default struct SearchLongTakeTransitionPageTwo {
             .placeholderColor($r('sys.color.ohos_id_color_text_secondary'))
             .width('85%')
             .backgroundColor($r('sys.color.ohos_id_color_component_normal'))
-            .geometryTransition('SEARCH_ONE_SHOT_DEMO_TRANSITION_ID')
+            .geometryTransition('SEARCH_ONE_SHOT_DEMO_TRANSITION_ID', { follow: true })
             .transition(TransitionEffect.opacity(0.99))
             .defaultFocus(true)
             .focusOnTouch(true)

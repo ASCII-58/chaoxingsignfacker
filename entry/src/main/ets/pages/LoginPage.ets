@@ -31,6 +31,7 @@ struct Login {
 
   build() {
     Column() {
+      Column().height('10%')
       Text('学习通账号\n登录')
         .margin({ top: 10, bottom: 10 })
         .fontSize(40)
@@ -193,6 +194,6 @@ struct Login {
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
+    .justifyContent(FlexAlign.Start)
   }
 }

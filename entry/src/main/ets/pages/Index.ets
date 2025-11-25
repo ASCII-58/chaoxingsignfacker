@@ -4,16 +4,19 @@ import image from '@ohos.multimedia.image';
 import { ClassInfo, CourseAndActivity } from '../utils/classFun';
 import fs from '@ohos.file.fs';
 import { scanBarcode, scanCore } from '@kit.ScanKit';
-import { componentUtils, curves, componentSnapshot, UIContext } from '@kit.ArkUI';
+import { componentSnapshot, curves, UIContext } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import promptAction from '@ohos.promptAction';
 import { loginByCommon, loginByURL } from '../Component/loginCom';
 import { OtherUserItem } from '../Component/otherUserCom';
+import ShareUtils from '../utils/shareUtils';
+import { systemShare } from '@kit.ShareKit';
+import { uniformTypeDescriptor as utd } from '@kit.ArkData';
+import { common } from '@kit.AbilityKit';
 
 const TAG = 'IndexPage';
 const DOMAIN = 0x0004;
-
 @Reusable
 @Component
 struct ClassListItem {
@@ -94,7 +97,6 @@ struct UI {
   @State QRCode: image.PixelMap | null = null
   @State titleName: string = '首页'
   @State classList: ClassInfo[] | null = null
-  @State QRCodeIsShow: boolean = false
   @Provide('pathInfos') pathInfos: NavPathStack = new NavPathStack();
   @State LoginCommonIsShow: boolean = false
   @State LoginURLIsSHow: boolean = false
@@ -113,7 +115,53 @@ struct UI {
   @State userListTranslateY: number = 30
   private controller: TabsController = new TabsController();
   private uiContext: UIContext = this.getUIContext();
+  private context: Context = this.uiContext.getHostContext() as Context;
+  private async share(ShareUri:string,ShareStr:string) {
+    const uiContext: UIContext = this.getUIContext();
 
+    let uri: string | undefined = undefined;
+    try {
+      uri = ShareUri
+    } catch (error) {
+      console.error(`getUriFromPath error. Code: ${error?.code}, message: ${error?.message}`);
+    }
+
+    if (!uri) {
+      console.error('getUriFromPath error.');
+      return;
+    }
+
+    let shareData: systemShare.SharedData = new systemShare.SharedData({
+      utd: utd.UniformDataType.IMAGE,
+      uri: uri,
+      title: '分享二维码',
+      description: '分享二维码',
+      label: '二维码'
+    });
+
+    try {
+      shareData.addRecord({
+        utd: utd.UniformDataType.PLAIN_TEXT,
+        content: ShareStr,
+        title: '分享url',
+        description: '可通过分享的url添加账号',
+        label: 'url',
+      });
+    } catch (error) {
+      console.error(`addRecord error. Code: ${error?.code}, message: ${error?.message}`);
+    }
+
+    let controller: systemShare.ShareController = new systemShare.ShareController(shareData);
+    const context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
+    controller.show(context, {
+      selectionMode: systemShare.SelectionMode.SINGLE,
+      previewMode: systemShare.SharePreviewMode.DETAIL,
+    }).then(() => {
+      console.info('ShareController show success.');
+    }).catch((error: BusinessError) => {
+      console.error(`ShareController show error. code: ${error?.code}, message: ${error?.message}`);
+    });
+  }
   @Builder
   tabBuilder(title: string, targetIndex: number) {
     Column() {
@@ -328,11 +376,22 @@ struct UI {
                   Column() {
                     Image($r('app.media.share'))
                       .height(30).width(30).fillColor($r('app.color.icon'))
-                  }.height(45).width(45).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
+                  }
+                  .height(45)
+                  .width(45)
+                  .justifyContent(FlexAlign.Center)
+                  .alignItems(HorizontalAlign.Center)
                 }
                 .margin({ right: 10 })
-                .onClick(() => {
-                  this.QRCodeIsShow = true
+                .onClick(async () => {
+                  if (!this.QRvalue) {
+                    AlertDialog.show({ message: '请等待数据加载完成' })
+                  }
+                  const shareUtils = new ShareUtils(this.context,this.QRvalue)
+                  await shareUtils.getQRCode()
+                  shareUtils.write(true)
+                  this.share(shareUtils.FileUri,this.QRvalue)
+                  // this.QRCodeIsShow = true
                 })
                 .borderRadius(30)
                 .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
@@ -351,32 +410,15 @@ struct UI {
                     this.shareButtonScale = 1
                   }
                 })
-                .bindSheet($$this.QRCodeIsShow, this.QRCodeDialog,
-                  {
-                    height: '90%',
-                    backgroundColor: $r('app.color.dialog'),
-                    title: this.shareTitle,
-                    onWillDismiss: () => {
-                      this.QRCodeIsShow = false
-                    }
-                  })
+
 
                 Button() {
                   Column() {
                     Image($r('app.media.ic_public_quit')).height(30).width(30).fillColor(Color.Red)
                   }.height(45).width(45).justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
                 }
-                .onClick(async () => {
-
-                  const dbManager = DatabaseManager.getInstance()
-                  try {
-                    await dbManager.clearHostUserTable()
-                  } catch (error) {
-                    hilog.error(DOMAIN, TAG, `Failed to clear host user: ${error.message}`);
-                  }
-                  this.hostName = $r('app.string.defaultUname')
-                  this.hostPhone = $r('app.string.defaultPhone')
-                  this.uiContext.getRouter().replaceUrl({ url: 'pages/LoginPage' });
+                .onClick(() => {
+                  this.showLogoutDialog()
                 })
                 .margin({ right: 10 })
                 .borderRadius(30)
@@ -542,7 +584,10 @@ struct UI {
                 }
               })
 
-            }.margin({ top: 15, left: '1.5%' }).justifyContent(FlexAlign.SpaceAround).width('97%')
+            }
+            .margin({ top: 15, left: '1.5%' })
+            .justifyContent(FlexAlign.SpaceAround)
+            .width('97%')
             .opacity(this.buttonRowOpacity)
             .translate({ y: this.buttonRowTranslateY })
 
@@ -662,6 +707,32 @@ struct UI {
       }
     })
 
+  }
+
+  private async showLogoutDialog() {
+    AlertDialog.show({
+      title: '退出登录',
+      message: `确认退出登录吗？\n`,
+      primaryButton: {
+        value: '取消',
+        action: () => {
+        }
+      },
+      secondaryButton: {
+        value: '退出',
+        action: async () => {
+          const dbManager = DatabaseManager.getInstance()
+          try {
+            await dbManager.clearHostUserTable()
+          } catch (error) {
+            hilog.error(DOMAIN, TAG, `Failed to clear host user: ${error.message}`);
+          }
+          this.hostName = $r('app.string.defaultUname')
+          this.hostPhone = $r('app.string.defaultPhone')
+          this.uiContext.getRouter().replaceUrl({ url: 'pages/LoginPage' });
+        }
+      }
+    })
   }
 
   private showSearchPage(): void {

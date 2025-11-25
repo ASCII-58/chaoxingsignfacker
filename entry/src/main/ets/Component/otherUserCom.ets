@@ -22,7 +22,52 @@ export struct OtherUserItem {
   @State translateY: number = 20;
   @State itemScale: number = 0.95;
   private dbManger: DatabaseManager = DatabaseManager.getInstance()
+  private showDeleteDialog() {
+    AlertDialog.show({
+      title: '确认删除',
+      message: `确认删除用户${this.userName}吗？\n`,
+      primaryButton: {
+        value: '取消',
+        action: () => {}
+      },
+      secondaryButton: {
+        value: '删除',
+        action: () => {
+          // Animate out before deletion
+          animateTo({
+            duration: DELETE_ANIMATION_DURATION_MS,
+            curve: curves.springMotion(0.6, 0.9)
+          }, () => {
+            this.itemOpacity = 0
+            this.translateY = -20
+            this.itemScale = 0.8
+          })
 
+          // Wait for animation to complete before deleting
+          setTimeout(async () => {
+            try {
+              let result = await this.dbManger.deleteUser(this.userData.id)
+              if (result === 1) {
+                this.otherUserList.splice(this.index, 1)
+              }
+            } catch (error) {
+              // Log the error and reset animation to indicate failure
+              hilog.error(DOMAIN, TAG, `Failed to delete user: ${error.message}`);
+              // Reset the animation to restore the item
+              animateTo({
+                duration: 200,
+                curve: curves.springMotion(0.6, 0.9)
+              }, () => {
+                this.itemOpacity = 1
+                this.translateY = 0
+                this.itemScale = 1
+              })
+            }
+          }, DELETE_ANIMATION_DURATION_MS)
+        }
+      }
+    })
+  }
   build() {
     Row() {
       Image(this.userImage)
@@ -52,7 +97,7 @@ export struct OtherUserItem {
         Image($r('app.media.ic_public_delete'))
           .height(30)
           .width(30)
-          .fillColor($r('app.color.icon'))
+          .fillColor(Color.Red)
           .margin(10)
       }
       .borderRadius(999)
@@ -71,39 +116,10 @@ export struct OtherUserItem {
         } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
           this.DelButtonScale = 1
         }
-      }).margin({ right:15 })
+      })
+      .margin({ right: 15 })
       .onClick(async () => {
-        // Animate out before deletion
-        animateTo({
-          duration: DELETE_ANIMATION_DURATION_MS,
-          curve: curves.springMotion(0.6, 0.9)
-        }, () => {
-          this.itemOpacity = 0
-          this.translateY = -20
-          this.itemScale = 0.8
-        })
-        
-        // Wait for animation to complete before deleting
-        setTimeout(async () => {
-          try {
-            let result = await this.dbManger.deleteUser(this.userData.id)
-            if (result === 1) {
-              this.otherUserList.splice(this.index, 1)
-            }
-          } catch (error) {
-            // Log the error and reset animation to indicate failure
-            hilog.error(DOMAIN, TAG, `Failed to delete user: ${error.message}`);
-            // Reset the animation to restore the item
-            animateTo({
-              duration: 200,
-              curve: curves.springMotion(0.6, 0.9)
-            }, () => {
-              this.itemOpacity = 1
-              this.translateY = 0
-              this.itemScale = 1
-            })
-          }
-        }, DELETE_ANIMATION_DURATION_MS)
+        this.showDeleteDialog()
       })
 
     }
