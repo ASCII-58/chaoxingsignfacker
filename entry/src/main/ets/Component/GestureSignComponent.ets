@@ -1,6 +1,7 @@
 import { Sign, SignInfoResult } from '../utils/sign';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { promptAction } from '@kit.ArkUI';
+import { hdsEffect } from '@kit.UIDesignKit';
 
 const TAG = 'GestureSignComponent';
 const DOMAIN = 0x0009;
@@ -26,6 +27,12 @@ export struct GestureSignComponent {
   @State isSignSuccess: boolean = false;
   @State signResultMsg: string = '';
   @State gesturePoints: boolean[] = Array(GESTURE_GRID_SIZE).fill(false);
+  @State shineTranslateReset: string = '-100%';
+  @State shineTranslateSubmit: string = '-100%';
+  @State shineTranslateSignOut: string = '-100%';
+  @State resetBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
+  @State submitBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
+  @State signoutBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
 
   async aboutToAppear() {
     await this.loadSignInfo();
@@ -186,13 +193,53 @@ export struct GestureSignComponent {
           Row() {
             Button('重置')
               .width(100)
-              .onClick(() => this.resetGesture())
+              .fontColor(Color.White)
+              .visualEffect(new hdsEffect.HdsEffectBuilder()
+                .pointLight({
+                  sourceType: this.resetBtnLight,
+                  illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                })
+                .buildEffect())
+              .onTouch((event: TouchEvent) => {
+                if (event.type === TouchType.Down) {
+                  animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                    this.resetBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+                  })
+                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                  animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                    this.resetBtnLight = hdsEffect.PointLightSourceType.NONE;
+                  })
+                }
+              })
+              .onClick(() => {
+                this.resetGesture()
+              })
               .enabled(!this.isSignSuccess)
               .margin({ right: 10 })
 
             Button('提交')
               .width(100)
-              .onClick(() => this.submitGesture())
+              .fontColor(Color.White)
+              .visualEffect(new hdsEffect.HdsEffectBuilder()
+                .pointLight({
+                  sourceType: this.submitBtnLight,
+                  illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                })
+                .buildEffect())
+              .onTouch((event: TouchEvent) => {
+                if (event.type === TouchType.Down) {
+                  animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                    this.submitBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+                  })
+                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                  animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                    this.submitBtnLight = hdsEffect.PointLightSourceType.NONE;
+                  })
+                }
+              })
+              .onClick(() => {
+                this.submitGesture()
+              })
               .enabled(!this.isSignSuccess && this.gesturePattern.length > 0)
           }
           .margin({ bottom: 20 })
@@ -202,8 +249,28 @@ export struct GestureSignComponent {
               this.signInfo.signOutPublishTimeStamp > 0 && this.isSignSuccess) {
             Button('签退')
               .width(150)
+              .fontColor(Color.White)
               .margin({ top: 20 })
-              .onClick(() => this.doSignOut())
+              .visualEffect(new hdsEffect.HdsEffectBuilder()
+                .pointLight({
+                  sourceType: this.signoutBtnLight,
+                  illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                })
+                .buildEffect())
+              .onTouch((event: TouchEvent) => {
+                if (event.type === TouchType.Down) {
+                  animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                    this.signoutBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+                  })
+                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                  animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                    this.signoutBtnLight = hdsEffect.PointLightSourceType.NONE;
+                  })
+                }
+              })
+              .onClick(() => {
+                this.doSignOut()
+              })
           }
         }
         .width('100%')

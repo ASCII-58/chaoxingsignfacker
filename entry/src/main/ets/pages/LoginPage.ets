@@ -2,7 +2,7 @@ import { promptAction, router } from '@kit.ArkUI';
 import { DatabaseManager, UserData } from '../utils/DataBase';
 import { ChaoxingUtils } from '../utils/utils';
 import { loginFunction } from '../utils/Login';
-import { JSON } from '@kit.ArkTS';
+import { curves } from '@kit.ArkUI';
 
 @Entry
 @Component
@@ -14,186 +14,187 @@ struct Login {
   @State titleTranslateY: number = -50
   @State formOpacity: number = 0
   @State formTranslateY: number = 30
-  @State buttonScale: number = 1
+  @State isLoading: boolean = false
+  @State shakeTranslateY: number = 0
+  @State shakeScale: number = 1
 
   aboutToAppear() {
     // Entrance animation for title
-    animateTo({ duration: 600, curve: Curve.EaseOut, delay: 100 }, () => {
+    animateTo({ duration: 600, curve: curves.springMotion(0.6, 0.8), delay: 100 }, () => {
       this.titleOpacity = 1
       this.titleTranslateY = 0
     })
     // Entrance animation for form
-    animateTo({ duration: 600, curve: Curve.EaseOut, delay: 300 }, () => {
+    animateTo({ duration: 600, curve: curves.springMotion(0.6, 0.8), delay: 300 }, () => {
       this.formOpacity = 1
       this.formTranslateY = 0
     })
   }
 
-  build() {
-    Column() {
-      Column().height('10%')
-      Text('学习通账号\n登录')
-        .margin({ top: 10, bottom: 10 })
-        .fontSize(40)
-        .textAlign(TextAlign.Center)
-        .opacity(this.titleOpacity)
-        .translate({ y: this.titleTranslateY })
-      Column() {
-        Text('用户名')
-          .fontSize(26)
-          .height(40)
-          .width('90%')
-          .textAlign(TextAlign.Start)
-        TextInput({ placeholder: '', text: this.username })
-          .type(InputType.PhoneNumber)
-          .onChange((value: string) => {
-            this.username = value;
-            if (this.username && this.password) {
-              this.LoginEnable = true
-            }
+  // Trigger shake animation for error feedback
+  private triggerShakeAnimation() {
+    animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+      this.shakeTranslateY = 10
+      this.shakeScale = 0.98
+    })
+    setTimeout(() => {
+      animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+        this.shakeTranslateY = -10
+      })
+      setTimeout(() => {
+        animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+          this.shakeTranslateY = 0
+          this.shakeScale = 1
+        })
+      }, 100)
+    }, 100)
+  }
+
+  async handleLogin() {
+    this.isLoading = true
+    try {
+      const uname = ChaoxingUtils.encryptByAES(this.username)
+      const pwd = ChaoxingUtils.encryptByAES(this.password)
+      const result = await (loginFunction.LoginChaoXing(ChaoxingUtils.getLoginBody(uname, pwd)))
+
+      if (result && result !== '服务器错误，请稍后重试') {
+        try {
+          const cookies = result
+          const info = await loginFunction.getUserInfo(cookies)
+          const dbManager = DatabaseManager.getInstance()
+          const userData: UserData = {
+            phone: this.username,
+            pwd: pwd,
+            cookies: cookies,
+            uid: info.uid
+          };
+          // Insert as primary user (true)
+          await dbManager.insertUser(userData, true)
+
+          promptAction.showToast({ message: '登录成功', duration: 2000 })
+          router.replaceUrl({
+            url: 'pages/Index'
           })
-          .placeholderFont({ size: 16 })
-          .height(50)
-          .width('90%')
-          .backgroundColor(Color.Transparent)// 透明背景
-          .border({
-            // 设置边框
-            width: {
-              // 分别设置四个方向的边框宽度
-              top: 0,
-              right: 0,
-              bottom: 2, // 只有底部有边框
-              left: 0
-            },
-            color: {
-              // 设置边框颜色
-              top: Color.Transparent,
-              right: Color.Transparent,
-              bottom: Color.Blue, // 底部边框颜色
-              left: Color.Transparent
-            },
-            style: BorderStyle.Solid // 边框样式
-          ,
-            radius: 0
-          })
-          .margin({ bottom: 20 })
-        Text('密码')
-          .fontSize(26)
-          .height(40)
-          .width('90%')
-          .textAlign(TextAlign.Start)
-        TextInput({ placeholder: '', text: this.password })
-          .type(InputType.Password)// 设置为密码类型
-          .onChange((value: string) => {
-            this.password = value;
-            if (this.username && this.password) {
-              this.LoginEnable = true
-            }
-          })
-          .placeholderFont({ size: 16 })
-          .height(50)
-          .width('90%')
-          .backgroundColor(Color.Transparent)// 透明背景
-          .border({
-            // 设置边框
-            width: {
-              // 分别设置四个方向的边框宽度
-              top: 0,
-              right: 0,
-              bottom: 2, // 只有底部有边框
-              left: 0
-            },
-            color: {
-              // 设置边框颜色
-              top: Color.Transparent,
-              right: Color.Transparent,
-              bottom: Color.Blue, // 底部边框颜色
-              left: Color.Transparent
-            },
-            style: BorderStyle.Solid // 边框样式
-          ,
-            radius: 0
-          })
-          .margin({ bottom: 40 })
-        Button('登录')
-          .enabled(this.LoginEnable)
-          .width('60%')
-          .height(50)
-          .scale({ x: this.buttonScale, y: this.buttonScale })
-          .animation({ duration: 200, curve: Curve.EaseInOut })
-          .onTouch((event: TouchEvent) => {
-            if (event.type === TouchType.Down) {
-              this.buttonScale = 0.95
-            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-              this.buttonScale = 1
-            }
-          })
-          .onClick(async () => {
-          this.LoginEnable = false
-          const uname = ChaoxingUtils.encryptByAES(this.username)
-          const pwd = ChaoxingUtils.encryptByAES(this.password)
-          const result = await (loginFunction.LoginChaoXing(ChaoxingUtils.getLoginBody(uname, pwd)))
-          if (result) {
-            if (result === '服务器错误，请稍后重试') {
+        } catch (e) {
+          this.username = '';
+          this.password = '';
+          if (e instanceof Error) {
+            if (e.message.includes('主用户已登录')) {
+              promptAction.showToast({ message: '主用户已登录,请勿重复登录', duration: 2000 })
+            } else {
               promptAction.showToast({
-                message: result, // 要显示的文本消息
-                duration: 1500, // 显示时长，单位是毫秒(ms)。默认值为1500ms。
-                bottom: '20%' // 弹窗距离屏幕底部的距离，可以是vp或百分比。可选参数。
-              });
-              this.username = '';
-              this.password = '';
-              return
-            }
-            try {
-              const cookies = result
-              const info = await loginFunction.getUserInfo(cookies)
-              const dbManager = DatabaseManager.getInstance()
-              const userData: UserData = {
-                phone: this.username,
-                pwd: pwd,
-                cookies: cookies,
-                uid: info.uid
-              };
-              await dbManager.insertUser(userData, true)
-              this.username = ''
-              this.password = ''
-              promptAction.showToast({ message: '登录成功', duration: 2000 })
-              router.replaceUrl({
-                url: 'pages/Index' // 跳转目标页面路径
+                message: '登录失败: ' + e.message,
+                duration: 2000
               })
-            } catch (e) {
-              this.username = '';
-              this.password = '';
-              if (e instanceof Error) {
-                if (e.message.includes('主用户已登录')) {
-                  promptAction.showToast({ message: '主用户已登录,请勿重复登录', duration: 2000 })
-                } else {
-                  promptAction.showToast({
-                    message: '添加失败，请重试' +
-                      (e.message.includes("手机号已存在，请使用其他手机号") ? ', 该账号已添加' : ''),
-                    duration: 2000
-                  })
-                }
-                return
+            }
+            this.triggerShakeAnimation()
+          }
+        }
+      } else {
+        promptAction.showToast({
+          message: result || '登录失败',
+          duration: 1500,
+          bottom: '20%'
+        });
+        this.username = '';
+        this.password = '';
+        this.triggerShakeAnimation()
+      }
+    } catch (error) {
+      promptAction.showToast({ message: '发生错误，请重试' });
+      this.triggerShakeAnimation()
+    } finally {
+      this.isLoading = false
+    }
+  }
+
+  build() {
+    Scroll() {
+      Column() {
+        Column().height('15%')
+
+        Text('学习通账号\n登录')
+          .fontSize(40)
+          .fontWeight(FontWeight.Bold)
+          .textAlign(TextAlign.Start)
+          .width('90%')
+          .margin({ bottom: 40 })
+          .opacity(this.titleOpacity)
+          .translate({ y: this.titleTranslateY })
+
+        Column({ space: 20 }) {
+          TextInput({ placeholder: '手机号', text: this.username })
+            .type(InputType.PhoneNumber)
+            .cancelButton({ style: CancelButtonStyle.INPUT })
+            .enterKeyType(EnterKeyType.Next)
+            .onChange((value: string) => {
+              this.username = value;
+              if (this.username && this.password) {
+                this.LoginEnable = true
+              }
+            })
+            .placeholderFont({ size: 16 })
+            .height(56)
+            .width('100%')
+            .backgroundColor($r('sys.color.ohos_id_color_text_field_bg'))
+            .borderRadius(16)
+            .padding({ left: 20, right: 20 })
+
+          TextInput({ placeholder: '密码', text: this.password })
+            .type(InputType.Password)
+            .showPasswordIcon(true)
+            .enterKeyType(EnterKeyType.Go)
+            .onSubmit(() => {
+              if (this.LoginEnable && !this.isLoading) {
+                this.handleLogin()
+              }
+            })
+            .onChange((value: string) => {
+              this.password = value;
+              if (this.username && this.password) {
+                this.LoginEnable = true
+              }
+            })
+            .placeholderFont({ size: 16 })
+            .height(56)
+            .width('100%')
+            .backgroundColor($r('sys.color.ohos_id_color_text_field_bg'))
+            .borderRadius(16)
+            .padding({ left: 20, right: 20 })
+
+          Button() {
+            Row() {
+              if (this.isLoading) {
+                LoadingProgress().width(24).height(24).color(Color.White).margin({ right: 10 })
+                Text('登录中...').fontColor($r('sys.color.ohos_id_color_text_primary_activated')).fontSize(18)
+                  .fontWeight(FontWeight.Medium)
+              } else {
+                Text('登录').fontColor($r('sys.color.ohos_id_color_text_primary_activated')).fontSize(18)
+                  .fontWeight(FontWeight.Medium)
               }
             }
-          } else {
-            promptAction.showToast({
-              message: result, // 要显示的文本消息
-              duration: 1500, // 显示时长，单位是毫秒(ms)。默认值为1500ms。
-              bottom: '20%' // 弹窗距离屏幕底部的距离，可以是vp或百分比。可选参数。
-            });
-            this.username = '';
-            this.password = '';
           }
-        })
-        .margin({ bottom: 20 })
+          .type(ButtonType.Capsule)
+            .enabled(this.LoginEnable && !this.isLoading)
+            .width('100%')
+            .height(56)
+            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+            .shadow({ radius: 10, color: 'rgba(10, 89, 247, 0.2)', offsetY: 5 })
+            .onClick(() => {
+              this.handleLogin()
+            })
+            .margin({ top: 20 })
+        }
+        .width('90%')
+          .opacity(this.formOpacity)
+          .translate({ y: this.formTranslateY })
+          .translate({ x: this.shakeTranslateY }) // Apply shake to form
       }
-      .opacity(this.formOpacity)
-      .translate({ y: this.formTranslateY })
+      .width('100%')
+        .constraintSize({ minHeight: '100%' })
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Start)
+      .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 }

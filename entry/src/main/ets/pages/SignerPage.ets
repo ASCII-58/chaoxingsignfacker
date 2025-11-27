@@ -17,6 +17,7 @@ import { GestureSignComponent } from '../Component/GestureSignComponent';
 import { PasswordSignComponent } from '../Component/PasswordSignComponent';
 import { scanBarcode, scanCore } from '@kit.ScanKit';
 import UrlTools from '../utils/urlTools';
+import { hdsEffect } from '@kit.UIDesignKit';
 
 const TAG = 'SignerPage';
 const DOMAIN = 0x0008;
@@ -162,6 +163,7 @@ struct photoPicker {
   @State isUploading: boolean = false // 是否正在上传
   @State uploadCompletedCount: number = 0 // 已完成上传的数量（成功或失败）
   @State uploadTotalCount: number = 0 // 总上传数量
+  @State photoBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
 
   build() {
     Column() {
@@ -185,13 +187,33 @@ struct photoPicker {
           .margin({ top: 8, bottom: 8 })
       }
 
-      Button('选择图片 / 拍照')
+      Button() {
+        Stack() {
+          Text('选择图片 / 拍照').fontColor($r('sys.color.ohos_id_color_text_primary_activated'))
+        }
+      }
         .type(ButtonType.Capsule)
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-        .fontColor($r('sys.color.ohos_id_color_text_primary_activated'))
+          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
         .width('60%')
         .margin({ top: 12 })
         .enabled(!this.isUploading)
+          .visualEffect(new hdsEffect.HdsEffectBuilder()
+            .pointLight({
+              sourceType: this.photoBtnLight,
+              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+            })
+            .buildEffect())
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                this.photoBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+              })
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                this.photoBtnLight = hdsEffect.PointLightSourceType.NONE;
+              })
+            }
+          })
         .onClick(async () => {
           this.showPhotoConfirmDialog()
         })
@@ -395,6 +417,7 @@ struct QRCodeLocation {
   @Link queryParams: object
   @State DestinationLocationName: string = '获取中...' // 初始状态
   @State Position: object = JSON.parse('{"result":1,"mockData":"{\\"strategy\\":0,\\"probability\\":-1}"}') as object
+  @State copyBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
 
   build() {
     Column() {
@@ -416,14 +439,34 @@ struct QRCodeLocation {
           .copyOption(CopyOptions.LocalDevice)
 
         if (this.DestinationLocationName !== '获取中...' && this.DestinationLocationName !== '该签到无要求位置') {
-          Button('复制')
-            .fontSize(12)
+          Button() {
+            Stack() {
+              Text('复制').fontSize(12).fontColor($r('sys.color.ohos_id_color_text_primary'))
+            }
+          }
             .height(28)
-            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-            .fontColor($r('sys.color.ohos_id_color_text_primary'))
+              .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
             .margin({ left: 8 })
-            .onClick(() => this.copyText(this.DestinationLocationName))
-
+              .visualEffect(new hdsEffect.HdsEffectBuilder()
+                .pointLight({
+                  sourceType: this.copyBtnLight,
+                  illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                })
+                .buildEffect())
+              .onTouch((event: TouchEvent) => {
+                if (event.type === TouchType.Down) {
+                  animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                    this.copyBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+                  })
+                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                  animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                    this.copyBtnLight = hdsEffect.PointLightSourceType.NONE;
+                  })
+                }
+            })
+            .onClick(() => {
+              this.copyText(this.DestinationLocationName)
+            })
         }
       }
       .onAttach(async () => {
@@ -542,6 +585,8 @@ export struct SignPage {
   @State objectidArr: string[] = []
   @State DestinationLocationName: string = '获取中...' // 初始状态
   @State hostUser: HostUserInfo | null = null
+  @State shineTranslateSign: string = '-100%'
+  @State signBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
   pathInfos: NavPathStack = new NavPathStack();
 
   // 4. UI Builders
@@ -839,6 +884,23 @@ QRCodeLocation({queryParams: this.queryParams,ActivityId: this.activityInfo?.Act
                 .fontWeight(FontWeight.Medium)
                 .backgroundColor($r('sys.color.ohos_id_color_emphasize'))
                 .enabled(this.canSign)
+                .visualEffect(new hdsEffect.HdsEffectBuilder()
+                  .pointLight({
+                    sourceType: this.signBtnLight,
+                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                  })
+                  .buildEffect())
+                .onTouch((event: TouchEvent) => {
+                  if (event.type === TouchType.Down) {
+                    animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                      this.signBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+                    })
+                  } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                    animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                      this.signBtnLight = hdsEffect.PointLightSourceType.NONE;
+                    })
+                  }
+                })
                 .onClick(() => {
                   this.showSignConfirmDialog()
                 })

@@ -2,9 +2,8 @@ import { DatabaseManager, UserDataAndId } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
 import image from '@ohos.multimedia.image';
 import { ClassInfo, CourseAndActivity } from '../utils/classFun';
-import fs from '@ohos.file.fs';
 import { scanBarcode, scanCore } from '@kit.ScanKit';
-import { componentSnapshot, curves, UIContext } from '@kit.ArkUI';
+import { curves, UIContext } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import promptAction from '@ohos.promptAction';
@@ -13,10 +12,14 @@ import { OtherUserItem } from '../Component/otherUserCom';
 import ShareUtils from '../utils/shareUtils';
 import { systemShare } from '@kit.ShareKit';
 import { uniformTypeDescriptor as utd } from '@kit.ArkData';
-import { common } from '@kit.AbilityKit';
+import { common, Want } from '@kit.AbilityKit';
+import { AnimButton } from '../Component/AnimButton';
+import { SettingsComponent } from '../Component/SettingsComponent';
+import { hdsEffect } from '@kit.UIDesignKit';
 
 const TAG = 'IndexPage';
 const DOMAIN = 0x0004;
+
 @Reusable
 @Component
 struct ClassListItem {
@@ -24,6 +27,20 @@ struct ClassListItem {
   @Prop index: number;
   @State animScale: number = 1;
   @Consume('pathInfos') pathInfos: NavPathStack;
+  @State itemOpacity: number = 0;
+  @State itemTranslateY: number = 50;
+  @State isPressed: boolean = false;
+
+  aboutToAppear() {
+    animateTo({
+      duration: 600,
+      curve: curves.springMotion(0.6, 0.8),
+      delay: (this.index || 0) < 15 ? (this.index || 0) * 50 : 0
+    }, () => {
+      this.itemOpacity = 1;
+      this.itemTranslateY = 0;
+    })
+  }
 
   build() {
     Row() {
@@ -46,14 +63,33 @@ struct ClassListItem {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
+    .height(80)
+    .backgroundColor($r('app.color.class_button'))
+    .borderRadius(20)
     .padding({ left: 5, right: 15 })
     .scale({ x: this.animScale, y: this.animScale })
+    .opacity(this.itemOpacity)
+    .translate({ y: this.itemTranslateY })
+    .shadow(this.isPressed ? {
+      radius: 20,
+      color: 'rgba(10, 89, 247, 0.3)',
+      offsetX: 0,
+      offsetY: 0
+    } : {
+      radius: 10,
+      color: '#00000020',
+      offsetX: 0,
+      offsetY: 3
+    })
+    .border({ width: 1, color: 'rgba(255, 255, 255, 0.3)' })
     .animation({ duration: 200, curve: Curve.EaseInOut })
     .onTouch((event: TouchEvent) => {
       if (event.type === TouchType.Down) {
         this.animScale = 0.97
+        this.isPressed = true
       } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
         this.animScale = 1
+        this.isPressed = false
       }
     })
   }
@@ -89,12 +125,18 @@ struct ClassIcon {
 @Entry
 @Component
 struct UI {
+  @State UserListIsShow: boolean = false;
+  @State UserListHeight: number = 0;
+  @State footerHeight: number = 80;
+  @State arrowAngle: number = 0;
   @State currentIndex: number = 0;
   @State HostImageData: image.PixelMap | Resource = $r('app.media.foreground'); // 用于存储下载的图片二进制数据
   @State hostName: Resource | string = $r('app.string.defaultUname')
   @State hostPhone: Resource | string = $r('app.string.defaultPhone')
   @State QRvalue: string = '';
   @State QRCode: image.PixelMap | null = null
+  @State QRCodeDialogIsShow: boolean = false
+  @State isSettingsOpen: boolean = false
   @State titleName: string = '首页'
   @State classList: ClassInfo[] | null = null
   @Provide('pathInfos') pathInfos: NavPathStack = new NavPathStack();
@@ -102,66 +144,29 @@ struct UI {
   @State LoginURLIsSHow: boolean = false
   @State clickTime: number = 0
   @State otherUserList: UserDataAndId[] = []
-  @State qrButtonScale: number = 1
-  @State selectorButtonScale: number = 1
-  @State urlButtonScale: number = 1
   @State shareButtonScale: number = 1
+  @State settingsButtonScale: number = 1
+  @State baiduButtonScale: number = 1
   @State logoutButtonScale: number = 1
+  @State settingsBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
+  @State shareBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
+  @State logoutBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
   @State userHeaderOpacity: number = 0
   @State userHeaderTranslateY: number = -20
   @State buttonRowOpacity: number = 0
   @State buttonRowTranslateY: number = 20
   @State userListOpacity: number = 0
   @State userListTranslateY: number = 30
+  @State userHeaderScale: number = 0.8
+  @State buttonRowScale: number = 0.8
+  @State userListScale: number = 0.8
+  @State githubEmailOpacity: number = 1;
   private controller: TabsController = new TabsController();
   private uiContext: UIContext = this.getUIContext();
   private context: Context = this.uiContext.getHostContext() as Context;
-  private async share(ShareUri:string,ShareStr:string) {
-    const uiContext: UIContext = this.getUIContext();
+  private openLinkContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+  private animationTimeoutId: number = -1;
 
-    let uri: string | undefined = undefined;
-    try {
-      uri = ShareUri
-    } catch (error) {
-      console.error(`getUriFromPath error. Code: ${error?.code}, message: ${error?.message}`);
-    }
-
-    if (!uri) {
-      console.error('getUriFromPath error.');
-      return;
-    }
-
-    let shareData: systemShare.SharedData = new systemShare.SharedData({
-      utd: utd.UniformDataType.IMAGE,
-      uri: uri,
-      title: '分享二维码',
-      description: '分享二维码',
-      label: '二维码'
-    });
-
-    try {
-      shareData.addRecord({
-        utd: utd.UniformDataType.PLAIN_TEXT,
-        content: ShareStr,
-        title: '分享url',
-        description: '可通过分享的url添加账号',
-        label: 'url',
-      });
-    } catch (error) {
-      console.error(`addRecord error. Code: ${error?.code}, message: ${error?.message}`);
-    }
-
-    let controller: systemShare.ShareController = new systemShare.ShareController(shareData);
-    const context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
-    controller.show(context, {
-      selectionMode: systemShare.SelectionMode.SINGLE,
-      previewMode: systemShare.SharePreviewMode.DETAIL,
-    }).then(() => {
-      console.info('ShareController show success.');
-    }).catch((error: BusinessError) => {
-      console.error(`ShareController show error. code: ${error?.code}, message: ${error?.message}`);
-    });
-  }
   @Builder
   tabBuilder(title: string, targetIndex: number) {
     Column() {
@@ -195,67 +200,117 @@ struct UI {
   }
 
   @Builder
+  SettingsBuilder() {
+    SettingsComponent({ isShow: $isSettingsOpen })
+  }
+
+  @Builder
   QRCodeDialog() {
     Column() {
+      // Handle bar
+      Row()
+        .width(40)
+        .height(5)
+        .backgroundColor($r('sys.color.ohos_id_color_text_tertiary'))
+        .borderRadius(2.5)
+        .margin({ top: 10, bottom: 20 })
+
+      Text('二维码名片')
+        .fontSize(24)
+        .fontWeight(FontWeight.Bold)
+        .width('100%')
+        .textAlign(TextAlign.Start)
+        .padding({ left: 20, bottom: 20 })
+
       if (this.QRvalue) {
         Column() {
           Column() {
-            Column() {
-              QRCode(this.QRvalue).width(240).height(240).margin({ top: 10 })
-            }
-            .margin(10)
-            .width(260)
-            .height(260)
-            .backgroundColor($r('sys.color.white'))
-            .borderRadius(10)
+            QRCode(this.QRvalue)
+              .width(200)
+              .height(200)
           }
-          .margin(20)
-          .borderRadius(20)
-          .borderColor('#3388ff')
-          .borderWidth(3)
-          .backgroundColor('#dddddd')
+          .padding(20)
+          .backgroundColor(Color.White)
+          .borderRadius(16)
+          .shadow({ radius: 12, color: '#00000010', offsetY: 4 })
 
-          Text('用户:' + this.hostName)
+          Text(this.hostName)
             .fontSize(20)
-        }.id('shareImage')
-        .onAppear(async () => {
-          try {
-            const pixelMap: image.PixelMap = await componentSnapshot.get('shareImage')
-            let buffer = new ArrayBuffer(pixelMap.getPixelBytesNumber()); // 计算所需缓冲区大小
-            pixelMap.readPixelsToBuffer(buffer);
-            const context = this.getUIContext().getHostContext() as Context
-            const sandboxPath: string = context.filesDir + '/images/';
-            const filePathName: string = sandboxPath + 'share' + encodeURIComponent(this.hostName.toString())
-            const file = fs.openSync(filePathName, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE);
-            await fs.write(file.fd, buffer);
-            fs.closeSync(file);
-          } catch (error) {
-            hilog.error(DOMAIN, TAG, `Failed to save image: ${error.message}`);
+            .fontWeight(FontWeight.Medium)
+            .margin({ top: 20 })
+            .fontColor($r('sys.color.ohos_id_color_text_primary'))
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
+        .margin({ bottom: 40 })
+
+        Button() {
+          Row() {
+            Image($r('app.media.share'))
+              .height(24)
+              .width(24)
+              .fillColor($r('sys.color.ohos_id_color_text_primary_activated'))
+              .margin({ right: 8 })
+            Text('分享名片')
+              .fontSize(18)
+              .fontColor($r('sys.color.ohos_id_color_text_primary_activated'))
+              .fontWeight(FontWeight.Medium)
+          }
+          .justifyContent(FlexAlign.Center)
+        }
+        .width('90%')
+        .height(50)
+        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+        .borderRadius(25)
+        .shadow({ radius: 8, color: '#00000020', offsetY: 4 })
+        .scale({ x: this.shareButtonScale, y: this.shareButtonScale })
+        .animation({ duration: 200, curve: Curve.EaseInOut })
+        .onTouch((event: TouchEvent) => {
+          if (event.type === TouchType.Down) {
+            this.shareButtonScale = 0.96
+          } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+            this.shareButtonScale = 1
           }
         })
-
-        Button()
+        .onClick(async () => {
+          if (!this.QRvalue) {
+            promptAction.showToast({ message: '请等待数据加载完成' })
+            return
+          }
+          const shareUtils = new ShareUtils(this.context, this.QRvalue)
+          await shareUtils.getQRCode()
+          await shareUtils.write(true)
+          this.share(shareUtils.FileUri, this.QRvalue)
+        })
       } else {
         Column() {
-          Text('未读取到用户信息')
-            .fontSize(30)
-            .margin(10)
-            .width(260)
-            .height(260)
-            .borderRadius(10)
+          LoadingProgress()
+            .width(60)
+            .height(60)
+            .color($r('sys.color.ohos_id_color_text_secondary'))
+          Text('正在加载用户信息...')
+            .fontSize(16)
+            .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+            .margin({ top: 20 })
         }
+        .height(300)
+        .justifyContent(FlexAlign.Center)
       }
-    }.margin({ top: 30 })
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .borderRadius({ topLeft: 20, topRight: 20 })
   }
 
   @Builder
   loginCommon() {
-    loginByCommon({ isShow: this.LoginCommonIsShow, otherUserList: this.otherUserList }).margin({ top: 90 })
+    loginByCommon({ isShow: this.LoginCommonIsShow, otherUserList: this.otherUserList })
   }
 
   @Builder
   loginURL() {
-    loginByURL({ isShow: this.LoginURLIsSHow, otherUserList: this.otherUserList }).margin({ top: 90 })
+    loginByURL({ isShow: this.LoginURLIsSHow, otherUserList: this.otherUserList })
   }
 
   build() {
@@ -310,15 +365,6 @@ struct UI {
                   ClassListItem({ classInfo: classInfo, index: index })
                 }
                 .width('100%')
-                .backgroundColor($r('app.color.class_button'))
-                .height(80)
-                .borderRadius(20)
-                .shadow({
-                  radius: 10,
-                  color: '#00000020',
-                  offsetX: 0,
-                  offsetY: 3
-                })
                 .onClick(() => {
                   this.pathInfos.pushPath({ name: 'ActivityListPage', param: classInfo });
                 })
@@ -372,6 +418,59 @@ struct UI {
                 .alignItems(HorizontalAlign.Start)
 
                 Blank().layoutWeight(1)
+
+                Button() {
+                  Column() {
+                    Image($r('app.media.settings'))
+                      .height(30).width(30).fillColor($r('app.color.icon'))
+                  }
+                  .height(45)
+                  .width(45)
+                  .justifyContent(FlexAlign.Center)
+                  .alignItems(HorizontalAlign.Center)
+                }
+                .margin({ right: 10 })
+                .onClick(() => {
+                  this.isSettingsOpen = !this.isSettingsOpen
+                })
+                .bindSheet($$this.isSettingsOpen, this.SettingsBuilder(), {
+                  height: 'auto',
+                  detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+                  backgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+                  onWillDismiss: () => {
+                    this.isSettingsOpen = false
+                  }
+                })
+                .borderRadius(30)
+                .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+                .shadow({
+                  radius: 8,
+                  color: '#00000020',
+                  offsetX: 0,
+                  offsetY: 3
+                })
+                .scale({ x: this.settingsButtonScale, y: this.settingsButtonScale })
+                .animation({ duration: 200, curve: Curve.EaseInOut })
+                .visualEffect(new hdsEffect.HdsEffectBuilder()
+                  .pointLight({
+                    sourceType: this.settingsBtnLight,
+                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                  })
+                  .buildEffect())
+                .onTouch((event: TouchEvent) => {
+                  if (event.type === TouchType.Down) {
+                    this.settingsButtonScale = 0.92
+                    animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                      this.settingsBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+                    })
+                  } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                    this.settingsButtonScale = 1
+                    animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                      this.settingsBtnLight = hdsEffect.PointLightSourceType.NONE;
+                    })
+                  }
+                })
+
                 Button() {
                   Column() {
                     Image($r('app.media.share'))
@@ -383,16 +482,16 @@ struct UI {
                   .alignItems(HorizontalAlign.Center)
                 }
                 .margin({ right: 10 })
-                .onClick(async () => {
-                  if (!this.QRvalue) {
-                    AlertDialog.show({ message: '请等待数据加载完成' })
-                    return
+                .onClick(() => {
+                  this.QRCodeDialogIsShow = !this.QRCodeDialogIsShow
+                })
+                .bindSheet($$this.QRCodeDialogIsShow, this.QRCodeDialog, {
+                  height: 'auto',
+                  detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+                  backgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+                  onWillDismiss: () => {
+                    this.QRCodeDialogIsShow = false
                   }
-                  const shareUtils = new ShareUtils(this.context,this.QRvalue)
-                  await shareUtils.getQRCode()
-                  await shareUtils.write(true)
-                  this.share(shareUtils.FileUri,this.QRvalue)
-                  // this.QRCodeIsShow = true
                 })
                 .borderRadius(30)
                 .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
@@ -404,14 +503,25 @@ struct UI {
                 })
                 .scale({ x: this.shareButtonScale, y: this.shareButtonScale })
                 .animation({ duration: 200, curve: Curve.EaseInOut })
+                .visualEffect(new hdsEffect.HdsEffectBuilder()
+                  .pointLight({
+                    sourceType: this.shareBtnLight,
+                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                  })
+                  .buildEffect())
                 .onTouch((event: TouchEvent) => {
                   if (event.type === TouchType.Down) {
                     this.shareButtonScale = 0.92
+                    animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                      this.shareBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+                    })
                   } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
                     this.shareButtonScale = 1
+                    animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                      this.shareBtnLight = hdsEffect.PointLightSourceType.NONE;
+                    })
                   }
                 })
-
 
                 Button() {
                   Column() {
@@ -432,11 +542,23 @@ struct UI {
                 })
                 .scale({ x: this.logoutButtonScale, y: this.logoutButtonScale })
                 .animation({ duration: 200, curve: Curve.EaseInOut })
+                .visualEffect(new hdsEffect.HdsEffectBuilder()
+                  .pointLight({
+                    sourceType: this.logoutBtnLight,
+                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                  })
+                  .buildEffect())
                 .onTouch((event: TouchEvent) => {
                   if (event.type === TouchType.Down) {
                     this.logoutButtonScale = 0.92
+                    animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                      this.logoutBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+                    })
                   } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
                     this.logoutButtonScale = 1
+                    animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                      this.logoutBtnLight = hdsEffect.PointLightSourceType.NONE;
+                    })
                   }
                 })
               }
@@ -452,169 +574,177 @@ struct UI {
                 offsetX: 0,
                 offsetY: 4
               })
+              .scale({ x: this.userHeaderScale, y: this.userHeaderScale })
               .opacity(this.userHeaderOpacity)
               .translate({ y: this.userHeaderTranslateY })
             }.width('100%')
             .justifyContent(FlexAlign.Start)
 
-            Row() {
+            Column() {
+              Row() {
 
-              Button() {
-                Image($r('app.media.qrcode'))
-                  .height(30)
-                  .width(30)
-                  .fillColor($r('app.color.icon'))
-                  .margin(15)
-              }
-              .borderRadius(999)
-              .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-              .shadow({
-                radius: 8,
-                color: '#00000020',
-                offsetX: 0,
-                offsetY: 3
-              })
-              .scale({ x: this.qrButtonScale, y: this.qrButtonScale })
-              .animation({ duration: 200, curve: Curve.EaseInOut })
-              .onTouch((event: TouchEvent) => {
-                if (event.type === TouchType.Down) {
-                  this.qrButtonScale = 0.92
-                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                  this.qrButtonScale = 1
-                }
-              })
-              .onClick(() => {
-                let options: scanBarcode.ScanOptions = {
-                  scanTypes: [scanCore.ScanType.ALL],
-                  enableMultiMode: true,
-                  enableAlbum: true
-                };
-                try {
-                  // 可调用getHostContext接口获取当前页面关联的Context
-                  if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
-                    scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
-                      .then(async (result: scanBarcode.ScanResult) => {
-                        if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
-                          let loginMSG = await loginFunction.LoginByURL(result.originalValue)
-                          promptAction.showToast({ message: loginMSG })
-                          let dbManager = DatabaseManager.getInstance();
-                          this.otherUserList = await dbManager.getAllUsers()
-                        } else {
-                          promptAction.showToast({ message: '权限错误' })
-                        }
-                        // loginFunction.LoginChaoXing()
-                        // 解析码值结果跳转应用服务页
-                        hilog.info(0x0001, '[Scan CPSample]',
-                          `Succeeded in getting ScanResult by promise with options, result is ${JSON.stringify(result)}`);
-                      })
-                      .catch((error: BusinessError) => {
-                        hilog.error(0x0001, '[Scan CPSample]',
-                          `Failed to get ScanResult by promise with options. Code:${error.code}, message: ${error.message}`);
-                      });
-                  } else {
-                    // Fallback for unsupported SystemCapability
+                AnimButton({
+                  content: () => {
+                    this.ScanButtonContent()
+                  },
+                  onClickAction: () => {
+                    let options: scanBarcode.ScanOptions = {
+                      scanTypes: [scanCore.ScanType.ALL],
+                      enableMultiMode: true,
+                      enableAlbum: true
+                    };
+                    try {
+                      // 可调用getHostContext接口获取当前页面关联的Context
+                      if (canIUse("SystemCapability.Multimedia.Scan.ScanBarcode")) {
+                        scanBarcode.startScanForResult(this.getUIContext().getHostContext(), options)
+                          .then(async (result: scanBarcode.ScanResult) => {
+                            let loginMSG = await loginFunction.LoginByURL(result.originalValue)
+                            promptAction.showToast({ message: loginMSG })
+                            let dbManager = DatabaseManager.getInstance();
+                            this.otherUserList = await dbManager.getAllUsers()
+                            // 解析码值结果跳转应用服务页
+                            hilog.info(0x0001, '[Scan CPSample]',
+                              `Succeeded in getting ScanResult by promise with options, result is ${JSON.stringify(result)}`);
+                          })
+                          .catch((error: BusinessError) => {
+                            hilog.error(0x0001, '[Scan CPSample]',
+                              `Failed to get ScanResult by promise with options. Code:${error.code}, message: ${error.message}`);
+                          });
+                      } else {
+                        // Fallback for unsupported SystemCapability
+                      }
+                    } catch (error) {
+                      hilog.error(0x0001, '[Scan CPSample]',
+                        `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
+                    }
                   }
-                } catch (error) {
-                  hilog.error(0x0001, '[Scan CPSample]',
-                    `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
-                }
-              })
+                })
 
-              Button() {
-                Image($r('app.media.selector'))
-                  .height(30)
-                  .width(30)
-                  .fillColor($r('app.color.icon'))
-                  .margin(15)
+                AnimButton({
+                  content: () => {
+                    this.SelectorButtonContent()
+                  },
+                  onClickAction: () => {
+                    this.LoginCommonIsShow = !this.LoginCommonIsShow
+                  }
+                })
+                  .bindSheet($$this.LoginCommonIsShow, this.loginCommon, {
+                    height: 'auto',
+                    detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+                    backgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+                    onWillDismiss: () => {
+                      this.LoginCommonIsShow = false
+                    }
+                  })
+
+                AnimButton({
+                  content: () => {
+                    this.UrlButtonContent()
+                  },
+                  onClickAction: () => {
+                    this.LoginURLIsSHow = true
+                  }
+                })
+                  .bindSheet($$this.LoginURLIsSHow, this.loginURL(), {
+                    height: 'auto',
+                    detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+                    backgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+                    onWillDismiss: () => {
+                      this.LoginURLIsSHow = false
+                    }
+                  })
+
+                AnimButton({
+                  content: () => {
+                    this.ArrowButtonContent()
+                  },
+                  onClickAction: () => {
+                    animateTo({ curve: curves.springMotion(0.6, 0.8) }, () => {
+                      this.UserListIsShow = !this.UserListIsShow;
+                      this.arrowAngle = this.UserListIsShow ? 180 : 0;
+                      this.UserListHeight = this.UserListIsShow ? 400 : 0;
+                      this.footerHeight = this.UserListIsShow ? 0 : 80;
+                      this.githubEmailOpacity = this.UserListIsShow ? 0 : 1;
+                      this.userListOpacity = this.UserListIsShow ? 1 : 0;
+                    })
+                  }
+                })
+                  .margin({ right: 15 })
+
               }
-              .onClick(() => {
-                this.LoginCommonIsShow = !this.LoginCommonIsShow
-              })
-              .borderRadius(999)
-              .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-              .shadow({
-                radius: 8,
-                color: '#00000020',
-                offsetX: 0,
-                offsetY: 3
-              })
-              .scale({ x: this.selectorButtonScale, y: this.selectorButtonScale })
-              .animation({ duration: 200, curve: Curve.EaseInOut })
-              .onTouch((event: TouchEvent) => {
-                if (event.type === TouchType.Down) {
-                  this.selectorButtonScale = 0.92
-                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                  this.selectorButtonScale = 1
-                }
-              })
-              .bindSheet($$this.LoginCommonIsShow, this.loginCommon, {
-                height: '90%', onWillDismiss: () => {
-                  this.LoginCommonIsShow = false
-                }
-              })
+              .padding({ top: 15, bottom: 15 })
+              .justifyContent(FlexAlign.SpaceAround)
+              .width('100%')
 
-              Button() {
-                Image($r('app.media.paperclip')).height(30)
-                  .width(30)
-                  .fillColor($r('app.color.icon'))
-                  .margin(15)
+              Column() {
+                List() {
+                  ForEach(this.otherUserList, (item: UserDataAndId, index) => {
+                    ListItem() {
+                      OtherUserItem({ userData: item, otherUserList: this.otherUserList, index: index })
+                    }.width('96%')
+                    .margin({ bottom: '2%' })
+                  }, (item: UserDataAndId) => item.id.toString())
+                }
+                .width('100%')
+                .height(this.UserListHeight)
+                .opacity(this.userListOpacity)
+                .alignListItem(ListItemAlign.Center)
+
+                Row() {
+                  AnimButton({
+                    content: () => {
+                      this.GithubButtonContent()
+                    },
+                    onClickAction: () => {
+                      this.openLinkContext.openLink('https://github.com/ASCII-58/chaoxingsignfacker')
+                        .catch((error: BusinessError<void>) => {
+                          hilog.error(0x0000, 'testTag', 'Execution failed, code = %{public}d, message = %{public}s',
+                            error.code, error.message);
+                        });
+                    }
+                  })
+                    .margin({ right: 30 })
+
+                  AnimButton({
+                    content: () => {
+                      this.EmailButtonContent()
+                    },
+                    onClickAction: () => {
+                      let want: Want = {
+                        action: 'ohos.want.action.viewData',
+                        uri: 'mailto:xyxy1029@petalmail.com'
+                      };
+                      this.openLinkContext.startAbility(want)
+                        .catch((error: BusinessError) => {
+                          hilog.error(0x0000, 'testTag',
+                            'Start ability failed, code = %{public}d, message = %{public}s',
+                            error.code, error.message);
+                        });
+                    }
+                  })
+                }
+                .justifyContent(FlexAlign.Center)
+                .width('100%')
+                .height(this.footerHeight)
+                .opacity(this.githubEmailOpacity)
               }
-              .onClick(() => {
-                this.LoginURLIsSHow = true
-              })
-              .borderRadius(999)
-              .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-              .shadow({
-                radius: 8,
-                color: '#00000020',
-                offsetX: 0,
-                offsetY: 3
-              })
-              .scale({ x: this.urlButtonScale, y: this.urlButtonScale })
-              .animation({ duration: 200, curve: Curve.EaseInOut })
-              .onTouch((event: TouchEvent) => {
-                if (event.type === TouchType.Down) {
-                  this.urlButtonScale = 0.92
-                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                  this.urlButtonScale = 1
-                }
-              })
-              .bindSheet($$this.LoginURLIsSHow, this.loginURL(), {
-                height: '90%', onWillDismiss: () => {
-                  this.LoginURLIsSHow = false
-                }
-              })
-
+              .width('100%')
             }
-            .margin({ top: 15, left: '1.5%' })
-            .justifyContent(FlexAlign.SpaceAround)
             .width('97%')
+            .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+            .borderRadius(25)
+            .margin({ top: 15 })
+            .scale({ x: this.buttonRowScale, y: this.buttonRowScale })
             .opacity(this.buttonRowOpacity)
             .translate({ y: this.buttonRowTranslateY })
-
-            Column() {
-              List() {
-                ForEach(this.otherUserList, (item: UserDataAndId, index) => {
-                  ListItem() {
-                    OtherUserItem({ userData: item, otherUserList: this.otherUserList, index: index })
-                  }.width('100%')
-                  .margin({ bottom: '2%' })
-                }, (item: UserDataAndId) => item.id.toString())
-              }
-              .margin({ top: '2%', bottom: '2%' })
-              .borderRadius('20')
-              .alignListItem(ListItemAlign.Center)
-              .width('96%')
-              .height('60%')
-            }
-            .margin({ top: 30 })
-            .borderRadius(25)
-            .backgroundColor($r('sys.color.comp_background_secondary'))
-            .width('98%')
-            .opacity(this.userListOpacity)
-            .translate({ y: this.userListTranslateY })
-          }
-          .height('100%')
+            .shadow({
+              radius: 30,
+              color: 'rgba(10, 89, 247, 0.2)',
+              offsetX: 0,
+              offsetY: 5
+            })
+            .border({ width: 1, color: 'rgba(255, 255, 255, 0.6)' })
+          }.height('100%')
         }.tabBar($r('app.string.user'))
         .onAppear(() => {
           // Animate user center elements with staggered timing
@@ -625,6 +755,7 @@ struct UI {
           }, () => {
             this.userHeaderOpacity = 1
             this.userHeaderTranslateY = 0
+            this.userHeaderScale = 1
           })
 
           animateTo({
@@ -634,6 +765,7 @@ struct UI {
           }, () => {
             this.buttonRowOpacity = 1
             this.buttonRowTranslateY = 0
+            this.buttonRowScale = 1
           })
 
           animateTo({
@@ -643,6 +775,7 @@ struct UI {
           }, () => {
             this.userListOpacity = 1
             this.userListTranslateY = 0
+            this.userListScale = 1
           })
         })
 
@@ -710,6 +843,109 @@ struct UI {
 
   }
 
+  @Builder
+  ScanButtonContent() {
+    Image($r('app.media.qrcode'))
+      .height(30)
+      .width(30)
+      .fillColor($r('app.color.icon'))
+      .margin(15)
+  }
+
+  @Builder
+  SelectorButtonContent() {
+    Image($r('app.media.selector'))
+      .height(30)
+      .width(30)
+      .fillColor($r('app.color.icon'))
+      .margin(15)
+  }
+
+  @Builder
+  UrlButtonContent() {
+    Image($r('app.media.paperclip'))
+      .height(30)
+      .width(30)
+      .fillColor($r('app.color.icon'))
+      .margin(15)
+  }
+
+  @Builder
+  ArrowButtonContent() {
+    Image($r('sys.media.ohos_ic_public_arrow_down'))
+      .height(30)
+      .width(30)
+      .fillColor($r('app.color.icon'))
+      .margin(15)
+      .rotate({ angle: this.arrowAngle })
+      .animation({ duration: 300, curve: Curve.FastOutSlowIn })
+  }
+
+  @Builder
+  GithubButtonContent() {
+    Image($r('app.media.github'))
+      .height(40)
+      .width(40)
+      .fillColor($r('app.color.icon'))
+      .margin(10)
+  }
+
+  @Builder
+  EmailButtonContent() {
+    Image($r('app.media.envelope'))
+      .height(30)
+      .width(30)
+      .fillColor($r('app.color.icon'))
+      .margin(15)
+  }
+
+  private async share(ShareUri: string, ShareStr: string) {
+    const uiContext: UIContext = this.getUIContext();
+
+    let uri: string | undefined = undefined;
+    try {
+      uri = ShareUri
+    } catch (error) {
+      console.error(`getUriFromPath error. Code: ${error?.code}, message: ${error?.message}`);
+    }
+
+    if (!uri) {
+      console.error('getUriFromPath error.');
+      return;
+    }
+
+    let shareData: systemShare.SharedData = new systemShare.SharedData({
+      utd: utd.UniformDataType.IMAGE,
+      uri: uri,
+      title: '分享二维码',
+      description: '分享二维码',
+      label: '二维码'
+    });
+
+    try {
+      shareData.addRecord({
+        utd: utd.UniformDataType.PLAIN_TEXT,
+        content: ShareStr,
+        title: '分享url',
+        description: '可通过分享的url添加账号',
+        label: 'url',
+      });
+    } catch (error) {
+      console.error(`addRecord error. Code: ${error?.code}, message: ${error?.message}`);
+    }
+
+    let controller: systemShare.ShareController = new systemShare.ShareController(shareData);
+    const context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
+    controller.show(context, {
+      selectionMode: systemShare.SelectionMode.SINGLE,
+      previewMode: systemShare.SharePreviewMode.DETAIL,
+    }).then(() => {
+      console.info('ShareController show success.');
+    }).catch((error: BusinessError) => {
+      console.error(`ShareController show error. code: ${error?.code}, message: ${error?.message}`);
+    });
+  }
+
   private async showLogoutDialog() {
     AlertDialog.show({
       title: '退出登录',
@@ -737,7 +973,11 @@ struct UI {
   }
 
   private showSearchPage(): void {
-    // Navigation is handled by the framework, page animations are in destination lifecycle
-    this.pathInfos.pushPath({ name: 'SearchCoursePage' }, false);
+    // 使用animateTo包裹页面跳转，实现一镜到底动画
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 342, 38)
+    }, () => {
+      this.pathInfos.pushPath({ name: 'SearchCoursePage' }, false);
+    })
   }
 }

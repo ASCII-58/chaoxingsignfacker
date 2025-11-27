@@ -3,6 +3,7 @@ import { image } from '@kit.ImageKit';
 import { loginFunction } from '../utils/Login';
 import { curves } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { hdsEffect } from '@kit.UIDesignKit';
 
 const DELETE_ANIMATION_DURATION_MS = 300;
 const TAG = 'OtherUserItem';
@@ -21,6 +22,7 @@ export struct OtherUserItem {
   @State itemOpacity: number = 0;
   @State translateY: number = 20;
   @State itemScale: number = 0.95;
+  @State delBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
   private dbManger: DatabaseManager = DatabaseManager.getInstance()
   private showDeleteDialog() {
     AlertDialog.show({
@@ -94,34 +96,42 @@ export struct OtherUserItem {
 
       Blank()
       Button() {
-        Image($r('app.media.ic_public_delete'))
-          .height(30)
-          .width(30)
-          .fillColor(Color.Red)
-          .margin(10)
+        Stack() {
+          Image($r('app.media.ic_public_delete'))
+            .height(30)
+            .width(30)
+            .fillColor(Color.Red)
+        }
       }
-      .borderRadius(999)
+      .type(ButtonType.Circle)
       .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-      .shadow({
-        radius: 8,
-        color: '#00000020',
-        offsetX: 0,
-        offsetY: 3
-      })
+        .width(40)
+        .height(40)
+        .shadow({ radius: 8, color: '#00000020', offsetY: 4 })
       .scale({ x: this.DelButtonScale, y: this.DelButtonScale })
       .animation({ duration: 200, curve: Curve.EaseInOut })
+        .visualEffect(new hdsEffect.HdsEffectBuilder()
+          .pointLight({
+            sourceType: this.delBtnLight,
+            illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+          })
+          .buildEffect())
       .onTouch((event: TouchEvent) => {
         if (event.type === TouchType.Down) {
           this.DelButtonScale = 0.92
+          animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+            this.delBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+          })
         } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
           this.DelButtonScale = 1
+          animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+            this.delBtnLight = hdsEffect.PointLightSourceType.NONE;
+          })
         }
       })
-      .margin({ right: 15 })
-      .onClick(async () => {
+        .onClick(() => {
         this.showDeleteDialog()
-      })
-
+        })
     }
     .onAppear(async () => {
       // Staggered entrance animation for list items

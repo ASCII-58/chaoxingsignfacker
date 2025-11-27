@@ -20,6 +20,7 @@ import { DatabaseManager } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
 import { image } from '@kit.ImageKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { hdsEffect } from '@kit.UIDesignKit';
 
 const TAG = 'SearchCoursePage';
 const DOMAIN = 0x0007;
@@ -133,6 +134,8 @@ export default struct SearchLongTakeTransitionPageTwo {
   @State contentTranslateY: number = 30
   @State backButtonScale: number = 0.8
   @State backButtonOpacity: number = 0
+  @State shineTranslateBack: string = '-100%'
+  @State backButtonLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
 
   async aboutToAppear() {
     await this.loadCourses()
@@ -205,13 +208,16 @@ export default struct SearchLongTakeTransitionPageTwo {
     NavDestination() {
       Column() {
         // 搜索栏
-        Row({ space: 8 }) {
-          Image($r('app.media.img'))
-            .width(40)
+        Row({ space: 12 }) {
+          Button({ type: ButtonType.Circle }) {
+            Image($r('app.media.img'))
+              .width(24)
+              .height(24)
+              .objectFit(ImageFit.Contain)
+          }
+          .width(40)
             .height(40)
-            .borderRadius(20)
             .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-            .padding(8)
             .shadow({
               radius: 4,
               color: '#00000010',
@@ -220,6 +226,23 @@ export default struct SearchLongTakeTransitionPageTwo {
             })
             .scale({ x: this.backButtonScale, y: this.backButtonScale })
             .opacity(this.backButtonOpacity)
+            .visualEffect(new hdsEffect.HdsEffectBuilder()
+              .pointLight({
+                sourceType: this.backButtonLight,
+                illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+              })
+              .buildEffect())
+            .onTouch((event: TouchEvent) => {
+              if (event.type === TouchType.Down) {
+                animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                  this.backButtonLight = hdsEffect.PointLightSourceType.BRIGHT;
+                })
+              } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                  this.backButtonLight = hdsEffect.PointLightSourceType.NONE;
+                })
+              }
+            })
             .onClick(() => {
               this.onArrowClicked();
             })
@@ -227,7 +250,8 @@ export default struct SearchLongTakeTransitionPageTwo {
           Search({ placeholder: '搜索课程名称或教师', value: $$this.searchText })
             .height(40)
             .placeholderColor($r('sys.color.ohos_id_color_text_secondary'))
-            .width('85%')
+            .layoutWeight(1)
+            .borderRadius(20)
             .backgroundColor($r('sys.color.ohos_id_color_component_normal'))
             .geometryTransition('SEARCH_ONE_SHOT_DEMO_TRANSITION_ID', { follow: true })
             .transition(TransitionEffect.opacity(0.99))
@@ -241,9 +265,9 @@ export default struct SearchLongTakeTransitionPageTwo {
             })
         }
         .width('100%')
-        .height(50)
+          .height(64)
         .alignItems(VerticalAlign.Center)
-        .padding(16)
+          .padding({ left: 16, right: 16, top: 8, bottom: 8 })
 
         // 搜索结果
         if (this.isLoading) {
@@ -264,9 +288,24 @@ export default struct SearchLongTakeTransitionPageTwo {
           .translate({ y: this.contentTranslateY })
         } else if (this.filteredCourses.length === 0) {
           Column() {
+            Image($r('app.media.ic_public_quit')) // 使用一个通用图标，或者 envelope
+              .width(80)
+              .height(80)
+              .fillColor($r('sys.color.ohos_id_color_text_tertiary'))
+              .margin({ bottom: 16 })
+              .opacity(0.5)
+
             Text(this.searchText ? '未找到匹配的课程' : '暂无课程')
               .fontSize(16)
+              .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+
+            if (this.searchText) {
+              Text('换个关键词试试看')
+                .fontSize(14)
+                .fontColor($r('sys.color.ohos_id_color_text_tertiary'))
+                .margin({ top: 8 })
+            }
           }
           .width('100%')
           .layoutWeight(1)
@@ -282,7 +321,7 @@ export default struct SearchLongTakeTransitionPageTwo {
               .padding({ left: 16, right: 16, bottom: 8 })
               .opacity(this.pageOpacity)
 
-            List({ space: 8 }) {
+            List({ space: 12 }) {
               ForEach(this.filteredCourses, (course: ClassInfo, index: number) => {
                 ListItem() {
                   CourseItem({
@@ -298,6 +337,8 @@ export default struct SearchLongTakeTransitionPageTwo {
             .padding({ left: 16, right: 16 })
             .opacity(this.pageOpacity)
             .translate({ y: this.contentTranslateY })
+              .cachedCount(5)
+              .scrollBar(BarState.Off)
           }
           .width('100%')
           .layoutWeight(1)
@@ -309,14 +350,19 @@ export default struct SearchLongTakeTransitionPageTwo {
       })
       .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     }
-    .transition(TransitionEffect.OPACITY.animation({ duration: 400, curve: curves.springMotion(0.6, 0.8) }))
+    .transition(TransitionEffect.OPACITY)
     .hideTitleBar(true)
     .backgroundColor($r('sys.color.ohos_id_color_background'))
     .onReady((context: NavDestinationContext) => {
       this.pageInfos = context.pathStack;
     })
     .onBackPressed(() => {
-      this.pageInfos.pop(false);
+      // 返回时也使用动画
+      this.getUIContext().animateTo({
+        curve: curves.interpolatingSpring(0, 1, 342, 38)
+      }, () => {
+        this.pageInfos.pop(false);
+      })
       return true;
     })
   }

@@ -1,6 +1,7 @@
 import { Sign, SignInfoResult } from '../utils/sign';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { promptAction } from '@kit.ArkUI';
+import { hdsEffect } from '@kit.UIDesignKit';
 
 const TAG = 'PasswordSignComponent';
 const DOMAIN = 0x000A;
@@ -25,6 +26,10 @@ export struct PasswordSignComponent {
   @State isSignSuccess: boolean = false;
   @State signResultMsg: string = '';
   @State numberCount: number = 0;
+  @State shineTranslateSubmit: string = '-100%';
+  @State shineTranslateSignOut: string = '-100%';
+  @State submitBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
+  @State signoutBtnLight: hdsEffect.PointLightSourceType = hdsEffect.PointLightSourceType.NONE;
 
   async aboutToAppear() {
     await this.loadSignInfo();
@@ -167,7 +172,27 @@ export struct PasswordSignComponent {
           // 提交按钮
           Button(this.isLoading ? '签到中...' : '提交签到')
             .width(200)
-            .onClick(() => this.submitSignCode())
+            .fontColor(Color.White)
+            .visualEffect(new hdsEffect.HdsEffectBuilder()
+              .pointLight({
+                sourceType: this.submitBtnLight,
+                illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+              })
+              .buildEffect())
+            .onTouch((event: TouchEvent) => {
+              if (event.type === TouchType.Down) {
+                animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                  this.submitBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+                })
+              } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                  this.submitBtnLight = hdsEffect.PointLightSourceType.NONE;
+                })
+              }
+            })
+            .onClick(() => {
+              this.submitSignCode()
+            })
             .enabled(!this.isSignSuccess && !this.isLoading)
             .margin({ bottom: 20 })
 
@@ -186,7 +211,27 @@ export struct PasswordSignComponent {
               
               Button('签退')
                 .width(150)
-                .onClick(() => this.doSignOut())
+                .fontColor(Color.White)
+                .visualEffect(new hdsEffect.HdsEffectBuilder()
+                  .pointLight({
+                    sourceType: this.signoutBtnLight,
+                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                  })
+                  .buildEffect())
+                .onTouch((event: TouchEvent) => {
+                  if (event.type === TouchType.Down) {
+                    animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                      this.signoutBtnLight = hdsEffect.PointLightSourceType.BRIGHT;
+                    })
+                  } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                    animateTo({ duration: 200, curve: Curve.EaseInOut }, () => {
+                      this.signoutBtnLight = hdsEffect.PointLightSourceType.NONE;
+                    })
+                  }
+                })
+                .onClick(() => {
+                  this.doSignOut()
+                })
             }
           }
         }
