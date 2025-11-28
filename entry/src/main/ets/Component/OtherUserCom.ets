@@ -102,7 +102,7 @@ export struct OtherUserItem {
             .width(30)
             .fillColor(Color.Red)
         }
-      }
+      }.margin({ right: 10 })
       .type(ButtonType.Circle)
       .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
         .width(40)

@@ -7,8 +7,8 @@ import { curves, UIContext } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import promptAction from '@ohos.promptAction';
-import { loginByCommon, loginByURL } from '../Component/loginCom';
-import { OtherUserItem } from '../Component/otherUserCom';
+import { loginByCommon, loginByURL } from '../Component/LoginCom';
+import { OtherUserItem } from '../Component/OtherUserCom';
 import ShareUtils from '../utils/shareUtils';
 import { systemShare } from '@kit.ShareKit';
 import { uniformTypeDescriptor as utd } from '@kit.ArkData';
@@ -454,7 +454,7 @@ struct UI {
                 .visualEffect(new hdsEffect.HdsEffectBuilder()
                   .pointLight({
                     sourceType: this.settingsBtnLight,
-                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
                   })
                   .buildEffect())
                 .onTouch((event: TouchEvent) => {
@@ -506,7 +506,7 @@ struct UI {
                 .visualEffect(new hdsEffect.HdsEffectBuilder()
                   .pointLight({
                     sourceType: this.shareBtnLight,
-                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
                   })
                   .buildEffect())
                 .onTouch((event: TouchEvent) => {
@@ -545,7 +545,7 @@ struct UI {
                 .visualEffect(new hdsEffect.HdsEffectBuilder()
                   .pointLight({
                     sourceType: this.logoutBtnLight,
-                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
                   })
                   .buildEffect())
                 .onTouch((event: TouchEvent) => {
@@ -681,22 +681,27 @@ struct UI {
                   ForEach(this.otherUserList, (item: UserDataAndId, index) => {
                     ListItem() {
                       OtherUserItem({ userData: item, otherUserList: this.otherUserList, index: index })
-                    }.width('96%')
-                    .margin({ bottom: '2%' })
+                    }.width('98%')
+                    .margin({ bottom: '1%', top: '1%' })
                   }, (item: UserDataAndId) => item.id.toString())
                 }
-                .width('100%')
-                .height(this.UserListHeight)
+                .borderRadius(20)
+                .margin(5)
+                .scrollBar(BarState.Off)
+                .width('98%')
                 .opacity(this.userListOpacity)
                 .alignListItem(ListItemAlign.Center)
+                .height(this.UserListHeight)
 
                 Row() {
+                  Text('联系我').fontSize(20).fontWeight(FontWeight.Bold).margin({ left: 15 })
+                  Blank()
                   AnimButton({
                     content: () => {
                       this.GithubButtonContent()
                     },
                     onClickAction: () => {
-                      this.openLinkContext.openLink('https://github.com/ASCII-58/chaoxingsignfacker')
+                      this.openLinkContext.openLink('https://github.com/ASCII-58/chaoxingsignfaker-for-harmony-OS-NEXT/issues/new')
                         .catch((error: BusinessError<void>) => {
                           hilog.error(0x0000, 'testTag', 'Execution failed, code = %{public}d, message = %{public}s',
                             error.code, error.message);
@@ -721,12 +726,19 @@ struct UI {
                             error.code, error.message);
                         });
                     }
-                  })
+                  }).margin({ right: 15 })
                 }
                 .justifyContent(FlexAlign.Center)
-                .width('100%')
+                .width('96%')
                 .height(this.footerHeight)
-                .opacity(this.githubEmailOpacity)
+                .opacity(this.githubEmailOpacity).backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+                .borderRadius(20).shadow({
+                  radius: 30,
+                  color: 'rgba(10, 89, 247, 0.2)',
+                  offsetX: 0,
+                  offsetY: 5
+                })
+                .border({ width: 1, color: 'rgba(255, 255, 255, 0.6)' }).margin({ bottom: '2%' })
               }
               .width('100%')
             }
