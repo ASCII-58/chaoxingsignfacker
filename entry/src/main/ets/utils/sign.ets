@@ -5,6 +5,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { JSON } from '@kit.ArkTS';
 import CryptoJS from '@ohos/crypto-js';
 import { systemDateTime } from '@kit.BasicServicesKit';
+import { CourseAndActivity } from './classFun';
 
 const buildURL = ChaoxingUtils.buildUrl;
 
@@ -18,6 +19,7 @@ const CAPTCHA_CALLBACK = 'cx_captcha_function';
 const CAPTCHA_TYPE = 'slide';
 const CAPTCHA_VERSION = '1.1.20';
 const TOKEN_EXPIRY_MS = 300000; // 5分钟
+
 export interface UploadPhotoParam {
   '_token': string
 }
@@ -88,7 +90,7 @@ export class Sign {
       deviceCode: NeedDeviceCode ? ChaoxingUtils.generateUUIDv4() : ''
     }).toString()
 
-    console.log('BuildUrl\n'+url+'\ncookies\n'+cookies)
+    console.log('BuildUrl\n' + url + '\ncookies\n' + cookies)
     hilog.debug(DOMAIN, TAG, 'Executing sign-in request');
     const httpRequest = http.createHttp()
     try {
@@ -103,10 +105,15 @@ export class Sign {
       httpRequest.destroy()
     }
   }
-  static async DoSignInV2(cookies: string, CommonQueryParams: object, userQueryParams: UserQueryObject, NeedDeviceCode: boolean = false) {
-    const url = ChaoXingApi.URL_SIGN.buildUrl(CommonQueryParams).buildUrl(userQueryParams).buildUrl({
-      deviceCode: NeedDeviceCode ? ChaoxingUtils.generateUUIDv4() : ''
-    }).toString()
+
+  static async DoSignInV2(cookies: string, CommonQueryParams: object, userQueryParams: UserQueryObject,
+    NeedDeviceCode: boolean = false) {
+    const url = ChaoXingApi.URL_SIGN.buildUrl(CommonQueryParams)
+      .buildUrl(userQueryParams)
+      .buildUrl({
+        deviceCode: NeedDeviceCode ? ChaoxingUtils.generateUUIDv4() : ''
+      })
+      .toString()
     hilog.debug(DOMAIN, TAG, 'Executing sign-in V2 request');
     const httpRequest = http.createHttp()
     try {
@@ -128,14 +135,14 @@ export class Sign {
     try {
       const result = await httpRequest.request(url, {
         method: http.RequestMethod.GET,
-        header: {"Cookie":cookies}
+        header: { "Cookie": cookies }
       })
       const body = JSON.parse(result.result as string) as object
       return body?.['data'] as object
-    }catch (e){
+    } catch (e) {
       hilog.error(DOMAIN, TAG, `Get location sign info failed: ${e.message}`);
       return JSON.parse('{}') as object
-    }finally {
+    } finally {
       httpRequest.destroy()
     }
   }
@@ -181,7 +188,7 @@ export class Sign {
   }
 
   /**
-   *
+   * 预签到
    * @param activePrimaryId
    * @param classId
    * @param courseId
@@ -191,6 +198,11 @@ export class Sign {
    */
   static async PreSignIn(activePrimaryId: string, classId: string, courseId: string, uid: number,
     cookies: string): Promise<number> {
+    const activityArr=(await CourseAndActivity.getClassList(cookies)).classList
+    const activity=activityArr.find(item=>item.classId===classId)
+    if(activity===undefined){
+      return -1
+    }
     const httpRequest = http.createHttp()
     try {
       const result = await httpRequest.request(ChaoXingApi.URL_PRE_SIGN.buildUrl({
@@ -234,6 +246,12 @@ export class Sign {
     }
   }
 
+  /**
+   * 获取验证码图片
+   * @param Param
+   * @param cookies
+   * @returns
+   */
   static async getCaptchaPhotos(Param: CaptchaPhotosParam, cookies: string): Promise<CaptchaPhotosResult> {
     const t = await Sign.getCaptchaConf()
     const type = CAPTCHA_TYPE
@@ -266,6 +284,16 @@ export class Sign {
       const jsonRes =
         JSON.parse(result.result.toString().replace(`${CAPTCHA_CALLBACK}(`, "").replace(")", "")) as CaptchaPhotosResult
       return jsonRes
+    } finally {
+      httpRequest.destroy()
+    }
+  }
+
+  static async checkCaptchaResult() {
+    const httpRequest = http.createHttp()
+    try {
+    } catch (e) {
+      hilog.error(DOMAIN, TAG, `Check captcha result failed: ${e.message}`);
     } finally {
       httpRequest.destroy()
     }

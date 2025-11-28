@@ -77,11 +77,17 @@ export class ChaoXingApi {
    */
   static readonly URL_LOGIN = "https://passport2.chaoxing.com/fanyalogin"
   static readonly URL_GET_USER_INFO = "https://sso.chaoxing.com/apis/login/userLogin4Uname.do"
-  static readonly URL_GET_CAPTCHA_CONF = new BuildableUrl("https://captcha.chaoxing.com/captcha/get/conf?callback=cx_captcha_function")
-  static readonly CAPTCHA_ID='Qt9FIw9o4pwRjOyqM6yizZBh682qN2TU'
-  static readonly URL_GET_CAPTCHA_PHOTOS=new BuildableUrl("https://captcha.chaoxing.com/captcha/get/verification/image")
-  static readonly UA='5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0'
-  static readonly URL_GET_LOCATION_SIGN_INFO=new BuildableUrl('https://mobilelearn.chaoxing.com/v2/apis/active/getPPTActiveInfo')
+  static readonly URL_GET_CAPTCHA_CONF =
+    new BuildableUrl("https://captcha.chaoxing.com/captcha/get/conf?callback=cx_captcha_function")
+  static readonly CAPTCHA_ID = 'Qt9FIw9o4pwRjOyqM6yizZBh682qN2TU'
+  static readonly URL_GET_CAPTCHA_PHOTOS =
+    new BuildableUrl("https://captcha.chaoxing.com/captcha/get/verification/image")
+  static readonly UA =
+    '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0'
+  static readonly URL_GET_LOCATION_SIGN_INFO =
+    new BuildableUrl('https://mobilelearn.chaoxing.com/v2/apis/active/getPPTActiveInfo')
+  static readonly URL_CHECK_CAPTCHA_RESULT =
+    new BuildableUrl('https://captcha.chaoxing.com/captcha/check/verification/result?callback=cx_captcha_function')
   /**
    * 获取签到详细信息（包含签退信息）
    */
@@ -89,7 +95,8 @@ export class ChaoXingApi {
   /**
    * 检查手势/签到码
    */
-  static readonly URL_CHECK_SIGN_CODE = new BuildableUrl('https://mobilelearn.chaoxing.com/widget/sign/pcStuSignController/checkSignCode')
+  static readonly URL_CHECK_SIGN_CODE =
+    new BuildableUrl('https://mobilelearn.chaoxing.com/widget/sign/pcStuSignController/checkSignCode')
   /**
    * 签退
    */
@@ -100,5 +107,5 @@ export class InternalPath {
   /**
    * 同context.cacheDir
    */
-  static readonly CACHE_PATH='internal://cache/'
+  static readonly CACHE_PATH = 'internal://cache/'
 }

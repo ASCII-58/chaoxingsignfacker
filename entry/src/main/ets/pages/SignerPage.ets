@@ -598,6 +598,10 @@ export struct SignPage {
           userItem({ user, signIdArray: this.signIdArray })
         }
         .onClick(() => {
+          if (user.SignPermission===-1) {
+            promptAction.showToast({ message: '该用户不在班级', duration: 1500 })
+            return
+          }
           if (this.signIdArray.includes(user.id)) {
             this.signIdArray = this.signIdArray.filter(num => num !== user.id)
           } else {
