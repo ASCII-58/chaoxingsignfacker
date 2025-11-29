@@ -508,7 +508,6 @@ export struct SignPage {
     })
     .onAppear(async () => {
       hilog.debug(DOMAIN, TAG, `Sign type: ${this.activityInfo?.signType}`);
-      const promises: PromiseLike<null>[] = []
 
       const dbManager = DatabaseManager.getInstance()
       const cookies = (await dbManager.getUserByPosition(1, true))?.cookies as string
@@ -517,28 +516,48 @@ export struct SignPage {
       }
       this.queryParams['activeId'] = this.activityInfo?.ActivityId
       const userCount = await dbManager.getTableCount('OtherUser')
+
+      // Load all users in parallel for better performance using allSettled
+      const userPromises: Promise<userMenu | null>[] = []
       for (let i: number = 1; i <= userCount; i++) {
-        promises.push(new Promise<null>(async () => {
-          const userInfo = await dbManager.getUserByPosition(i)
-          if (userInfo) {
-            const cookies = userInfo.cookies
-            const userName = (await loginFunction.getUserInfo(cookies)).uname
-            const info = await loginFunction.getUserInfo(cookies)
-            const uid = info.uid
-            if (this.activityInfo) {
-              const SignPermission =
-                await Sign.PreSignIn(this.activityInfo.ActivityId, this.activityInfo.ClassId,
-                  this.activityInfo.CourseId,
-                  uid, cookies as string)
-              this.otherUser.push({ 'uname': userName as string, 'id': i, SignPermission: SignPermission })
-            }
-          }
-        }))
+        userPromises.push(this.loadUserForOldSignerPage(dbManager, i))
       }
-      Promise.all(promises)
-        .then(() => {
-          console.log(this.ifPhoto.toString())
-        })
+
+      const results = await Promise.allSettled(userPromises)
+      // Filter out rejected or null results and update the user list
+      this.otherUser = results
+        .filter((result): result is PromiseFulfilledResult<userMenu> =>
+          result.status === 'fulfilled' && result.value !== null)
+        .map(result => result.value)
+      console.log(this.ifPhoto.toString())
     })
+  }
+
+  /**
+   * Load a single user for the old signer page
+   */
+  private async loadUserForOldSignerPage(dbManager: DatabaseManager, position: number): Promise<userMenu | null> {
+    try {
+      const userInfo = await dbManager.getUserByPosition(position)
+      if (userInfo && this.activityInfo) {
+        const info = await loginFunction.getUserInfo(userInfo.cookies)
+        const SignPermission = await Sign.PreSignIn(
+          this.activityInfo.ActivityId,
+          this.activityInfo.ClassId,
+          this.activityInfo.CourseId,
+          info.uid,
+          userInfo.cookies
+        )
+        return {
+          uname: info.uname,
+          id: position,
+          SignPermission: SignPermission
+        }
+      }
+      return null
+    } catch (e) {
+      hilog.error(DOMAIN, TAG, `Failed to load user ${position}`, e)
+      return null
+    }
   }
 }
