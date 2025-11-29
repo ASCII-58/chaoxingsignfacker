@@ -14,7 +14,6 @@
  */
 
 import { curves, promptAction } from '@kit.ArkUI';
-import { SearchPageExtraInfo } from '../utils/commonutils/ExtraInfo';
 import { CourseAndActivity, ClassInfo } from '../utils/classFun';
 import { DatabaseManager } from '../utils/DataBase';
 import { loginFunction } from '../utils/Login';
@@ -124,7 +123,6 @@ struct CourseItem {
 // [Start bind_id]
 @Component
 export default struct SearchLongTakeTransitionPageTwo {
-  @Prop param: SearchPageExtraInfo;
   private pageInfos: NavPathStack = new NavPathStack();
   @State searchText: string = ''
   @State allCourses: ClassInfo[] = []

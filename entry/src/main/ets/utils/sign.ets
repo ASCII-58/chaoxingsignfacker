@@ -198,9 +198,8 @@ export class Sign {
    */
   static async PreSignIn(activePrimaryId: string, classId: string, courseId: string, uid: number,
     cookies: string): Promise<number> {
-    const activityArr=(await CourseAndActivity.getClassList(cookies)).classList
-    const activity=activityArr.find(item=>item.classId===classId)
-    if(activity===undefined){
+    const activityArr = (await CourseAndActivity.getClassList(cookies)).classList
+    if (activityArr.find(item => item.classId === classId) === undefined) {
       return -1
     }
     const httpRequest = http.createHttp()
