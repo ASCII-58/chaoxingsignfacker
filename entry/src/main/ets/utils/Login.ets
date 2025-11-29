@@ -16,6 +16,8 @@ const DOMAIN = 0x0001;
 const HTTP_TIMEOUT_MS = 60000; // 60秒超时
 const ERROR_MAX_REDIRECTS = 'Number of redirects hit maximum amount';
 const HTTP_SUCCESS_CODE = 200;
+const USER_INFO_CACHE_TTL_MS = 300000; // 5 minutes cache TTL
+
 export interface UserInfo {
   msg: string,
   uname: string,
@@ -25,7 +27,24 @@ export interface UserInfo {
   puid:string
 }
 
+// Cache entry interface for user info
+interface UserInfoCacheEntry {
+  data: UserInfo;
+  timestamp: number;
+}
+
+// Simple in-memory cache for user info
+const userInfoCache: Map<string, UserInfoCacheEntry> = new Map();
+
 export class loginFunction {
+  /**
+   * Clear the user info cache
+   */
+  static clearUserInfoCache(): void {
+    userInfoCache.clear();
+    hilog.debug(DOMAIN, TAG, 'User info cache cleared');
+  }
+
   /**
    * 登录学习通，获取set-cookie
    * @param {string} LoginString 需要加密的消息
@@ -78,9 +97,20 @@ export class loginFunction {
   /**
    * 获取用户的用户名和头像
    * @param {string} cookies 用户对应的cookie
+   * @param {boolean} useCache 是否使用缓存，默认为true
    * @returns {Promise<UserInfo>} msg : 请求是否成功, uname: 用户名, pic: 头像url地址, uid: 用户uid, fid: 学校id
    */
-  static async getUserInfo(cookies: string): Promise<UserInfo> {
+  static async getUserInfo(cookies: string, useCache: boolean = true): Promise<UserInfo> {
+    // Check cache first if caching is enabled
+    if (useCache) {
+      const cacheKey = cookies;
+      const cachedEntry = userInfoCache.get(cacheKey);
+      if (cachedEntry && (Date.now() - cachedEntry.timestamp < USER_INFO_CACHE_TTL_MS)) {
+        hilog.debug(DOMAIN, TAG, 'Returning cached user info');
+        return cachedEntry.data;
+      }
+    }
+
     const httpRequest = http.createHttp();
     const url = ChaoXingApi.URL_GET_USER_INFO
     try {
@@ -108,7 +138,7 @@ export class loginFunction {
         const uid: number = (Json as object)?.['uid'] || 0
         const fid: string = (Json as object)?.['fid'] || ''
         const puid: string = (Json as object)?.['puid'] || ''
-        return {
+        const userInfo: UserInfo = {
           'msg': (uname && pic) ? 'successful' : 'fetch error',
           'uname': uname,
           'pic': pic,
@@ -116,6 +146,17 @@ export class loginFunction {
           'fid': fid,
           'puid':puid
         }
+
+        // Cache the successful result
+        if (userInfo.msg === 'successful') {
+          userInfoCache.set(cookies, {
+            data: userInfo,
+            timestamp: Date.now()
+          });
+          hilog.debug(DOMAIN, TAG, 'User info cached');
+        }
+
+        return userInfo;
       }
     } catch (error) {
       hilog.error(DOMAIN, TAG, `Get user info failed: ${error.message}`);

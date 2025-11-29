@@ -990,53 +990,88 @@ QRCodeLocation({queryParams: this.queryParams,ActivityId: this.activityInfo?.Act
     const newUserList: userMenu[] = []
     const autoSelectIds: number[] = [] // 自动选择未签到的用户
 
-    // 首先加载主用户（HostUser表，position 1）
-    try {
-      const mainUserInfo = await dbManager.getUserByPosition(1, true)
-      if (mainUserInfo) {
-        const loginInfo = await loginFunction.getUserInfo(mainUserInfo.cookies)
-        const permission = await Sign.PreSignIn(actInfo.ActivityId, actInfo.ClassId, actInfo.CourseId, loginInfo.uid,
-          mainUserInfo.cookies)
-        newUserList.push({
-          uname: loginInfo.uname + ' (主用户)',
-          id: 0, // 用 0 表示主用户
-          SignPermission: permission
-        })
-        // 如果主用户可以签到（SignPermission === 1），自动添加到选中列表
-        if (permission === 1) {
-          autoSelectIds.push(0)
-        }
-      }
-    } catch (e) {
-      hilog.error(DOMAIN, TAG, 'Failed to load main user', e)
+    // Get user count first
+    const userCount = await dbManager.getTableCount('OtherUser')
+
+    // Load main user and other users in parallel
+    const loadMainUserPromise = this.loadSingleUser(dbManager, actInfo, 0, true);
+
+    // Create promises for all other users
+    const otherUserPromises: Promise<userMenu | null>[] = [];
+    for (let i = 1; i <= userCount; i++) {
+      otherUserPromises.push(this.loadSingleUser(dbManager, actInfo, i, false));
     }
 
-    // 然后加载其他用户（OtherUser表）
-    const userCount = await dbManager.getTableCount('OtherUser')
-    for (let i: number = 1; i <= userCount; i++) {
-      try {
-        const userInfo = await dbManager.getUserByPosition(i)
-        if (userInfo) {
-          const loginInfo = await loginFunction.getUserInfo(userInfo.cookies)
-          const permission =
-            await Sign.PreSignIn(actInfo.ActivityId, actInfo.ClassId, actInfo.CourseId, loginInfo.uid, userInfo.cookies)
-          newUserList.push({
-            uname: loginInfo.uname,
-            id: i,
-            SignPermission: permission
-          })
-          // 如果用户可以签到（SignPermission === 1），自动添加到选中列表
-          if (permission === 1) {
-            autoSelectIds.push(i)
-          }
-        }
-      } catch (e) {
-        hilog.error(DOMAIN, TAG, `Failed to load user ${i}`, e)
+    // Execute all promises in parallel
+    const [mainUserResult, ...otherUserResults] = await Promise.all([
+      loadMainUserPromise,
+      ...otherUserPromises
+    ]);
+
+    // Process main user result
+    if (mainUserResult) {
+      newUserList.push(mainUserResult);
+      if (mainUserResult.SignPermission === 1) {
+        autoSelectIds.push(mainUserResult.id);
       }
     }
+
+    // Process other user results
+    for (const userResult of otherUserResults) {
+      if (userResult) {
+        newUserList.push(userResult);
+        if (userResult.SignPermission === 1) {
+          autoSelectIds.push(userResult.id);
+        }
+      }
+    }
+
     this.otherUser = newUserList;
     // 默认选中所有未签到的用户
     this.signIdArray = autoSelectIds;
+  }
+
+  /**
+   * Load a single user's information and sign permission
+   * @param dbManager Database manager instance
+   * @param actInfo Activity information
+   * @param position User position (0 for main user)
+   * @param isHost Whether this is the main user
+   * @returns User menu object or null if loading fails
+   */
+  private async loadSingleUser(
+    dbManager: DatabaseManager,
+    actInfo: ActivityInfo,
+    position: number,
+    isHost: boolean
+  ): Promise<userMenu | null> {
+    try {
+      const userInfo = isHost
+        ? await dbManager.getUserByPosition(1, true)
+        : await dbManager.getUserByPosition(position, false);
+
+      if (!userInfo) {
+        return null;
+      }
+
+      const loginInfo = await loginFunction.getUserInfo(userInfo.cookies);
+      const permission = await Sign.PreSignIn(
+        actInfo.ActivityId,
+        actInfo.ClassId,
+        actInfo.CourseId,
+        loginInfo.uid,
+        userInfo.cookies
+      );
+
+      return {
+        uname: isHost ? loginInfo.uname + ' (主用户)' : loginInfo.uname,
+        id: isHost ? 0 : position,
+        SignPermission: permission
+      };
+    } catch (e) {
+      hilog.error(DOMAIN, TAG, `Failed to load user at position ${position}`, e);
+      return null;
+    }
   }
 
   // 3. 逻辑方法：显示签到确认对话框

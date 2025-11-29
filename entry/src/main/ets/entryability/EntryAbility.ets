@@ -47,22 +47,10 @@ export default class EntryAbility extends UIAbility {
         const loginBody = ChaoxingUtils.getLoginBody(ChaoxingUtils.encryptByAES(username), pwd)
         const cookies = await loginFunction.LoginChaoXing(loginBody)
         if (cookies) {
+          // Update host user cookies
           dbManager.updateUser(1, { 'cookies': cookies }, true)
-          let userCount: number = await dbManager.getTableCount('OtherUser')
-          for (let index = 1; index <= userCount; index++) {
-            const userInfo = await dbManager.getUserByPosition(index)
-            if (userInfo !== null) {
-              const username = userInfo.phone
-              const pwd = userInfo.pwd
-              const loginBody = ChaoxingUtils.getLoginBody(ChaoxingUtils.encryptByAES(username), pwd)
-              const cookies = await loginFunction.LoginChaoXing(loginBody)
-              if (cookies) {
-                dbManager.updateUser(userInfo.id, { cookies: cookies }, false)
-              } else {
-                dbManager.deleteUser(userInfo.id, false)
-              }
-            }
-          }
+
+          // Load main page immediately without waiting for other users to login
           windowStage.loadContent('pages/Index', (err) => {
             if (err) {
               const error = err as BusinessError;
@@ -71,6 +59,9 @@ export default class EntryAbility extends UIAbility {
             }
             hilog.info(DOMAIN, 'testTag', '%{public}s', 'Succeeded in loading the main content.');
           });
+
+          // Refresh other users' cookies in background (non-blocking)
+          this.refreshOtherUsersCookiesAsync(dbManager);
         } else {
           windowStage.loadContent('pages/LoginPage', (err) => {
             if (err) {
@@ -183,5 +174,59 @@ export default class EntryAbility extends UIAbility {
       const timer = setInterval(checkStatus, checkInterval);
       checkStatus(); // 立即检查一次
     });
+  }
+
+  /**
+   * Refresh other users' cookies asynchronously in the background
+   * This runs in parallel and doesn't block the app startup
+   */
+  private async refreshOtherUsersCookiesAsync(dbManager: DatabaseManager): Promise<void> {
+    try {
+      const userCount: number = await dbManager.getTableCount('OtherUser')
+      if (userCount === 0) {
+        hilog.info(DOMAIN, TAG, 'No other users to refresh');
+        return;
+      }
+
+      hilog.info(DOMAIN, TAG, `Refreshing cookies for ${userCount} other users in background`);
+
+      // Get all users first
+      const userPromises: Promise<void>[] = [];
+
+      for (let index = 1; index <= userCount; index++) {
+        userPromises.push(this.refreshSingleUserCookies(dbManager, index));
+      }
+
+      // Run all user logins in parallel
+      await Promise.allSettled(userPromises);
+
+      hilog.info(DOMAIN, TAG, 'Background cookie refresh completed');
+    } catch (error) {
+      hilog.error(DOMAIN, TAG, `Background cookie refresh failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Refresh a single user's cookies
+   */
+  private async refreshSingleUserCookies(dbManager: DatabaseManager, position: number): Promise<void> {
+    try {
+      const userInfo = await dbManager.getUserByPosition(position)
+      if (userInfo !== null) {
+        const username = userInfo.phone
+        const pwd = userInfo.pwd
+        const loginBody = ChaoxingUtils.getLoginBody(ChaoxingUtils.encryptByAES(username), pwd)
+        const cookies = await loginFunction.LoginChaoXing(loginBody)
+        if (cookies) {
+          await dbManager.updateUser(userInfo.id, { cookies: cookies }, false)
+          hilog.debug(DOMAIN, TAG, `Refreshed cookies for user at position ${position}`);
+        } else {
+          await dbManager.deleteUser(userInfo.id, false)
+          hilog.warn(DOMAIN, TAG, `Deleted user at position ${position} due to login failure`);
+        }
+      }
+    } catch (error) {
+      hilog.error(DOMAIN, TAG, `Failed to refresh user at position ${position}: ${error.message}`);
+    }
   }
 }
