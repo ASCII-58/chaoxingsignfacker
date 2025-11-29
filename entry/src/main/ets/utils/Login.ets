@@ -8,6 +8,7 @@ import { common, StartupTask } from '@kit.AbilityKit';
 import { BusinessError, request } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import urlTools from './urlTools'
+import CryptoJS from '@ohos/crypto-js';
 
 const TAG = 'LoginService';
 const DOMAIN = 0x0001;
@@ -33,8 +34,16 @@ interface UserInfoCacheEntry {
   timestamp: number;
 }
 
-// Simple in-memory cache for user info
+// Simple in-memory cache for user info (uses hashed key for efficiency and security)
 const userInfoCache: Map<string, UserInfoCacheEntry> = new Map();
+
+/**
+ * Generate a short hash key from cookies string for cache lookup
+ * This is more efficient and secure than using the full cookies string
+ */
+function generateCacheKey(cookies: string): string {
+  return CryptoJS.MD5(cookies).toString().substring(0, 16);
+}
 
 export class loginFunction {
   /**
@@ -101,9 +110,11 @@ export class loginFunction {
    * @returns {Promise<UserInfo>} msg : 请求是否成功, uname: 用户名, pic: 头像url地址, uid: 用户uid, fid: 学校id
    */
   static async getUserInfo(cookies: string, useCache: boolean = true): Promise<UserInfo> {
+    // Generate a hash-based cache key for efficiency and security
+    const cacheKey = generateCacheKey(cookies);
+
     // Check cache first if caching is enabled
     if (useCache) {
-      const cacheKey = cookies;
       const cachedEntry = userInfoCache.get(cacheKey);
       if (cachedEntry && (Date.now() - cachedEntry.timestamp < USER_INFO_CACHE_TTL_MS)) {
         hilog.debug(DOMAIN, TAG, 'Returning cached user info');
@@ -147,9 +158,9 @@ export class loginFunction {
           'puid':puid
         }
 
-        // Cache the successful result
+        // Cache the successful result using hashed key
         if (userInfo.msg === 'successful') {
-          userInfoCache.set(cookies, {
+          userInfoCache.set(cacheKey, {
             data: userInfo,
             timestamp: Date.now()
           });
