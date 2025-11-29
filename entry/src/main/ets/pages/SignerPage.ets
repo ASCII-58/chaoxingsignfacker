@@ -1002,14 +1002,16 @@ QRCodeLocation({queryParams: this.queryParams,ActivityId: this.activityInfo?.Act
       otherUserPromises.push(this.loadSingleUser(dbManager, actInfo, i, false));
     }
 
-    // Execute all promises in parallel
-    const [mainUserResult, ...otherUserResults] = await Promise.all([
+    // Execute all promises in parallel using allSettled for better error handling
+    const results = await Promise.allSettled([
       loadMainUserPromise,
       ...otherUserPromises
     ]);
 
     // Process main user result
-    if (mainUserResult) {
+    const mainUserSettled = results[0];
+    if (mainUserSettled.status === 'fulfilled' && mainUserSettled.value) {
+      const mainUserResult = mainUserSettled.value;
       newUserList.push(mainUserResult);
       if (mainUserResult.SignPermission === 1) {
         autoSelectIds.push(mainUserResult.id);
@@ -1017,8 +1019,10 @@ QRCodeLocation({queryParams: this.queryParams,ActivityId: this.activityInfo?.Act
     }
 
     // Process other user results
-    for (const userResult of otherUserResults) {
-      if (userResult) {
+    for (let i = 1; i < results.length; i++) {
+      const userSettled = results[i];
+      if (userSettled.status === 'fulfilled' && userSettled.value) {
+        const userResult = userSettled.value;
         newUserList.push(userResult);
         if (userResult.SignPermission === 1) {
           autoSelectIds.push(userResult.id);

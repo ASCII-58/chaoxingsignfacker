@@ -517,15 +517,18 @@ export struct SignPage {
       this.queryParams['activeId'] = this.activityInfo?.ActivityId
       const userCount = await dbManager.getTableCount('OtherUser')
 
-      // Load all users in parallel for better performance
+      // Load all users in parallel for better performance using allSettled
       const userPromises: Promise<userMenu | null>[] = []
       for (let i: number = 1; i <= userCount; i++) {
         userPromises.push(this.loadUserForOldSignerPage(dbManager, i))
       }
 
-      const results = await Promise.all(userPromises)
-      // Filter out null results and update the user list
-      this.otherUser = results.filter((user): user is userMenu => user !== null)
+      const results = await Promise.allSettled(userPromises)
+      // Filter out rejected or null results and update the user list
+      this.otherUser = results
+        .filter((result): result is PromiseFulfilledResult<userMenu> =>
+          result.status === 'fulfilled' && result.value !== null)
+        .map(result => result.value)
       console.log(this.ifPhoto.toString())
     })
   }
